@@ -70,12 +70,30 @@
   **接入第一个包网客户前必须先调大 max_connections 并相应调 MySQL 内存**。
   代码里加了 `MYSQL_TOTAL_CONN_BUDGET`（默认 30）超预算即 error 日志告警
 
-### P0-5 连接池按租户路由（core-node）+ 回调归属 · 3d
+### P0-5 连接池按租户路由（core-node）+ 回调归属 · 3d ✅ 已完成 2026-09-02
 - `apps/core-node/src/plugins/mysql.ts:12` 改为按请求装饰
 - 回调入口无 Host 可依赖 → 回调 URL 加租户段 `/callback/:tenantCode/...`，
   **必须兼容自营站现有回调地址**（三方那边改地址要时间，不能断）
 - 兜底：聚合商子代理号 / 商户号 → 租户 反查表
 - 验收：win568、unispay、yfpay、matrix 四条回调链路都能落到正确租户库
+- 交付：`lib/tenant-context.ts`（端口自 BFF）、`clients/platform-mysql.ts`、
+  `plugins/tenant.ts`（onRequest 钩子内 `runWithTenant(…, done)`）、
+  `plugins/mysql.ts` 改为 **getter 装饰器** —— 现有 33 处 `app.mysql` 调用一行不用改
+- 路由双注册：原路径（自营站现有回调地址继续可用）+ `/t/:tenantCode/…`（新租户开站直接下发）
+- 线上验证四种情况：原路径 401 / 租户段 401 / **错误租户段 503（拒绝，不回落）** / win568 200
+- 归属优先级：URL 租户段 → Host → 自营站兜底。**带了租户段却查不到时直接拒绝**，
+  绝不能悄悄回落自营站去收别家的钱
+
+> **本步踩坑记录（都改了代码，不只是记笔记）**
+> 1. **平台库预热不能阻塞启动**。第一版把预热 `await` 在启动路径上，DNS 未就绪时重试 6×3=18 秒，
+>    期间服务器不监听 = nginx 502。改为 `void` 后台预热，租户中间件自带重试与兜底。
+> 2. 🔴 **mysql2 并发预建满池会把启动卡死**。为盖住 DNS 抖动，第二版用
+>    `Promise.all(4 × getConnection())` 预建满池；一旦其中一条失败，其余 getConnection
+>    仍占着池槽，重试时 `waitForConnections` 永久等待 —— **测试站因此 502 约 6 分钟**。
+>    预热只建一条连接即可。
+> 3. 平台库查询加一次重连重试（300ms），盖住容器重启后 aardvark-dns 的短暂抖动。
+> 4. 新增「平台库彻底不可用」的启动兜底租户（指向本服务今天就在用的库），
+>    仅在非严格模式生效 —— 否则多租户改造等于给资金链路新增一个单点故障。
 
 ### P0-6 Redis 全量租户前缀 · 5d 🔴 全项目最高风险
 - 现状：无 `keyPrefix`，35 个文件、约 65 种键模式

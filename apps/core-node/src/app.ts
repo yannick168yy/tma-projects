@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import fastifyRedis from '@fastify/redis'
 import natsPlugin from './plugins/nats.js'
 import mysqlPlugin from './plugins/mysql.js'
+import tenantPlugin from './plugins/tenant.js'
 import { registerRoutes } from './routes/index.js'
 import { startLedgerConsumer } from './consumers/ledger.consumer.js'
 import { startCallbackConsumer } from './consumers/callback.consumer.js'
@@ -31,6 +32,7 @@ export async function buildApp() {
     app.log.error({ err: err.message }, 'Redis client error')
   })
   await app.register(mysqlPlugin)
+  await app.register(tenantPlugin)
   await app.register(natsPlugin)
 
   await registerRoutes(app)

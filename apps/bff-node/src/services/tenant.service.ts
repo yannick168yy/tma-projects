@@ -81,9 +81,16 @@ export async function resolveTenantByHost(redis: Redis, rawHost: string | undefi
   try {
     tenant = await queryByHost(host)
   } catch (err) {
-    // 平台库不可用时不缓存任何结论，直接回退给调用方处理，避免把故障态钉进缓存
-    log.error({ err, host }, '平台库查询租户失败')
-    return null
+    // 容器重启后 aardvark-dns 有几秒抖动，池现开新连接会 ENOTFOUND。
+    // 重试一次能盖住绝大部分，剩下的才当故障处理。
+    try {
+      await new Promise((r) => setTimeout(r, 300))
+      tenant = await queryByHost(host)
+    } catch (retryErr) {
+      // 平台库不可用时不缓存任何结论，避免把故障态钉进缓存
+      log.error({ err: retryErr, host }, '平台库查询租户失败（含一次重试）')
+      return null
+    }
   }
 
   await redis.set(

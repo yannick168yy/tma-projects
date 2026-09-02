@@ -31,11 +31,11 @@ if (isMysqlEnabled(env)) {
   } catch (err) {
     logger.error({ err }, 'mysql warmup failed, starting server anyway')
   }
-  try {
-    await warmupPlatformMysql()
-  } catch (err) {
-    logger.error({ err }, 'platform mysql warmup failed, starting server anyway')
-  }
+  // 不阻塞启动：预热失败要重试 18 秒，期间服务器不监听就是 nginx 502。
+  // 租户中间件自带重试与兜底，冷启动这几秒不需要平台库就绪。
+  void warmupPlatformMysql().catch((err: unknown) => {
+    logger.error({ err }, 'platform mysql warmup failed, tenant resolution will retry on demand')
+  })
 }
 
 const app = createApp(env)

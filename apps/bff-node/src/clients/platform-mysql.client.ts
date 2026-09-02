@@ -36,6 +36,8 @@ export async function warmupPlatformMysql(): Promise<void> {
   const p = getPlatformPool()
   for (let i = 0; i < 6; i++) {
     try {
+      // 只建一条：并发预建满池时，一旦有一条失败，其余 getConnection 仍占着池槽，
+      // 重试就会在 waitForConnections 上永久等待，把启动卡死
       const conn = await p.getConnection()
       conn.release()
       return

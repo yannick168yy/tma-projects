@@ -9,11 +9,28 @@ const log = childLogger('tenant')
 let selfCache: { value: TenantContext; expiresAt: number } | null = null
 const SELF_CACHE_MS = 60_000
 
-async function getSelfOperated(): Promise<TenantContext | null> {
+// 平台库彻底不可用时的兜底：指向本服务今天就在用的那个库。
+// 只在非严格模式下生效——严格模式（第一个包网客户上线后）宁可 503 也不能猜库。
+// 不加这层的话，多租户改造等于给整站新增了一个单点故障。
+function bootstrapTenant(): TenantContext {
+  return { id: 0, code: 'bootstrap', database: process.env.MYSQL_DATABASE ?? 'betogo', status: 'active', selfOperated: true }
+}
+
+async function getSelfOperated(strict: boolean): Promise<TenantContext | null> {
   if (selfCache && selfCache.expiresAt > Date.now()) return selfCache.value
-  const tenant = await selfOperatedTenant()
-  if (tenant) selfCache = { value: tenant, expiresAt: Date.now() + SELF_CACHE_MS }
-  return tenant
+  let tenant: TenantContext | null = null
+  try {
+    tenant = await selfOperatedTenant()
+  } catch (err) {
+    log.error({ err }, '平台库不可用，无法读取自营站')
+  }
+  if (tenant) {
+    selfCache = { value: tenant, expiresAt: Date.now() + SELF_CACHE_MS }
+    return tenant
+  }
+  if (strict) return null
+  log.error('平台库不可用，回落启动兜底租户（自营站库）')
+  return bootstrapTenant()
 }
 
 // 未登记域名只警告一次，否则扫描器能把日志刷爆
@@ -55,7 +72,7 @@ export function tenantMiddleware(strict: boolean): Middleware {
         return
       }
       warnOnce(host)
-      tenant = await getSelfOperated()
+      tenant = await getSelfOperated(strict)
     }
 
     if (!tenant) {
