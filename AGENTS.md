@@ -9,7 +9,7 @@
 ## 🔴 生产保护铁律（2026-07-18 用户确立，最高优先级，不可违反）
 
 1. **自动部署只限阿里云测试环境**（`47.84.34.139` / www.188facai.com）。功能改完自动 commit + 部署测试即可。
-2. **生产 AWS 的部署，必须用户明确授权后才执行** —— 绝不自动部署生产。生产 = EC2 `13.213.107.231` / betogo.games / admin.betogo.games，SSH 用户 `ubuntu`，密钥 `/Volumes/MacAPFS/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem`，项目路径 `/opt/tma-projects`，容器 rootful（`sudo podman`）。
+2. **生产 AWS 的部署，必须用户明确授权后才执行** —— 绝不自动部署生产。生产 = EC2 `13.213.107.231` / betogo.games / admin.betogo.games，SSH 用户 `ubuntu`，密钥 `/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem`，项目路径 `/opt/tma-projects`，容器 rootful（`sudo podman`）。
 3. **生产 AWS 的数据（MySQL / 文件）修改或删除，必须用户逐次明确授权** —— 未获授权时对生产数据只读，绝不改删。
 
 ## 固定交付流程
@@ -33,7 +33,7 @@
 ## 阿里云部署
 
 - 服务器 IP：`47.84.34.139`
-- SSH 密钥：`/Volumes/MacAPFS/TMA_FILES/亚马逊云-阿里云/aliyun.pem`
+- SSH 密钥：`/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/aliyun.pem`
 - 项目路径：`/root/workspace/tma-projects`
 
 ### 默认：Fast 部署
@@ -43,7 +43,7 @@
 ```bash
 DEPLOY_HOST=root@47.84.34.139 \
 DEPLOY_DIR=/root/workspace/tma-projects \
-SSH_IDENTITY_FILE=/Volumes/MacAPFS/TMA_FILES/亚马逊云-阿里云/aliyun.pem \
+SSH_IDENTITY_FILE=/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/aliyun.pem \
 SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-fast.sh <target>
 ```
@@ -63,7 +63,7 @@ bash deploy/single-node/deploy-fast.sh <target>
 ```bash
 DEPLOY_HOST=root@47.84.34.139 \
 DEPLOY_DIR=/root/workspace/tma-projects \
-SSH_IDENTITY_FILE=/Volumes/MacAPFS/TMA_FILES/亚马逊云-阿里云/aliyun.pem \
+SSH_IDENTITY_FILE=/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/aliyun.pem \
 SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-web-tma.sh
 ```
