@@ -1,6 +1,7 @@
 import type { Redis } from 'ioredis'
 import type { RowDataPacket } from 'mysql2/promise'
 import { getPlatformPool } from '../clients/platform-mysql.client.js'
+import { scanKeys } from '../clients/redis.client.js'
 import type { TenantContext, TenantStatus } from '../lib/tenant-context.js'
 import { childLogger } from '../lib/logger.js'
 
@@ -109,6 +110,6 @@ export async function invalidateTenantHostCache(redis: Redis, rawHost?: string):
     await redis.del(`${CACHE_PREFIX}${host}`)
     return
   }
-  const keys = await redis.keys(`${CACHE_PREFIX}*`)
+  const keys = await scanKeys(redis, `${CACHE_PREFIX}*`)
   if (keys.length > 0) await redis.del(...keys)
 }

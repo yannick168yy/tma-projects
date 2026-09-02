@@ -1,4 +1,5 @@
 import type { Middleware } from 'koa'
+import type { Redis } from 'ioredis'
 import { runWithTenant, type TenantContext } from '../lib/tenant-context.js'
 import { resolveTenantByHost, selfOperatedTenant } from '../services/tenant.service.js'
 import { childLogger } from '../lib/logger.js'
@@ -56,14 +57,14 @@ function warnOnce(host: string): void {
 // strict 模式下不放行会把健康检查打成 404，容器被判定不健康反复重启
 const TENANT_FREE_PATHS = new Set(['/health'])
 
-export function tenantMiddleware(strict: boolean): Middleware {
+export function tenantMiddleware(redis: Redis, strict: boolean): Middleware {
   return async (ctx, next) => {
     if (TENANT_FREE_PATHS.has(ctx.path)) {
       await next()
       return
     }
     const host = ctx.get('X-Forwarded-Host') || ctx.host
-    let tenant = await resolveTenantByHost(ctx.state.redis, host)
+    let tenant = await resolveTenantByHost(redis, host)
 
     if (!tenant) {
       if (strict) {

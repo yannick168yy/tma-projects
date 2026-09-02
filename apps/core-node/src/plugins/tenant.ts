@@ -1,4 +1,5 @@
 import fp from 'fastify-plugin'
+import { getDefaultRedis } from './redis.js'
 import type { FastifyRequest } from 'fastify'
 import { env } from '../config/env.js'
 import { runWithTenant, type TenantContext } from '../lib/tenant-context.js'
@@ -32,7 +33,8 @@ const warnedSources = new Set<string>()
  *    三方那边改 notify URL 要排期，不能因为多租户改造把线上收款打断。
  */
 export default fp(async (app) => {
-  const redis = app.redis
+  // 租户解析缓存是跨租户数据，必须走无前缀客户端
+  const redis = getDefaultRedis((err) => app.log.error({ err: err.message }, 'Redis client error'))
 
   // 不阻塞插件注册：预热重试期间 Fastify 不会开始监听，等于服务不可用
   void warmupPlatformPool().catch((err: unknown) => {
@@ -128,4 +130,4 @@ export default fp(async (app) => {
       })
       .catch(done)
   })
-}, { name: 'tenant', dependencies: ['mysql'] })
+}, { name: 'tenant', dependencies: ['mysql', 'redis'] })

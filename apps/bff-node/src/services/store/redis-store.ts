@@ -12,6 +12,7 @@ import type {
 } from '../../types/domain.js'
 import { generateInviteCode } from '../../utils/id.js'
 import { nowIso } from '../../utils/format.js'
+import { scanKeys } from '../../clients/redis.client.js'
 
 const KEYS = {
   userSeq: 'tma:user:seq',
@@ -73,7 +74,7 @@ export async function getUserByIdentity(
 }
 
 export async function getUserByTelegramOidcUsername(redis: Redis, username: string): Promise<UserRecord | null> {
-  const keys = await redis.keys(KEYS.identity('telegram_oidc', '*'))
+  const keys = await scanKeys(redis, KEYS.identity('telegram_oidc', '*'))
   const matches: UserIdentity[] = []
   for (const key of keys) {
     const raw = await redis.get(key)
@@ -89,7 +90,7 @@ export async function getCanonicalUserByTelegramOidcUsername(
   redis: Redis,
   username: string,
 ): Promise<UserRecord | null> {
-  const keys = await redis.keys(KEYS.identity('telegram_oidc', '*'))
+  const keys = await scanKeys(redis, KEYS.identity('telegram_oidc', '*'))
   const matches: UserRecord[] = []
   for (const key of keys) {
     const raw = await redis.get(key)

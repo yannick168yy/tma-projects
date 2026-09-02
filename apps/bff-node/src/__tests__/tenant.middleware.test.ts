@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Context } from 'koa'
+import type { Redis } from 'ioredis'
 
 const resolveTenantByHost = vi.fn()
 const selfOperatedTenant = vi.fn()
@@ -7,6 +8,8 @@ vi.mock('../services/tenant.service.js', () => ({ resolveTenantByHost, selfOpera
 
 const { tenantMiddleware } = await import('../middleware/tenant.js')
 const { currentTenantOrNull } = await import('../lib/tenant-context.js')
+
+const redisStub = {} as Redis
 
 const self = { id: 1, code: 'betogo', database: 'betogo', status: 'active' as const, selfOperated: true }
 
@@ -33,7 +36,7 @@ describe('租户中间件', () => {
     resolveTenantByHost.mockResolvedValue(self)
     const ctx = fakeCtx('/api/v1/site/config')
     let seen: string | undefined
-    await tenantMiddleware(false)(ctx, async () => { seen = currentTenantOrNull()?.database })
+    await tenantMiddleware(redisStub, false)(ctx, async () => { seen = currentTenantOrNull()?.database })
     expect(seen).toBe('betogo')
     expect(ctx.state.tenant).toEqual(self)
   })
@@ -42,7 +45,7 @@ describe('租户中间件', () => {
   it('健康检查不做租户解析，直接放行', async () => {
     const ctx = fakeCtx('/health', '127.0.0.1:3000')
     let called = false
-    await tenantMiddleware(true)(ctx, async () => { called = true })
+    await tenantMiddleware(redisStub, true)(ctx, async () => { called = true })
     expect(called).toBe(true)
     expect(resolveTenantByHost).not.toHaveBeenCalled()
   })
@@ -51,7 +54,7 @@ describe('租户中间件', () => {
     resolveTenantByHost.mockResolvedValue(null)
     const ctx = fakeCtx('/api/v1/site/config', 'unknown.example')
     let seen: string | undefined
-    await tenantMiddleware(false)(ctx, async () => { seen = currentTenantOrNull()?.code })
+    await tenantMiddleware(redisStub, false)(ctx, async () => { seen = currentTenantOrNull()?.code })
     expect(seen).toBe('betogo')
   })
 
@@ -59,7 +62,7 @@ describe('租户中间件', () => {
     resolveTenantByHost.mockResolvedValue(null)
     const ctx = fakeCtx('/api/v1/site/config', 'unknown.example')
     let called = false
-    await tenantMiddleware(true)(ctx, async () => { called = true })
+    await tenantMiddleware(redisStub, true)(ctx, async () => { called = true })
     expect(ctx.status).toBe(404)
     expect(called).toBe(false)
     expect(selfOperatedTenant).not.toHaveBeenCalled()

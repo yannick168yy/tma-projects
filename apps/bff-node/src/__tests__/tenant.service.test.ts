@@ -13,6 +13,8 @@ const { normalizeHost, resolveTenantByHost, invalidateTenantHostCache } =
 function fakeRedis() {
   const store = new Map<string, string>()
   return {
+    // 真实客户端一定有 options，桩要保持同构，否则 scanKeys 这类读 options 的代码测不到
+    options: { keyPrefix: undefined },
     store,
     get: vi.fn(async (k: string) => store.get(k) ?? null),
     set: vi.fn(async (k: string, v: string) => { store.set(k, v); return 'OK' }),

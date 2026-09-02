@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
-import fastifyRedis from '@fastify/redis'
 import natsPlugin from './plugins/nats.js'
 import mysqlPlugin from './plugins/mysql.js'
+import redisPlugin from './plugins/redis.js'
 import tenantPlugin from './plugins/tenant.js'
 import { registerRoutes } from './routes/index.js'
 import { startLedgerConsumer } from './consumers/ledger.consumer.js'
@@ -26,11 +26,7 @@ export async function buildApp() {
     },
   })
 
-  await app.register(fastifyRedis, { url: env.REDIS_URL, closeClient: true })
-  // ioredis 断线重连失败时会 emit 'error'，若无 handler 会触发 uncaughtException 杀死进程
-  app.redis.on('error', (err: Error) => {
-    app.log.error({ err: err.message }, 'Redis client error')
-  })
+  await app.register(redisPlugin)
   await app.register(mysqlPlugin)
   await app.register(tenantPlugin)
   await app.register(natsPlugin)

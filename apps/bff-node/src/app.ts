@@ -2,7 +2,7 @@ import Koa from 'koa'
 import cors from '@koa/cors'
 import bodyParser from 'koa-bodyparser'
 import type { Env } from './config/env.js'
-import { getRedis } from './clients/redis.client.js'
+import { getDefaultRedis } from './clients/redis.client.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { injectDeps, requestIdMiddleware } from './middleware/requestId.js'
 import { accessLogMiddleware } from './middleware/accessLog.js'
@@ -34,7 +34,8 @@ export function createApp(env: Env): Koa {
   const app = new Koa()
   app.proxy = true  // 信任 nginx 的 X-Forwarded-For，ctx.ip 才能拿到真实用户 IP
   initStore(env)
-  const redis = getRedis(env)
+  // 启动期任务与租户中间件都跑在租户上下文之外，用无前缀客户端
+  const redis = getDefaultRedis(env)
   const log = {
     admin: childLogger('admin-seed'),
     rates: childLogger('exchange-rate'),
@@ -269,8 +270,9 @@ export function createApp(env: Env): Koa {
     }),
   )
   app.use(requestIdMiddleware())
-  app.use(injectDeps(env, redis))
-  app.use(tenantMiddleware(env.TENANT_RESOLVE_STRICT))
+  // 顺序要紧：先定租户，injectDeps 才能把带 keyPrefix 的 Redis 客户端塞进 ctx.state
+  app.use(tenantMiddleware(redis, env.TENANT_RESOLVE_STRICT))
+  app.use(injectDeps(env))
   if (!env.BFF_DISABLE_RATE_LIMIT) app.use(rateLimitMiddleware())
   app.use(accessLogMiddleware())
   // banner/KYC 图以 base64 data URL 走 JSON 体，5MB 图 base64 后 ~6.7MB，限额需高于此，否则大图上传被 raw-body 拒绝并触发 nginx 504
