@@ -10,18 +10,27 @@ export async function startLedgerConsumer(app: FastifyInstance) {
   const js = app.js
   const walletService = new WalletService(app)
 
-  await jsm.consumers.add(env.NATS_STREAM, {
-    durable_name: 'ledger-worker',
-    filter_subject: env.NATS_LEDGER_SUBJECT,
-    ack_policy: AckPolicy.Explicit,
-    deliver_policy: DeliverPolicy.All,
-    max_deliver: 5,
-    ack_wait: 30 * 1e9,
-  }).catch((err: Error) => {
-    if (!err.message?.includes('consumer name already in use')) throw err
-  })
+  // 与回调消费者同一套过渡策略：旧 durable 排空无租户段的在途消息，
+  // 新 durable 消费 betogo.ledger.<tenantCode>。durable 的 filter_subject 改不了，
+  // 必须换名字，否则会静默沿用旧过滤器导致账变消息再也收不到。
+  const consumerDefs = [
+    { durable: 'ledger-worker', filter: env.NATS_LEDGER_SUBJECT },
+    { durable: 'ledger-worker-v2', filter: `${env.NATS_LEDGER_SUBJECT}.>` },
+  ]
+  for (const def of consumerDefs) {
+    await jsm.consumers.add(env.NATS_STREAM, {
+      durable_name: def.durable,
+      filter_subject: def.filter,
+      ack_policy: AckPolicy.Explicit,
+      deliver_policy: DeliverPolicy.All,
+      max_deliver: 5,
+      ack_wait: 30 * 1e9,
+    }).catch((err: Error) => {
+      if (!err.message?.includes('consumer name already in use')) throw err
+    })
+  }
 
-  app.log.info('Ledger consumer started')
+  app.log.info({ consumers: consumerDefs.map((d) => d.durable) }, 'Ledger consumer started')
 
   async function processMessage(msg: JsMsg) {
     try {
@@ -49,20 +58,22 @@ export async function startLedgerConsumer(app: FastifyInstance) {
     }
   }
 
-  ;(async () => {
-    for (;;) {
-      try {
-        const consumer = await js.consumers.get(env.NATS_STREAM, 'ledger-worker')
-        const messages = await consumer.consume()
-        for await (const msg of messages) {
-          await processMessage(msg)
+  for (const def of consumerDefs) {
+    void (async () => {
+      for (;;) {
+        try {
+          const consumer = await js.consumers.get(env.NATS_STREAM, def.durable)
+          const messages = await consumer.consume()
+          for await (const msg of messages) {
+            await processMessage(msg)
+          }
+          app.log.warn({ durable: def.durable }, 'Ledger consumer stream ended, restarting...')
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err)
+          app.log.error({ durable: def.durable, err: message }, 'Ledger consumer crashed, restarting in 3s')
         }
-        app.log.warn('Ledger consumer stream ended, restarting...')
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err)
-        app.log.error({ err: message }, 'Ledger consumer crashed, restarting in 3s')
+        await new Promise<void>(r => setTimeout(r, 3000))
       }
-      await new Promise<void>(r => setTimeout(r, 3000))
-    }
-  })()
+    })()
+  }
 }

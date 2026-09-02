@@ -38,11 +38,13 @@ export async function callbackRoutes(app: FastifyInstance) {
 
       app.log.info({ provider }, 'Callback received, publishing to NATS')
 
-      // 消息必须带租户：消费者是独立执行链，拿不到请求的 AsyncLocalStorage 上下文，
-      // 不带就会把所有租户的回调都落到自营库
+      // subject 按租户拆分：可按租户 purge/replay、单独扩容消费者、按租户看吞吐。
+      // 消息体同时带 tenantCode —— 消费者是独立执行链拿不到 AsyncLocalStorage，
+      // 且不必解析 subject 就能确定归属。
+      const tenantCode = currentTenant().code
       await app.js.publish(
-        env.NATS_CALLBACK_SUBJECT,
-        JSON.stringify({ provider, payload, receivedAt: Date.now(), tenantCode: currentTenant().code }),
+        `${env.NATS_CALLBACK_SUBJECT}.${tenantCode}`,
+        JSON.stringify({ provider, payload, receivedAt: Date.now(), tenantCode }),
       )
 
       // YF Pay 要求明文 'success'；UnisPay 要求大写 'SUCCESS'

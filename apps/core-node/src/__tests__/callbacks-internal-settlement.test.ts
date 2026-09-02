@@ -354,7 +354,8 @@ describe('Matrix 提现反查与通用回调', () => {
     assert.equal(res.statusCode, 200)
     assert.equal(res.body, 'success')
     assert.equal(published.length, 1)
-    assert.equal(published[0].subject, 'betogo.callback.test')
+    // subject 按租户拆分：基础 subject 后面接租户代号，便于按租户 purge/replay
+    assert.equal(published[0].subject, 'betogo.callback.test.betogo')
     assert.equal(JSON.parse(published[0].payload).provider, 'yfpay')
     // 消费者靠这个字段决定写哪个租户库，丢了就会把所有回调落到自营库
     assert.equal(JSON.parse(published[0].payload).tenantCode, 'betogo')
@@ -410,7 +411,7 @@ describe('Matrix 提现反查与通用回调', () => {
     assert.equal(res.statusCode, 200)
     assert.equal(res.body, 'SUCCESS')
     assert.equal(published.length, 1)
-    assert.equal(published[0].subject, 'betogo.callback.test')
+    assert.equal(published[0].subject, 'betogo.callback.test.betogo')
     assert.equal(JSON.parse(published[0].payload).provider, 'unispay')
   })
 

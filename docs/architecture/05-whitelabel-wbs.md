@@ -206,11 +206,27 @@
   已写进库，不能变），新租户 `t{id}/`。4 个用例覆盖。
   **`put()` 必须返回未加前缀的 key** —— 返回带前缀的会被写进库，
   下次 `get()` 再加一次前缀就成了 `t2/t2/...` 永远读不到（与 Redis `keys()` 同类的双重前缀坑）。
-- **NATS subject 决定不按租户拆分**，改为消息体带 `tenantCode`（P0-7 已实现）。
-  理由：拆 subject 要改 stream 配置且会让部署切换瞬间的在途消息失配，而 P0 阶段
-  拿不到任何额外隔离收益 —— 消费者已能按 `tenantCode` 正确路由到各自的库。
-  真正需要拆分的场景是「按租户独立扩容消费者」或「隔离毒消息」，
-  前者属 P3 规模化议题，后者已由 `max_deliver=5` + `nak` 覆盖。
+- **NATS subject 按租户拆分**：`betogo.callback.<tenantCode>` / `betogo.ledger.<tenantCode>`，
+  消息体同时保留 `tenantCode`（消费者不必解析 subject 就能确定归属）。
+  收益：可按租户 purge/replay（单一 subject 做不到）、可按租户独立扩容消费者、
+  按租户看吞吐；且**现在只有一个租户、stream 里 0 条消息，迁移成本几乎为零，
+  等有 50 个租户跑着真金白银时再改就很贵了**。
+  stream 本来就是 `betogo.>`，无需改 stream 配置。
+
+  🔴 **过渡陷阱**：durable consumer 的 `filter_subject` 改不了，而代码只吞
+  `consumer name already in use` 错误 —— 直接改过滤器会静默沿用旧配置，
+  表现为**回调再也收不到、且没有任何报错**。
+  做法：新建 `callback-worker-v2` / `ledger-worker-v2`（过滤 `xxx.>`），
+  旧 durable 保留用于排空在途消息，下个发布周期再删。
+  Workqueue 保留策略要求消费者过滤不重叠，这两组 subject 不重叠，可以并存。
+
+  线上实测消费者配置：
+  ```
+  callback-worker      filter=betogo.callback
+  callback-worker-v2   filter=betogo.callback.>
+  ledger-worker        filter=betogo.ledger
+  ledger-worker-v2     filter=betogo.ledger.>
+  ```
 
 ### P0-10 跨租户越权测试套件 · 3d
 - 覆盖方案文档第 9 节 6 条清单，全部自动化

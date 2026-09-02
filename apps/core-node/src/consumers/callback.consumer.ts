@@ -15,18 +15,31 @@ export async function startCallbackConsumer(app: FastifyInstance) {
   // 注意：db / redis 必须在租户上下文内取，不能在这里提前捕获 —— 
   // 消费者启动时没有租户上下文，捕获到的是自营站的池和无前缀客户端
 
-  await jsm.consumers.add(env.NATS_STREAM, {
-    durable_name: 'callback-worker',
-    filter_subject: env.NATS_CALLBACK_SUBJECT,
-    ack_policy: AckPolicy.Explicit,
-    deliver_policy: DeliverPolicy.All,
-    max_deliver: 5,
-    ack_wait: 30 * 1e9,
-  }).catch((err: Error) => {
-    if (!err.message?.includes('consumer name already in use')) throw err
-  })
+  // 两个 durable 并存：
+  //   callback-worker    —— 旧的无租户段 subject，只用于排空切换瞬间的在途消息，
+  //                         下个发布周期可删。durable 的 filter_subject 改不了，
+  //                         直接改会因为这里只吞 "already in use" 而静默沿用旧过滤器，
+  //                         结果是回调再也收不到 —— 必须用新名字。
+  //   callback-worker-v2 —— 按租户拆分后的 betogo.callback.<tenantCode>
+  // Workqueue 保留策略要求消费者过滤不重叠，这两个 subject 不重叠，可以并存。
+  const consumerDefs = [
+    { durable: 'callback-worker', filter: env.NATS_CALLBACK_SUBJECT },
+    { durable: 'callback-worker-v2', filter: `${env.NATS_CALLBACK_SUBJECT}.>` },
+  ]
+  for (const def of consumerDefs) {
+    await jsm.consumers.add(env.NATS_STREAM, {
+      durable_name: def.durable,
+      filter_subject: def.filter,
+      ack_policy: AckPolicy.Explicit,
+      deliver_policy: DeliverPolicy.All,
+      max_deliver: 5,
+      ack_wait: 30 * 1e9,
+    }).catch((err: Error) => {
+      if (!err.message?.includes('consumer name already in use')) throw err
+    })
+  }
 
-  app.log.info('Callback consumer started')
+  app.log.info({ consumers: consumerDefs.map((d) => d.durable) }, 'Callback consumer started')
 
   async function processMessage(msg: JsMsg) {
     let provider = 'unknown'
@@ -86,20 +99,22 @@ export async function startCallbackConsumer(app: FastifyInstance) {
     }
   }
 
-  ;(async () => {
-    for (;;) {
-      try {
-        const consumer = await js.consumers.get(env.NATS_STREAM, 'callback-worker')
-        const messages = await consumer.consume()
-        for await (const msg of messages) {
-          await processMessage(msg)
+  for (const def of consumerDefs) {
+    void (async () => {
+      for (;;) {
+        try {
+          const consumer = await js.consumers.get(env.NATS_STREAM, def.durable)
+          const messages = await consumer.consume()
+          for await (const msg of messages) {
+            await processMessage(msg)
+          }
+          app.log.warn({ durable: def.durable }, 'Callback consumer stream ended, restarting...')
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err)
+          app.log.error({ durable: def.durable, err: message }, 'Callback consumer crashed, restarting in 3s')
         }
-        app.log.warn('Callback consumer stream ended, restarting...')
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err)
-        app.log.error({ err: message }, 'Callback consumer crashed, restarting in 3s')
+        await new Promise<void>(r => setTimeout(r, 3000))
       }
-      await new Promise<void>(r => setTimeout(r, 3000))
-    }
-  })()
+    })()
+  }
 }
