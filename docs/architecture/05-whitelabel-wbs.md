@@ -128,7 +128,7 @@
 > 原计划的「lint 规则拦截裸字符串拼键」不再需要：前缀在客户端层面生效，不在键构造处。
 > 唯一要守的规矩是**不要绕过 `getRedis()` / `app.redis` 自建客户端**（已确认全仓无此用法）。
 
-### P0-7 定时任务租户化 · 4d
+### P0-7 定时任务租户化 · 4d ✅ 已完成 2026-09-02
 > **待包裹调用点清单已由 P0-4 的观察模式自动采集**（启动 20 秒内即抓到 13 处）：
 > `feature-bonus-lock.service` / `sg-game.service`(loadGamesCache、loadSectionOverrides、
 > loadFrozenBoards、loadHiddenSections) / `betting-activity.service`(refreshLatestPool、refreshRankTops) /
@@ -141,6 +141,28 @@
 - 分布式锁 key 带租户；业务日切按 **租户 × 市场** 时区（沿用 `207_team_market_timezone`）
 - 50 租户以内用简单遍历即可；超出后改队列分发（已记入升级路径）
 - 验收：结算类任务金额只影响本租户，跨租户零变动
+- 交付：`services/tenant-jobs.ts`（BFF）与 `lib/tenant-jobs.ts`（core-node）统一封装
+  `forEachTenant()`：逐租户 `runWithTenant` + 单租户失败只记日志不中断其他租户 +
+  同名任务上一轮未结束则跳过本轮（几十个租户串行会超过 30s tick 间隔，不挡会雪崩）
+- 覆盖：BFF 13 组任务 + 1 个启动种子任务；core-node 4 个 cron 按租户
+- **win568 的 3 个 cron 保持平台级**（`runAsSelfOperated`）：CompanyKey 全平台共用一把，
+  按租户跑会把同一把密钥轮换 N 次、同一份报表拉 N 遍。
+  等 P1 的 `pf_tenant_provider` 给每租户建独立子代理后再改按租户
+- **NATS 消费者补齐租户**：回调/账变消息体加 `tenantCode`，消费者在租户上下文内处理；
+  `db`/`redis` 必须在上下文内取，不能在消费者启动时提前捕获（那时没有租户上下文）。
+  老消息无 `tenantCode` 时按自营站处理，兼容部署切换瞬间的在途消息
+- 线上验证：重启后观察 100 秒，「无租户上下文」告警 **0 条**，任务正常执行
+
+> **本步踩坑：包裹 forEachTenant 会静默废掉外层重试。**
+> `forEachTenant` 为隔离故障会吞掉单租户异常，于是 `seedDefaultAdmin`、
+> 游戏缓存加载、彩金闸播种这三处「失败后重试」的逻辑第一次失败就被当成成功，
+> 重试永远不触发。已把重试全部移进租户回调内 —— 这样每个租户各自重试，
+> 反而比原来更好（一个租户失败不再阻塞其他租户）。
+
+> **环境观察**：容器内对 `tma-mysql` 的 DNS 解析并非只在启动瞬间抖动，
+> 运行中（如连接池 idle 回收后重连）也会偶发 `ENOTFOUND`。
+> 这是既有现象（仓库里多处 retry 注释已提到），P0-7 的逐租户日志让它更显眼。
+> 建议 X-4 监控项把它纳入告警基线。
 
 ### P0-8 迁移执行器多库化 · 2d
 - `deploy/single-node/deploy-fast.sh:53-92` 与完整部署脚本：读平台库租户列表 → 逐库执行

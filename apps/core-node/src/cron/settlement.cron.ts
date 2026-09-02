@@ -1,13 +1,14 @@
 import type { FastifyInstance } from 'fastify'
 import type { RowDataPacket } from 'mysql2/promise'
 import { runDailySettlement, type TeamMarket } from '../routes/internal.routes.js'
+import { forEachTenant } from '../lib/tenant-jobs.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 const ID_OFFSET_MS = 7 * 60 * 60 * 1000
 
 // 每分钟检查，到达 settlement_hour 时结算前一天（PHT）
 export function startSettlementCron(app: FastifyInstance): void {
-  const interval = setInterval(() => void check(app), 60 * 1000)
+  const interval = setInterval(() => void forEachTenant(app, 'settlement', () => check(app)), 60 * 1000)
   app.addHook('onClose', async () => clearInterval(interval))
   app.log.info('[settlement-cron] started, checking every minute')
 }

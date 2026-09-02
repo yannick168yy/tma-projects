@@ -6,12 +6,14 @@ import { handleYfPayCallback, type YfPayCallbackPayload } from '../handlers/yfpa
 import { handleUnispayCallback, type UnispayCallbackPayload } from '../handlers/unispay-callback.handler.js'
 import { handleMatrixCallback, type MatrixNotify } from '../handlers/matrix-callback.handler.js'
 import { parseNotify, normalizePem, type MatrixEnvelope } from '../utils/matrix-crypto.js'
+import { runWithTenant } from '../lib/tenant-context.js'
+import { selfOperatedTenant, tenantByCode } from '../clients/platform-mysql.js'
 
 export async function startCallbackConsumer(app: FastifyInstance) {
   const jsm = app.jsm
   const js = app.js
-  const db = app.mysql
-  const redis = app.redis as unknown as Redis
+  // 注意：db / redis 必须在租户上下文内取，不能在这里提前捕获 —— 
+  // 消费者启动时没有租户上下文，捕获到的是自营站的池和无前缀客户端
 
   await jsm.consumers.add(env.NATS_STREAM, {
     durable_name: 'callback-worker',
@@ -29,40 +31,52 @@ export async function startCallbackConsumer(app: FastifyInstance) {
   async function processMessage(msg: JsMsg) {
     let provider = 'unknown'
     try {
-      const { provider: p, payload } = JSON.parse(msg.string()) as {
+      const { provider: p, payload, tenantCode } = JSON.parse(msg.string()) as {
         provider: string
         payload: Record<string, unknown>
+        tenantCode?: string
       }
       provider = p
 
-      if (provider === 'yfpay') {
-        await handleYfPayCallback(payload as YfPayCallbackPayload, db, redis)
-
-      } else if (provider === 'unispay') {
-        await handleUnispayCallback(payload as UnispayCallbackPayload, db, redis)
-
-      } else if (provider === 'matrix') {
-        // Matrix payload 是加密外层报文，在 callback.routes 已验签，
-        // 这里解密得到业务数据再处理
-        const merchantNotifyPrivKey = normalizePem(env.MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY)
-        const platformNotifyPubKey = normalizePem(env.MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY)
-
-        if (!merchantNotifyPrivKey || !platformNotifyPubKey) {
-          app.log.warn('Matrix notify keys not configured, skipping')
-          msg.ack()
-          return
-        }
-
-        const bizData = parseNotify<MatrixNotify>(
-          payload as unknown as MatrixEnvelope,
-          platformNotifyPubKey,
-          merchantNotifyPrivKey,
-        )
-        await handleMatrixCallback(bizData, JSON.stringify(payload), db, redis, env.USDT_TO_PHP_RATE)
-
-      } else {
-        app.log.warn({ provider }, 'Callback consumer: unknown provider, acking')
+      // 老消息没有 tenantCode（部署切换瞬间可能还有在途消息），按自营站处理
+      const tenant = tenantCode ? await tenantByCode(tenantCode) : await selfOperatedTenant()
+      if (!tenant) {
+        app.log.error({ provider, tenantCode }, '回调消息的租户不存在，nak 等待重投')
+        msg.nak()
+        return
       }
+      await runWithTenant(tenant, async () => {
+        const db = app.mysql
+        const redis = app.redis as unknown as Redis
+
+        if (provider === 'yfpay') {
+          await handleYfPayCallback(payload as YfPayCallbackPayload, db, redis)
+
+        } else if (provider === 'unispay') {
+          await handleUnispayCallback(payload as UnispayCallbackPayload, db, redis)
+
+        } else if (provider === 'matrix') {
+          // Matrix payload 是加密外层报文，在 callback.routes 已验签，
+          // 这里解密得到业务数据再处理
+          const merchantNotifyPrivKey = normalizePem(env.MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY)
+          const platformNotifyPubKey = normalizePem(env.MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY)
+
+          if (!merchantNotifyPrivKey || !platformNotifyPubKey) {
+            app.log.warn('Matrix notify keys not configured, skipping')
+            return
+          }
+
+          const bizData = parseNotify<MatrixNotify>(
+            payload as unknown as MatrixEnvelope,
+            platformNotifyPubKey,
+            merchantNotifyPrivKey,
+          )
+          await handleMatrixCallback(bizData, JSON.stringify(payload), db, redis, env.USDT_TO_PHP_RATE)
+
+        } else {
+          app.log.warn({ provider }, 'Callback consumer: unknown provider, acking')
+        }
+      })
 
       msg.ack()
     } catch (err: unknown) {

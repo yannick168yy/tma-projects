@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { env } from '../config/env.js'
+import { currentTenant } from '../lib/tenant-context.js'
 import { providerVerifiers } from '../providers/verifiers.js'
 import { parseNotify, buildWithdrawCheckResponse, normalizePem, type MatrixEnvelope } from '../utils/matrix-crypto.js'
 import type { RowDataPacket } from 'mysql2/promise'
@@ -37,9 +38,11 @@ export async function callbackRoutes(app: FastifyInstance) {
 
       app.log.info({ provider }, 'Callback received, publishing to NATS')
 
+      // 消息必须带租户：消费者是独立执行链，拿不到请求的 AsyncLocalStorage 上下文，
+      // 不带就会把所有租户的回调都落到自营库
       await app.js.publish(
         env.NATS_CALLBACK_SUBJECT,
-        JSON.stringify({ provider, payload, receivedAt: Date.now() }),
+        JSON.stringify({ provider, payload, receivedAt: Date.now(), tenantCode: currentTenant().code }),
       )
 
       // YF Pay 要求明文 'success'；UnisPay 要求大写 'SUCCESS'

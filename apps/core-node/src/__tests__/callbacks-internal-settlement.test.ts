@@ -119,10 +119,18 @@ function createRedis(setResult: string | null = 'OK') {
 async function createApp(opts: { mysql?: FakePool; redis?: ReturnType<typeof createRedis>; js?: { publish: (subject: string, payload: string) => Promise<void> } } = {}) {
   const { internalRoutes } = await import('../routes/internal.routes.js')
   const { callbackRoutes } = await import('../routes/callback.routes.js')
+  const { runWithTenant } = await import('../lib/tenant-context.js')
   const app = Fastify({ logger: false })
   app.decorate('mysql', (opts.mysql ?? createPool()) as never)
   app.decorate('redis', (opts.redis ?? createRedis()) as never)
   app.decorate('js', (opts.js ?? { async publish() {} }) as never)
+  // 真实运行时由 tenant 插件注入上下文；测试不接平台库，这里直接给一个自营站上下文
+  app.addHook('onRequest', (_req, _reply, done) => {
+    runWithTenant(
+      { id: 1, code: 'betogo', database: 'betogo', status: 'active', selfOperated: true },
+      () => done(),
+    )
+  })
   await app.register(callbackRoutes, { prefix: '/api/v1' })
   await app.register(internalRoutes)
   return app
@@ -348,6 +356,8 @@ describe('Matrix 提现反查与通用回调', () => {
     assert.equal(published.length, 1)
     assert.equal(published[0].subject, 'betogo.callback.test')
     assert.equal(JSON.parse(published[0].payload).provider, 'yfpay')
+    // 消费者靠这个字段决定写哪个租户库，丢了就会把所有回调落到自营库
+    assert.equal(JSON.parse(published[0].payload).tenantCode, 'betogo')
   })
 
   it('YFPay 通用回调拒绝非白名单 IP', async () => {

@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify'
 import { AckPolicy, DeliverPolicy, type JsMsg } from '@nats-io/jetstream'
-import { WalletService } from '../services/wallet.service.js'
+import { WalletService, type LedgerEntry } from '../services/wallet.service.js'
 import { env } from '../config/env.js'
+import { runWithTenant } from '../lib/tenant-context.js'
+import { selfOperatedTenant, tenantByCode } from '../clients/platform-mysql.js'
 
 export async function startLedgerConsumer(app: FastifyInstance) {
   const jsm = app.jsm
@@ -23,8 +25,16 @@ export async function startLedgerConsumer(app: FastifyInstance) {
 
   async function processMessage(msg: JsMsg) {
     try {
-      const entry = JSON.parse(msg.string())
-      const result = await walletService.applyLedger(entry)
+      const entry = JSON.parse(msg.string()) as LedgerEntry & { tenantCode?: string }
+      // 账变消息同样要带租户；老消息按自营站处理
+      const tenant = entry.tenantCode ? await tenantByCode(entry.tenantCode) : await selfOperatedTenant()
+      if (!tenant) {
+        app.log.error({ tenantCode: entry.tenantCode }, '账变消息的租户不存在，nak 等待重投')
+        msg.nak()
+        return
+      }
+      // WalletService 在调用时才读 app.mysql / app.redis，所以包在这里即可生效
+      const result = await runWithTenant(tenant, () => walletService.applyLedger(entry))
       app.log.info({ refId: entry.refId, newBalance: result.newBalance }, 'Ledger applied')
       msg.ack()
     } catch (err: unknown) {

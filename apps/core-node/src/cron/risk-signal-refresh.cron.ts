@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { getAdminSetting, setAdminSetting } from '../services/win568-key-settings.service.js'
 import { recomputeRiskSignals } from '../services/risk-signal.service.js'
+import { forEachTenant } from '../lib/tenant-jobs.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 const REFRESH_HOUR_PHT = 5 // PHT 05:00，排在 segment-refresh(04:00) 之后，避开同时段全表扫描
@@ -8,7 +9,7 @@ const LAST_RUN_KEY = 'user_risk_signal_last_refresh'
 
 // 每分钟检查是否到点；启动时若今天还没算过则立即补一次
 export function startRiskSignalRefreshCron(app: FastifyInstance): void {
-  const interval = setInterval(() => void check(app), 60 * 1000)
+  const interval = setInterval(() => void forEachTenant(app, 'risk-signal-refresh', () => check(app)), 60 * 1000)
   app.addHook('onClose', async () => clearInterval(interval))
   void check(app, true)
   app.log.info('[risk-signal] started, checking every minute (refresh at PHT 05:00)')

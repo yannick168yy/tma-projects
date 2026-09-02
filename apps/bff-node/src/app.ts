@@ -2,7 +2,7 @@ import Koa from 'koa'
 import cors from '@koa/cors'
 import bodyParser from 'koa-bodyparser'
 import type { Env } from './config/env.js'
-import { getDefaultRedis } from './clients/redis.client.js'
+import { getDefaultRedis, getRedis } from './clients/redis.client.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { injectDeps, requestIdMiddleware } from './middleware/requestId.js'
 import { accessLogMiddleware } from './middleware/accessLog.js'
@@ -29,6 +29,7 @@ import { runDepositStatusTick } from './services/deposit-status-sync.service.js'
 import { ok } from './utils/response.js'
 import { getMaintenanceMode } from './services/admin-store.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
+import { forEachTenant } from './services/tenant-jobs.js'
 
 export function createApp(env: Env): Koa {
   const app = new Koa()
@@ -54,35 +55,38 @@ export function createApp(env: Env): Koa {
 
   // Seed default admin account — retry with backoff until MySQL is reachable
   if (singletonJobs && isMysqlEnabled(env)) {
-    const trySeed = (attempt: number): void => {
-      seedDefaultAdmin(env).catch((err) => {
-        if (attempt < 8) {
-          const delay = Math.min(5_000 * (attempt + 1), 30_000)
-          setTimeout(() => trySeed(attempt + 1), delay)
-        } else {
-          log.admin.error({ err }, 'seed failed')
+    // 重试放在租户回调内：forEachTenant 吞掉单租户异常以隔离故障，
+    // 放外面会让第一次失败被当成成功，重试永远不触发
+    setTimeout(() => void forEachTenant('seed-admin', async () => {
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        try {
+          await seedDefaultAdmin(env)
+          return
+        } catch (err) {
+          if (attempt === 7) { log.admin.error({ err }, 'seed failed'); return }
+          await new Promise((r) => setTimeout(r, Math.min(5_000 * (attempt + 1), 30_000)))
         }
-      })
-    }
-    setTimeout(() => trySeed(0), 10_000)
+      }
+    }), 10_000)
   }
 
   // 汇率定时刷新：启动后 30s 先跑一次，之后每 15 分钟。与 core-node 合计约 3600 次/月，给手动刷新留余量。
   if (singletonJobs) setTimeout(() => {
-    refreshRates(redis, env).catch((err) => log.rates.error({ err }, 'refresh error'))
-    setInterval(
-      () => refreshRates(redis, env).catch((err) => log.rates.error({ err }, 'refresh error')),
-      15 * 60 * 1000,
-    )
+    const runRates = () => forEachTenant('exchange-rate', () => refreshRates(getRedis(env), env))
+      .catch((err) => log.rates.error({ err }, 'refresh error'))
+    runRates()
+    setInterval(runRates, 15 * 60 * 1000)
   }, 30_000)
 
   // 支付服务商余额快照：启动后 60s 先刷一次，之后每 1 小时（用于与我方记账核对）
   if (singletonJobs && isMysqlEnabled(env)) {
     setTimeout(() => {
-      const run = () => refreshBalances(env).catch((err) => log.payment.error({ err }, 'balance refresh error'))
+      const run = () => forEachTenant('payment-balance', () => refreshBalances(env))
+        .catch((err) => log.payment.error({ err }, 'balance refresh error'))
       run()
       setInterval(run, 60 * 60 * 1000)
-      const alert = () => notifyPendingPaymentCallbackIssues(env).catch((err) => log.payment.error({ err }, 'callback issue alert error'))
+      const alert = () => forEachTenant('payment-callback-alert', () => notifyPendingPaymentCallbackIssues(env))
+        .catch((err) => log.payment.error({ err }, 'callback issue alert error'))
       alert()
       setInterval(alert, 60 * 1000)
     }, 60_000)
@@ -91,7 +95,8 @@ export function createApp(env: Env): Koa {
   // 支付订单状态补偿：失败/过期回调可能缺失，定时把长时间 pending 的代收订单同步为终态。
   if (singletonJobs && isMysqlEnabled(env)) {
     setTimeout(() => {
-      const run = () => runDepositStatusTick(env, log.depositStatus).catch((err) => log.depositStatus.error({ err }, 'deposit status tick error'))
+      const run = () => forEachTenant('deposit-status', () => runDepositStatusTick(env, log.depositStatus))
+        .catch((err) => log.depositStatus.error({ err }, 'deposit status tick error'))
       run()
       setInterval(run, 5 * 60 * 1000)
     }, 90_000)
@@ -100,9 +105,10 @@ export function createApp(env: Env): Koa {
   // 洗码每日结算：菲律宾 UTC+8、印尼 UTC+7 分开切业务日。
   if (singletonJobs && isMysqlEnabled(env)) {
     const scheduleRebate = (utcHour: number, currencies: string[], timezoneOffsetHours: number) => {
-      const run = () => runDailyRebateSettlement(env, yesterdayPHT(currencies[0]), { currencies, timezoneOffsetHours })
-        .then(({ users, totalRebate }) => log.rebate.info({ users, totalRebate, timezoneOffsetHours }, 'rebate settlement done'))
-        .catch((err) => log.rebate.error({ err, timezoneOffsetHours }, 'rebate settlement error'))
+      const run = () => forEachTenant(`rebate-utc${timezoneOffsetHours}`, async (tenant) => {
+        const { users, totalRebate } = await runDailyRebateSettlement(env, yesterdayPHT(currencies[0]), { currencies, timezoneOffsetHours })
+        log.rebate.info({ tenant: tenant.code, users, totalRebate, timezoneOffsetHours }, 'rebate settlement done')
+      }).catch((err) => log.rebate.error({ err, timezoneOffsetHours }, 'rebate settlement error'))
       const now = new Date()
       const next = new Date()
       next.setUTCHours(utcHour, 0, 0, 0)
@@ -116,24 +122,20 @@ export function createApp(env: Env): Koa {
   // 负盈利返水（路线A）：每小时 :30 检查，PHT 到达配置的结算时刻（lossRebate.settleHour）时结算「昨天」整日
   //   活动关闭时内部 no-op；结算幂等（ON DUPLICATE KEY），同一小时多次触发安全；用户手动领取
   if (singletonJobs && isMysqlEnabled(env)) {
-    const runNegRebate = async () => {
-      try {
-        const cfg = await getLossRebateConfigByPool(getMysqlPool(env))
-        if (!cfg.enabled) return
-        const phtHour = new Date(Date.now() + 8 * 60 * 60 * 1000).getUTCHours()
-        const idHour = new Date(Date.now() + 7 * 60 * 60 * 1000).getUTCHours()
-        if (phtHour === cfg.settleHour) {
-          const result = await runDailyLossRebate(env, { currencies: ['PHP', 'USDT', 'USDC'], timezoneOffsetHours: 8 })
-          log.vip.info({ ...result, timezone: 'UTC+8' }, 'daily loss rebate settled')
-        }
-        if (idHour === cfg.settleHour) {
-          const result = await runDailyLossRebate(env, { currencies: ['IDR'], timezoneOffsetHours: 7 })
-          log.vip.info({ ...result, timezone: 'UTC+7' }, 'daily loss rebate settled')
-        }
-      } catch (err) {
-        log.vip.error({ err }, 'daily loss rebate settlement error')
+    const runNegRebate = () => forEachTenant('loss-rebate', async () => {
+      const cfg = await getLossRebateConfigByPool(getMysqlPool(env))
+      if (!cfg.enabled) return
+      const phtHour = new Date(Date.now() + 8 * 60 * 60 * 1000).getUTCHours()
+      const idHour = new Date(Date.now() + 7 * 60 * 60 * 1000).getUTCHours()
+      if (phtHour === cfg.settleHour) {
+        const result = await runDailyLossRebate(env, { currencies: ['PHP', 'USDT', 'USDC'], timezoneOffsetHours: 8 })
+        log.vip.info({ ...result, timezone: 'UTC+8' }, 'daily loss rebate settled')
       }
-    }
+      if (idHour === cfg.settleHour) {
+        const result = await runDailyLossRebate(env, { currencies: ['IDR'], timezoneOffsetHours: 7 })
+        log.vip.info({ ...result, timezone: 'UTC+7' }, 'daily loss rebate settled')
+      }
+    }).catch((err: unknown) => log.vip.error({ err }, 'daily loss rebate settlement error'))
     const msUntilNextHalfHour = () => {
       const now = new Date()
       const next = new Date(now)
@@ -149,26 +151,22 @@ export function createApp(env: Env): Koa {
 
   // VIP 每日维护：每天 UTC 16:40（PHT 00:40）建行/爬升 + 周俸(周一)/月俸(1号)/生日/季度保级
   if (singletonJobs && isMysqlEnabled(env)) {
-    const runVipDaily = async () => {
-      try {
-        await ensureAndClimbVipStates(env)
-        const pht = new Date(Date.now() + 8 * 60 * 60 * 1000)
-        if (pht.getUTCDay() === 1) {
-          const w = await runWeeklySalary(env)
-          log.vip.info({ ...w }, 'weekly salary settled')
-        }
-        if (pht.getUTCDate() === 1) {
-          const m = await runMonthlySalary(env)
-          log.vip.info({ ...m }, 'monthly salary settled')
-        }
-        const bday = await runBirthdayBonus(env)
-        if (bday.users > 0) log.vip.info({ ...bday }, 'birthday bonus granted')
-        const ret = await runQuarterlyRetention(env)
-        if (ret.processed > 0) log.vip.info({ ...ret }, 'quarterly retention processed')
-      } catch (err) {
-        log.vip.error({ err }, 'vip daily maintenance error')
+    const runVipDaily = () => forEachTenant('vip-daily', async () => {
+      await ensureAndClimbVipStates(env)
+      const pht = new Date(Date.now() + 8 * 60 * 60 * 1000)
+      if (pht.getUTCDay() === 1) {
+        const w = await runWeeklySalary(env)
+        log.vip.info({ ...w }, 'weekly salary settled')
       }
-    }
+      if (pht.getUTCDate() === 1) {
+        const m = await runMonthlySalary(env)
+        log.vip.info({ ...m }, 'monthly salary settled')
+      }
+      const bday = await runBirthdayBonus(env)
+      if (bday.users > 0) log.vip.info({ ...bday }, 'birthday bonus granted')
+      const ret = await runQuarterlyRetention(env)
+      if (ret.processed > 0) log.vip.info({ ...ret }, 'quarterly retention processed')
+    }).catch((err: unknown) => log.vip.error({ err }, 'vip daily maintenance error'))
     const msUntilVipDaily = () => {
       const now = new Date()
       const next = new Date()
@@ -186,7 +184,8 @@ export function createApp(env: Env): Koa {
   if (singletonJobs && isMysqlEnabled(env)) {
     const communityLog = childLogger('community-tick')
     setTimeout(() => {
-      const run = () => runCommunityTick(env, redis).catch((err) => communityLog.error({ err }, 'tick error'))
+      const run = () => forEachTenant('community-tick', () => runCommunityTick(env, getRedis(env)))
+        .catch((err) => communityLog.error({ err }, 'tick error'))
       run()
       setInterval(run, 30_000)
     }, 15_000)
@@ -196,7 +195,8 @@ export function createApp(env: Env): Koa {
   if (singletonJobs && isMysqlEnabled(env)) {
     const broadcastLog = childLogger('broadcast-tick')
     setTimeout(() => {
-      const run = () => runBroadcastTick(env, redis).catch((err) => broadcastLog.error({ err }, 'tick error'))
+      const run = () => forEachTenant('broadcast-tick', () => runBroadcastTick(env, getRedis(env)))
+        .catch((err) => broadcastLog.error({ err }, 'tick error'))
       run()
       setInterval(run, 30_000)
     }, 20_000)
@@ -206,7 +206,8 @@ export function createApp(env: Env): Koa {
   if (singletonJobs && isMysqlEnabled(env)) {
     const biReportLog = childLogger('bi-report-tick')
     setTimeout(() => {
-      const run = () => runBiReportTick(env, redis).catch((err) => biReportLog.error({ err }, 'tick error'))
+      const run = () => forEachTenant('bi-report-tick', () => runBiReportTick(env, getRedis(env)))
+        .catch((err) => biReportLog.error({ err }, 'tick error'))
       run()
       setInterval(run, 5 * 60 * 1000)
     }, 30_000)
@@ -214,42 +215,52 @@ export function createApp(env: Env): Koa {
 
   // Betting activity 初始化（需要 games cache 已加载）
   const initBettingActivity = () =>
-    Promise.all([
-      refreshLatestPool(env),
-      refreshRankTops(env),
-    ]).catch((err) => log.betting.error({ err }, 'init error'))
+    forEachTenant('betting-activity-init', async () => {
+      await Promise.all([refreshLatestPool(env), refreshRankTops(env)])
+    }).catch((err) => log.betting.error({ err }, 'init error'))
 
   // 游戏缓存 + 首页推荐：启动 8s 后首次加载，失败则每 10s 重试，之后每 3 小时刷新首页推荐
   if (isMysqlEnabled(env)) {
-    const loadWithRetry = (attempt = 0): void => {
-      loadGamesCache(env)
-        .then(() => refreshHomepageSelection(env))
-        .then(() => initBettingActivity())
-        .catch((err) => {
-          log.games.error({ err, attempt }, 'load error')
-          if (attempt < 12) setTimeout(() => loadWithRetry(attempt + 1), 10_000)
-        })
+    // 同上：重试在租户回调内，单个租户加载失败不影响其他租户继续
+    const loadAll = (): void => {
+      void forEachTenant('games-cache-init', async () => {
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+          try {
+            await loadGamesCache(env)
+            await refreshHomepageSelection(env)
+            return
+          } catch (err) {
+            log.games.error({ err, attempt }, 'load error')
+            if (attempt === 11) throw err
+            await new Promise((r) => setTimeout(r, 10_000))
+          }
+        }
+      }).then(() => initBettingActivity())
     }
-    setTimeout(() => loadWithRetry(), 8_000)
+    setTimeout(loadAll, 8_000)
 
     // games cache 每 25 分钟刷新（TTL 30 分钟，提前续期避免 cache miss）
     setInterval(() => {
-      loadGamesCache(env).catch((err) => log.games.error({ err }, 'cache refresh error'))
+      forEachTenant('games-cache', () => loadGamesCache(env))
+        .catch((err) => log.games.error({ err }, 'cache refresh error'))
     }, 25 * 60 * 1000)
 
     setInterval(() => {
-      refreshHomepageSelection(env).catch((err) => log.homepage.error({ err }, 'refresh error'))
+      forEachTenant('homepage-selection', () => refreshHomepageSelection(env))
+        .catch((err) => log.homepage.error({ err }, 'refresh error'))
     }, 3 * 60 * 60 * 1000)
 
     // Betting activity 定时刷新（真实数据）
     // latest: 每 60 秒拉最近真实注单，列表随投注持续滚动更新
     setInterval(() => {
-      refreshLatestPool(env).catch((err) => log.betting.error({ err }, 'latest refresh error'))
+      forEachTenant('betting-latest', () => refreshLatestPool(env))
+        .catch((err) => log.betting.error({ err }, 'latest refresh error'))
     }, 60 * 1000)
 
     // week / month: 每 30 分钟重算滚动 7/30 天 Top10（bi_daily_game 小表聚合，成本可忽略）
     setInterval(() => {
-      refreshRankTops(env).catch((err) => log.betting.error({ err }, 'rank refresh error'))
+      forEachTenant('betting-rank', () => refreshRankTops(env))
+        .catch((err) => log.betting.error({ err }, 'rank refresh error'))
     }, 30 * 60 * 1000)
   }
 

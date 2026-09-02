@@ -5,6 +5,7 @@ import { closeRedis, getRedis } from './clients/redis.client.js'
 import { closeMysql, getStorageMode, warmupMysql, isMysqlEnabled } from './clients/mysql.client.js'
 import { warmupPlatformMysql } from './clients/platform-mysql.client.js'
 import { syncFeatureBonusLockToRedis } from './services/feature-bonus-lock.service.js'
+import { forEachTenant } from './services/tenant-jobs.js'
 
 const env = await bootstrapEnv()
 
@@ -43,17 +44,20 @@ const app = createApp(env)
 if (isMysqlEnabled(env)) {
   // 把 feature 彩金闸阈值从 bg_admin_settings 播到 Redis 供 core-node 读。
   // 重试兜住启动瞬间偶发的 tma-mysql DNS 未就绪（reference_deploy_dns）。
-  void (async () => {
+  // 每个租户各播一份：阈值存在各自的 bg_admin_settings，Redis 键也带各自前缀。
+  // 重试必须放在租户回调内 —— forEachTenant 会吞掉单租户异常以隔离故障，
+  // 放外面的话第一次 DNS 抖动就被当成"成功"，重试永远不触发。
+  void forEachTenant('feature-bonus-lock-seed', async () => {
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       try {
         await syncFeatureBonusLockToRedis(env, getRedis(env))
         return
       } catch (err) {
-        if (attempt === 5) { logger.error({ err }, 'feature bonus lock redis seed failed'); return }
+        if (attempt === 5) throw err
         await new Promise((resolve) => setTimeout(resolve, 3000))
       }
     }
-  })()
+  })
 }
 
 const server = app.listen(env.BFF_PORT, () => {

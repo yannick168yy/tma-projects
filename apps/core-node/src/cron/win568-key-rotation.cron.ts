@@ -8,6 +8,7 @@ import {
   isWin568AutoRotationEnabled,
   setAdminSetting,
 } from '../services/win568-key-settings.service.js'
+import { runAsSelfOperated } from '../lib/tenant-jobs.js'
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
 const ROTATE_BEFORE_MS = 14 * 24 * 60 * 60 * 1000
@@ -21,7 +22,8 @@ interface KeyInfo {
 }
 
 export function startWin568KeyRotationCron(app: FastifyInstance): void {
-  const run = () => void checkWin568KeyRotation(app)
+  // 平台级：按租户跑会把同一把 CompanyKey 轮换 N 次
+  const run = () => void runAsSelfOperated(app, 'win568-key-rotation', () => checkWin568KeyRotation(app))
   const interval = setInterval(run, CHECK_INTERVAL_MS)
   app.addHook('onClose', async () => clearInterval(interval))
   run()

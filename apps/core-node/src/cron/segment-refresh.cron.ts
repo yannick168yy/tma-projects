@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { getAdminSetting, setAdminSetting } from '../services/win568-key-settings.service.js'
 import { recomputeSegments } from '../services/segment.service.js'
+import { forEachTenant } from '../lib/tenant-jobs.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 const REFRESH_HOUR_PHT = 4 // 每天 PHT 04:00 重算（低峰）
@@ -8,7 +9,7 @@ const LAST_RUN_KEY = 'user_segment_last_refresh' // 存 PHT 日期，防同日�
 
 // 每分钟检查是否到点；启动时若今天还没算过则立即补一次，让分层数据尽快可用
 export function startSegmentRefreshCron(app: FastifyInstance): void {
-  const interval = setInterval(() => void check(app), 60 * 1000)
+  const interval = setInterval(() => void forEachTenant(app, 'segment-refresh', () => check(app)), 60 * 1000)
   app.addHook('onClose', async () => clearInterval(interval))
   void check(app, true)
   app.log.info('[segment-refresh] started, checking every minute (refresh at PHT 04:00)')
