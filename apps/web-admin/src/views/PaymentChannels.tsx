@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Table, Button, Switch, Tag, Space, Modal, Form, Input, InputNumber,
   Popconfirm, message, Typography, Select,
@@ -339,7 +339,30 @@ export default function PaymentChannels() {
     setChannelModal({ open: true, channel })
   }
 
+  const groupedChannels = useMemo(
+    () => [...channels].sort((a, b) => a.provider.localeCompare(b.provider) || a.sortOrder - b.sortOrder || a.id - b.id),
+    [channels],
+  )
+  const providerRowSpans = useMemo(() => {
+    const spans = new Map<number, number>()
+    for (let start = 0; start < groupedChannels.length;) {
+      let end = start + 1
+      while (end < groupedChannels.length && groupedChannels[end].provider === groupedChannels[start].provider) end++
+      spans.set(start, end - start)
+      for (let i = start + 1; i < end; i++) spans.set(i, 0)
+      start = end
+    }
+    return spans
+  }, [groupedChannels])
+
   const columns: ColumnsType<PaymentChannel> = [
+    {
+      title: '支付商', dataIndex: 'provider', width: 110,
+      render: (v: string, _r: PaymentChannel, index: number) => ({
+        children: providerRowSpans.get(index) ? <Tag color="blue">{v}</Tag> : null,
+        props: { rowSpan: providerRowSpans.get(index) ?? 1 },
+      }),
+    },
     { title: '显示名称', dataIndex: 'label', width: 150 },
     { title: '渠道标识', dataIndex: 'name', width: 100, render: (v: string) => <Tag>{v}</Tag> },
     {
@@ -348,7 +371,6 @@ export default function PaymentChannels() {
         ? <Tag color="gold">虚拟币</Tag>
         : <Tag color="green">法币</Tag>,
     },
-    { title: '服务商', dataIndex: 'provider', width: 100, render: (v: string) => <Tag color="blue">{v}</Tag> },
     {
       title: '手续费',
       width: 180,
@@ -413,7 +435,7 @@ export default function PaymentChannels() {
       </div>
 
       <Table
-        dataSource={channels}
+        dataSource={groupedChannels}
         rowKey="id"
         columns={columns}
         loading={loading}
