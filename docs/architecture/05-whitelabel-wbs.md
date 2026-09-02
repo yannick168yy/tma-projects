@@ -56,11 +56,19 @@
   2. `/health` 探针以 `Host: 127.0.0.1:3000` 直连，永远匹配不到域名 → 中间件放行无租户语义的路径，
      否则 strict 模式会把健康检查打成 404，容器被判不健康反复重启
 
-### P0-4 连接池按租户路由（BFF）· 2d
+### P0-4 连接池按租户路由（BFF）· 2d ✅ 已完成 2026-09-02
 - 改造 `apps/bff-node/src/clients/mysql.client.ts:20`：`Map<database, Pool>` + 闲置回收
 - **重算连接数上限**：50 租户 × 现有 `MYSQL_POOL_SIZE=10` = 500 连接，超过 MySQL 默认 `max_connections`，
   需改为按租户小池（2-4）+ 总量封顶
 - 验收：业务层 SQL 零改动，全量回归通过
+- 交付：`mysql.client.ts` 改为 `Map<database, pool>`，6 个用例（不同租户不同库、同租户复用池、
+  自营站大池其他小池、无上下文回落、严格模式抛错、并发不串库），全量 154 测试通过
+- **池大小分档**：自营站沿用压测验证过的 10；其他租户默认 2（`MYSQL_TENANT_POOL_SIZE`），
+  靠 30 分钟空闲回收控总量（自营站池常驻不回收）
+- 🔴 **线上实测服务器 `max_connections` 只有 50**（历史峰值 17，当前 11），
+  不是 compose 里写的 200。50 租户 × 2 连接 = 100 就已经打爆，
+  **接入第一个包网客户前必须先调大 max_connections 并相应调 MySQL 内存**。
+  代码里加了 `MYSQL_TOTAL_CONN_BUDGET`（默认 30）超预算即 error 日志告警
 
 ### P0-5 连接池按租户路由（core-node）+ 回调归属 · 3d
 - `apps/core-node/src/plugins/mysql.ts:12` 改为按请求装饰
@@ -78,6 +86,12 @@
 - 验收：两租户存在相同 userId 时，余额/会话/幂等键完全互不影响（自动化用例）
 
 ### P0-7 定时任务租户化 · 4d
+> **待包裹调用点清单已由 P0-4 的观察模式自动采集**（启动 20 秒内即抓到 13 处）：
+> `feature-bonus-lock.service` / `sg-game.service`(loadGamesCache、loadSectionOverrides、
+> loadFrozenBoards、loadHiddenSections) / `betting-activity.service`(refreshLatestPool、refreshRankTops) /
+> `community.service`(listRules→runCommunityTick) / `broadcast.service`(runBroadcastTick)。
+> 日频任务（洗码结算、VIP、负盈利、BI 日报）要等触发后才会入列，
+> 实施时以「日志清单 + app.ts 任务表逐条比对」双向确认，不能只靠日志。
 - BFF `apps/bff-node/src/app.ts:68-250` 共 11 组任务 → 遍历启用租户执行
 - core-node 7 个 cron（结算、BI 聚合、风控刷新、分层刷新、win568 三个同步）同理
 - 逐租户 `try/catch` + 失败告警，单租户失败不阻断其他
