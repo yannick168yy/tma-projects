@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Table, Button, Switch, Tag, Space, Modal, Form, Input, InputNumber,
-  Popconfirm, message, Typography, Select,
+  Popconfirm, message, Typography, Select, Collapse,
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
@@ -242,6 +242,7 @@ export default function PaymentChannels() {
   const formCategory = Form.useWatch('category', channelForm)
   const formProvider = Form.useWatch('provider', channelForm)
   const [saving, setSaving] = useState(false)
+  const [expandedProviders, setExpandedProviders] = useState<string[]>([])
 
   async function load() {
     setLoading(true)
@@ -343,26 +344,21 @@ export default function PaymentChannels() {
     () => [...channels].sort((a, b) => a.provider.localeCompare(b.provider) || a.sortOrder - b.sortOrder || a.id - b.id),
     [channels],
   )
-  const providerRowSpans = useMemo(() => {
-    const spans = new Map<number, number>()
-    for (let start = 0; start < groupedChannels.length;) {
-      let end = start + 1
-      while (end < groupedChannels.length && groupedChannels[end].provider === groupedChannels[start].provider) end++
-      spans.set(start, end - start)
-      for (let i = start + 1; i < end; i++) spans.set(i, 0)
-      start = end
+  const providerGroups = useMemo(() => {
+    const groups = new Map<string, PaymentChannel[]>()
+    for (const channel of groupedChannels) {
+      const list = groups.get(channel.provider) ?? []
+      list.push(channel)
+      groups.set(channel.provider, list)
     }
-    return spans
+    return [...groups.entries()].map(([provider, items]) => ({ provider, items }))
   }, [groupedChannels])
 
+  useEffect(() => {
+    setExpandedProviders((current) => current.length ? current.filter((key) => providerGroups.some((g) => g.provider === key)) : providerGroups.map((g) => g.provider))
+  }, [providerGroups])
+
   const columns: ColumnsType<PaymentChannel> = [
-    {
-      title: '支付商', dataIndex: 'provider', width: 110,
-      render: (v: string, _r: PaymentChannel, index: number) => ({
-        children: providerRowSpans.get(index) ? <Tag color="blue">{v}</Tag> : null,
-        props: { rowSpan: providerRowSpans.get(index) ?? 1 },
-      }),
-    },
     { title: '显示名称', dataIndex: 'label', width: 150 },
     { title: '渠道标识', dataIndex: 'name', width: 100, render: (v: string) => <Tag>{v}</Tag> },
     {
@@ -434,38 +430,48 @@ export default function PaymentChannels() {
         )}
       </div>
 
-      <Table
-        dataSource={groupedChannels}
-        rowKey="id"
-        columns={columns}
-        loading={loading}
-        pagination={false}
-        expandable={{
-          expandedRowRender: (record) => (
-            <div style={{ padding: '8px 16px' }}>
-              {record.category === 'crypto' ? (
-                <Space direction="vertical" size={4}>
-                  <Typography.Text type="secondary">虚拟币 / TG 渠道：开关 + gas 费（币种单位），无权重路由规则。</Typography.Text>
-                  <Typography.Text>
-                    <Tag color="volcano">普通 gas {record.withdrawGasFee ?? 0}</Tag>
-                    {record.withdrawGasDiscountThreshold !== null && record.withdrawGasDiscountFee !== null && (
-                      <Tag color="orange">大于 {record.withdrawGasDiscountThreshold} 时 gas {record.withdrawGasDiscountFee}</Tag>
+      <Collapse
+        activeKey={expandedProviders}
+        onChange={(keys) => setExpandedProviders(Array.isArray(keys) ? keys : [keys])}
+        items={providerGroups.map((group) => ({
+          key: group.provider,
+          label: <Space><Tag color="blue">{group.provider}</Tag><Typography.Text type="secondary">{group.items.length} 个渠道</Typography.Text></Space>,
+          children: (
+            <Table
+              dataSource={group.items}
+              rowKey="id"
+              columns={columns}
+              loading={loading}
+              pagination={false}
+              expandable={{
+                expandedRowRender: (record) => (
+                  <div style={{ padding: '8px 16px' }}>
+                    {record.category === 'crypto' ? (
+                      <Space direction="vertical" size={4}>
+                        <Typography.Text type="secondary">虚拟币 / TG 渠道：开关 + gas 费（币种单位），无权重路由规则。</Typography.Text>
+                        <Typography.Text>
+                          <Tag color="volcano">普通 gas {record.withdrawGasFee ?? 0}</Tag>
+                          {record.withdrawGasDiscountThreshold !== null && record.withdrawGasDiscountFee !== null && (
+                            <Tag color="orange">大于 {record.withdrawGasDiscountThreshold} 时 gas {record.withdrawGasDiscountFee}</Tag>
+                          )}
+                          <Typography.Text type="secondary" style={{ marginLeft: 8 }}>（编辑渠道修改）</Typography.Text>
+                        </Typography.Text>
+                      </Space>
+                    ) : (
+                      <>
+                        <Typography.Text strong style={{ marginBottom: 8, display: 'block' }}>
+                          路由规则（按权重加权随机选择匹配的规则对应渠道）
+                        </Typography.Text>
+                        <RuleTable channel={record} onReload={load} />
+                      </>
                     )}
-                    <Typography.Text type="secondary" style={{ marginLeft: 8 }}>（编辑渠道修改）</Typography.Text>
-                  </Typography.Text>
-                </Space>
-              ) : (
-                <>
-                  <Typography.Text strong style={{ marginBottom: 8, display: 'block' }}>
-                    路由规则（按权重加权随机选择匹配的规则对应渠道）
-                  </Typography.Text>
-                  <RuleTable channel={record} onReload={load} />
-                </>
-              )}
-            </div>
+                  </div>
+                ),
+                rowExpandable: () => true,
+              }}
+            />
           ),
-          rowExpandable: () => true,
-        }}
+        }))}
       />
 
       <Modal
