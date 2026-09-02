@@ -48,3 +48,21 @@ docker compose --profile full up -d --build
 1. 修改或新增 `infra/database/betogo/00N_*.sql`  
 2. 本地：`./scripts/apply-betogo-schema.sh`  
 3. 生产：`CTR=podman ./scripts/apply-betogo-schema.sh` 或重新 `remote-deploy.sh`
+
+## 平台库（包网多租户）
+
+```bash
+# 只跑迁移，不构建不重启（平台库 + 租户库）
+DEPLOY_HOST=... bash deploy/single-node/deploy-fast.sh db
+```
+
+平台库 `betogo_platform` 与租户库分属两套迁移体系，详见 `infra/database/platform/README.md`。
+
+## 两条踩过的坑（改脚本前先看）
+
+1. **容器 `exec` 查询不要加 `-i`**。`podman/docker exec -i` 会抢占 stdin；
+   脚本若通过 `ssh "bash -s" <<'REMOTE'` 喂入，`-i` 会把 heredoc 剩余内容全部吞掉，
+   表现为"命令静默不执行"且无报错。只有显式 `< file` 灌数据时才加 `-i`。
+2. **脚本运行期间绝对不要编辑它**。bash 按偏移量增量读取脚本文件，
+   运行中修改会导致解析错位，出现语法报错甚至执行到错误的分支（曾误重启 core-node）。
+   要改先等它跑完。

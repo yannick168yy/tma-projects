@@ -65,12 +65,13 @@ pe "CREATE TABLE IF NOT EXISTS schema_migrations (
 )"
 
 # 平台库是新库，不做"已有库标记全部已执行"的兜底 —— 必须从 001 老老实实跑
+# 已执行版本一次性取回本地比对：每文件一次 SQL 往返在多租户下会放大成上万次，部署要跑几小时
+PF_APPLIED=$(pq "SELECT version FROM schema_migrations")
 PF_SKIP=0
 for f in $(ls infra/database/platform/[0-9]*.sql 2>/dev/null | sort); do
   [ -f "$f" ] || continue
   ver=$(basename "$f" .sql)
-  done_cnt=$(pq "SELECT COUNT(*) FROM schema_migrations WHERE version='$ver'")
-  if [ "${done_cnt:-0}" -gt 0 ]; then
+  if echo "$PF_APPLIED" | grep -qx "$ver"; then
     PF_SKIP=$((PF_SKIP+1))
     continue
   fi
@@ -121,20 +122,22 @@ MC=$(mq "SELECT COUNT(*) FROM schema_migrations")
 BG=$(mq "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bg_user'")
 if [ "${MC:-0}" -eq 0 ] && [ "${BG:-0}" -gt 0 ]; then
   echo "  [db] 已有数据库，初始化迁移版本记录..."
+  MARK_VALUES=""
   for f in $(ls infra/database/betogo/[0-9]*.sql 2>/dev/null | sort); do
     ver=$(basename "$f" .sql)
-    me "INSERT IGNORE INTO schema_migrations (version) VALUES ('$ver')"
+    MARK_VALUES="${MARK_VALUES}('$ver'),"
   done
+  [ -n "$MARK_VALUES" ] && me "INSERT IGNORE INTO schema_migrations (version) VALUES ${MARK_VALUES%,}"
   echo "  [db] 已标记 $(mq 'SELECT COUNT(*) FROM schema_migrations') 个迁移为已执行"
 fi
 
-# 3. 只执行尚未记录的迁移文件
+# 3. 只执行尚未记录的迁移文件（已执行版本一次性取回，避免每文件一次 SQL 往返）
+APPLIED=$(mq "SELECT version FROM schema_migrations")
 SKIP=0
 for f in $(ls infra/database/betogo/[0-9]*.sql 2>/dev/null | sort); do
   [ -f "$f" ] || continue
   ver=$(basename "$f" .sql)
-  done=$(mq "SELECT COUNT(*) FROM schema_migrations WHERE version='$ver'")
-  if [ "${done:-0}" -gt 0 ]; then
+  if echo "$APPLIED" | grep -qx "$ver"; then
     SKIP=$((SKIP+1))
     continue
   fi
