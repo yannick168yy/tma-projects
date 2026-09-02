@@ -42,6 +42,9 @@ import {
 } from '../../services/exchange-rate.service.js'
 import { getSiteDomainMappings, saveSiteDomainMappings } from '../../services/site-domain.service.js'
 import { getRouteHealth } from '../../services/route-health.service.js'
+import {
+  getRouteChannel, publishRoutesToTelegram, saveRouteChannel,
+} from '../../services/tg-route-publish.service.js'
 
 const router = new Router({ prefix: '/settings' })
 const WIN568_KEY_AUTO_ROTATION_ENABLED_KEY = 'win568_key_auto_rotation_enabled'
@@ -50,6 +53,39 @@ const WIN568_KEY_AUTO_ROTATION_ENABLED_KEY = 'win568_key_auto_rotation_enabled'
 
 router.get('/site-domains', async (ctx) => {
   ok(ctx, await getSiteDomainMappings(ctx.state.redis, ctx.state.env))
+})
+
+// 线路全被封时的旁路发现渠道：把已签名的线路表发到 Telegram 公开频道，
+// App 读 t.me 网页版即可自救，不需要 bot token
+router.get('/site-domains/tg-channel', async (ctx) => {
+  ok(ctx, { channel: await getRouteChannel(ctx.state.env) })
+})
+
+router.put('/site-domains/tg-channel', requireRole('super_admin', 'Only super_admin can manage route channel'), async (ctx) => {
+  const body = ctx.request.body as { channel?: unknown }
+  try {
+    ok(ctx, { channel: await saveRouteChannel(ctx.state.env, String(body.channel ?? '')) })
+  } catch (err) {
+    fail(ctx, 400, err instanceof Error ? err.message : '保存失败')
+  }
+})
+
+router.post('/site-domains/tg-publish', requireRole('super_admin', 'Only super_admin can publish routes'), async (ctx) => {
+  try {
+    const result = await publishRoutesToTelegram(ctx.state.redis, ctx.state.env)
+    await writeAuditLog(ctx.state.env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: 'site_domain_routes_publish_tg',
+      targetType: 'settings',
+      targetId: 'app_route_tg_channel',
+      detail: result,
+      ip: ctx.ip,
+    })
+    ok(ctx, result)
+  } catch (err) {
+    fail(ctx, 502, err instanceof Error ? err.message : '发布失败')
+  }
 })
 
 // 近 24 小时 App 探活结果：成功率骤降通常就是该域名被墙的第一信号

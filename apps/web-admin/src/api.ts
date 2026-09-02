@@ -642,6 +642,12 @@ export interface RouteHealthRow {
 export const getRouteHealth = (market: 'PH' | 'ID') =>
   get<RouteHealthRow[]>(`/admin/settings/site-domains/health?market=${market}`)
 
+export const getRouteTgChannel = () => get<{ channel: string }>('/admin/settings/site-domains/tg-channel')
+export const updateRouteTgChannel = (channel: string) =>
+  put<{ channel: string }>('/admin/settings/site-domains/tg-channel', { channel })
+export const publishRoutesToTg = () =>
+  post<{ channel: string; messageId: number }>('/admin/settings/site-domains/tg-publish', {})
+
 export const getSiteDomainMappings = () => get<SiteDomainMapping[]>('/admin/settings/site-domains')
 export const updateSiteDomainMappings = (mappings: SiteDomainMapping[]) =>
   put<SiteDomainMapping[]>('/admin/settings/site-domains', { mappings })

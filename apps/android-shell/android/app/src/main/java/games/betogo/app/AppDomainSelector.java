@@ -30,6 +30,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 线路选择。可信来源不是 APK 里的域名白名单，而是服务端私钥签名 —— 白名单写死会让
@@ -47,6 +49,10 @@ final class AppDomainSelector {
     private static final int TIMEOUT_MS = 1800;
     /** 粘性域名允许比最快线路慢多少（配合 2 倍系数），单位毫秒 */
     private static final int STICKY_SLACK_MS = 300;
+    /** 旁路发现：线路全挂时去 Telegram 公开频道捞一份新线路表，读网页版不需要 token */
+    private static final String TG_MARKER = "BETOGO-ROUTES-V1:";
+    private static final Pattern TG_PAYLOAD = Pattern.compile(TG_MARKER + "([A-Za-z0-9+/=]+)");
+    private static final int RECOVERY_TIMEOUT_MS = 6000;
 
     private final Context context;
     private final String market = BuildConfig.APP_MARKET;
@@ -82,6 +88,8 @@ final class AppDomainSelector {
                 } catch (Exception ignored) {}
             }
             executor.shutdownNow();
+            // 已知线路全挂 = App 再也拿不到新域名，只能从站外渠道自救
+            if (alive.isEmpty()) alive = recoverFromTelegram(excluded);
             Result selected = choose(alive);
             if (selected != null) {
                 preferences().edit()
@@ -96,6 +104,99 @@ final class AppDomainSelector {
             report(candidates, alive, selected);
             new Handler(Looper.getMainLooper()).post(() -> callback.onSelected(origin, known));
         }).start();
+    }
+
+    /**
+     * 已知线路全被封时的最后一条命：从 Telegram 公开频道网页版读一份线路表。
+     * 载荷带的是与 /app/bootstrap 同一把私钥的签名 —— 频道被冒名或页面被篡改都伪造不出来，
+     * 所以「从站外渠道拿域名」是安全的。读 t.me/s/ 不需要 bot token，APK 里不含任何密钥。
+     */
+    private List<Result> recoverFromTelegram(Set<String> excluded) {
+        String channel = BuildConfig.TG_RECOVERY_CHANNEL.replace("@", "").trim();
+        if (channel.isEmpty()) return new ArrayList<>();
+        List<Candidate> candidates = parseTelegramRoutes(fetchTelegramPage(channel));
+        candidates.removeIf(item -> excluded.contains(item.domain));
+        if (candidates.isEmpty()) return new ArrayList<>();
+
+        List<Result> alive = new ArrayList<>();
+        ExecutorService executor = Executors.newFixedThreadPool(candidates.size());
+        try {
+            List<Future<Result>> futures = new ArrayList<>();
+            for (Candidate candidate : candidates) {
+                futures.add(executor.submit((Callable<Result>) () -> probe(candidate)));
+            }
+            for (Future<Result> future : futures) {
+                try {
+                    Result result = future.get();
+                    if (result != null) alive.add(result);
+                } catch (Exception ignored) {}
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+        return alive;
+    }
+
+    private String fetchTelegramPage(String channel) {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL("https://t.me/s/" + channel).openConnection();
+            connection.setConnectTimeout(RECOVERY_TIMEOUT_MS);
+            connection.setReadTimeout(RECOVERY_TIMEOUT_MS);
+            connection.setInstanceFollowRedirects(true);
+            if (connection.getResponseCode() != 200) return "";
+            StringBuilder raw = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null && raw.length() < 1048576) raw.append(line);
+            }
+            return raw.toString();
+        } catch (Exception ignored) {
+            return "";
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    /** 频道页按时间正序排列，取最后一个匹配即最新一条；验签不过一律丢弃 */
+    private List<Candidate> parseTelegramRoutes(String html) {
+        List<Candidate> result = new ArrayList<>();
+        if (html.isEmpty()) return result;
+        String encoded = "";
+        Matcher matcher = TG_PAYLOAD.matcher(html);
+        while (matcher.find()) encoded = matcher.group(1);
+        if (encoded.isEmpty()) return result;
+        try {
+            JSONObject body = new JSONObject(
+                new String(Base64.decode(encoded, Base64.DEFAULT), StandardCharsets.UTF_8));
+            JSONObject slot = body.optJSONObject(market);
+            if (slot == null) return result;
+            JSONArray domains = slot.optJSONArray("domains");
+            if (domains == null || domains.length() == 0) return result;
+            long issuedAt = slot.optLong("issuedAt", 0);
+            if (issuedAt < preferences().getLong(CACHED_ISSUED_AT + market, 0)) return result;
+
+            StringBuilder signed = new StringBuilder("v1|").append(market).append('|');
+            List<Candidate> parsed = new ArrayList<>();
+            for (int i = 0; i < domains.length(); i++) {
+                JSONObject item = domains.optJSONObject(i);
+                if (item == null) return new ArrayList<>();
+                String raw = item.optString("domain");
+                int priority = item.optInt("priority", 100);
+                if (i > 0) signed.append(',');
+                signed.append(raw).append(':').append(priority);
+                String domain = normalizeDomain(raw);
+                if (domain.isEmpty()) return new ArrayList<>();
+                parsed.add(new Candidate(domain, Math.max(1, priority)));
+            }
+            signed.append('|').append(issuedAt);
+            if (!verify(signed.toString(), slot.optString("signature", ""))) return new ArrayList<>();
+            parsed.sort(Comparator.comparingInt(item -> item.priority));
+            return parsed;
+        } catch (Exception ignored) {
+            return new ArrayList<>();
+        }
     }
 
     /**

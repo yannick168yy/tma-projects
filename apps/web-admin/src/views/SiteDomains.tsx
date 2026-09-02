@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Input, Popconfirm, Select, Space, Switch, Table, Tag, Typography, message } from 'antd'
 import { DeleteOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons'
-import { getRouteHealth, getSiteDomainMappings, updateSiteDomainMappings, type RouteHealthRow, type SiteDomainMapping } from '../api'
+import { getRouteHealth, getRouteTgChannel, getSiteDomainMappings, publishRoutesToTg, updateRouteTgChannel, updateSiteDomainMappings, type RouteHealthRow, type SiteDomainMapping } from '../api'
 import { useAuthStore } from '../stores/auth'
 
 type Row = SiteDomainMapping & { key: string }
@@ -19,6 +19,8 @@ export default function SiteDomains() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [health, setHealth] = useState<Record<string, RouteHealthRow>>({})
+  const [tgChannel, setTgChannel] = useState('')
+  const [tgBusy, setTgBusy] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -31,6 +33,32 @@ export default function SiteDomains() {
   }
 
   useEffect(() => { void load() }, [])
+
+  useEffect(() => {
+    void (async () => {
+      try { setTgChannel((await getRouteTgChannel()).channel) } catch { /* 非关键 */ }
+    })()
+  }, [])
+
+  async function saveTgChannel() {
+    setTgBusy(true)
+    try {
+      setTgChannel((await updateRouteTgChannel(tgChannel)).channel)
+      message.success('频道已保存')
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '保存失败')
+    } finally { setTgBusy(false) }
+  }
+
+  async function publishTg() {
+    setTgBusy(true)
+    try {
+      const r = await publishRoutesToTg()
+      message.success(`已发布到 ${r.channel}（消息 #${r.messageId}）`)
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '发布失败')
+    } finally { setTgBusy(false) }
+  }
 
   useEffect(() => {
     void (async () => {
@@ -93,6 +121,28 @@ export default function SiteDomains() {
         新域名仍需自行完成：DNS 解析到服务器、配置 HTTPS 证书、部署 <code>/.well-known/assetlinks.json</code>。
       </div>}
     />
+    <Card
+      title="线路全被封时的自救频道"
+      extra={editable && <Space>
+        <Input value={tgChannel} placeholder="@频道名" style={{ width: 200 }} onChange={(e) => setTgChannel(e.target.value)} />
+        <Button loading={tgBusy} onClick={() => void saveTgChannel()}>保存频道</Button>
+        <Button type="primary" loading={tgBusy} disabled={!tgChannel} onClick={() => void publishTg()}>发布当前线路</Button>
+      </Space>}
+    >
+      <Typography.Paragraph type="secondary" style={{ marginBottom: 0, lineHeight: 1.9 }}>
+        上面的线路表要靠<b>至少一条线路能访问</b>才能下发给 App。一旦某个市场的域名<b>同时全部被封</b>，App 就再没有任何通道拿到新域名，
+        用户只会看到「Network unavailable」，只能自己找新地址重装 —— 这批人基本就流失了。
+        <br />
+        这里配置一个 <b>Telegram 公开频道</b>作为最后一条命：点「发布当前线路」会把当前线路表<b>连同服务端私钥的签名</b>发到该频道。
+        App 在所有已知线路都探活失败时，会去读 <code>https://t.me/s/频道名</code> 的网页版，取出最新一条载荷、<b>验签通过后</b>用里面的域名重新连接。
+        <br />
+        几个要点：① App 读的是<b>网页版</b>，不需要 bot token，APK 里不含任何密钥；
+        ② 载荷带签名，所以频道被冒名、页面被篡改都伪造不出线路表；
+        ③ bot 必须是该频道的<b>管理员</b>才能发消息；
+        ④ <b>每次改完域名映射都要重新点一次发布</b>，频道里的旧消息不会自动更新；
+        ⑤ 频道名编译在 APK 里，换频道需要重新出包，所以建好后不要轻易换。
+      </Typography.Paragraph>
+    </Card>
     <Card
       extra={editable && <Space>
         <Button icon={<PlusOutlined />} onClick={() => setRows((items) => [...items, { key: `new-${Date.now()}`, domain: '', market: 'ID', enabled: true, appMarket: null, appPriority: 100 }])}>新增域名</Button>

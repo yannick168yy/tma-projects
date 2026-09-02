@@ -61,6 +61,8 @@ android {
     // 线路表验签公钥。空值 = 不校验（仅本地调试）；出包前必须用 gradle.properties 或
     // -PappRoutePublicKey=... 传入，与服务端 APP_ROUTE_SIGNING_KEY 配对。
     def appRoutePublicKey = project.findProperty('appRoutePublicKey') ?: ''
+    // 线路全被封时的旁路发现频道（Telegram 公开频道名，含 @）。留空则不启用自救。
+    def tgRecoveryChannel = project.findProperty('tgRecoveryChannel') ?: ''
 
     // 漏传公钥的 release 包会因为 verify() 失败关闭而完全连不上线路，与其发出去不如构建期就拦住
     gradle.taskGraph.whenReady { graph ->
@@ -80,6 +82,7 @@ android {
             buildConfigField "String", "APP_MARKET", '"PH"'
             buildConfigField "String", "APP_DOMAINS", '"betogo.games,betogo666.com,betogo777.com"'
             buildConfigField "String", "APP_ROUTE_PUBLIC_KEY", "\"${appRoutePublicKey}\""
+            buildConfigField "String", "TG_RECOVERY_CHANNEL", "\"${tgRecoveryChannel}\""
             if (keystorePropsFile.exists()) signingConfig signingConfigs.phRelease
         }
         id {
@@ -90,6 +93,7 @@ android {
             buildConfigField "String", "APP_MARKET", '"ID"'
             buildConfigField "String", "APP_DOMAINS", '"betogo.app,betogo.xyz,betogo.vip"'
             buildConfigField "String", "APP_ROUTE_PUBLIC_KEY", "\"${appRoutePublicKey}\""
+            buildConfigField "String", "TG_RECOVERY_CHANNEL", "\"${tgRecoveryChannel}\""
             if (idKeystorePropsFile.exists()) signingConfig signingConfigs.idRelease
         }
     }
