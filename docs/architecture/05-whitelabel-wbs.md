@@ -30,10 +30,13 @@
   `deploy-fast.sh` 新增 `run_platform_migrations()` 与只跑迁移的 `db` 目标
 - 已在阿里云测试环境验证：3 张表建成、tenant #1 + 11 条域名映射入库、应用账号授权通过
 
-### P0-2 租户上下文（AsyncLocalStorage）· 1d
+### P0-2 租户上下文（AsyncLocalStorage）· 1d ✅ 已完成 2026-09-02
 - 新建 `apps/bff-node/src/lib/tenant-context.ts`：`TenantContext { id, code, database, market, status }`
 - 提供 `runWithTenant()` / `currentTenant()`；无上下文时明确抛错（禁止静默回落到自营站）
 - 验收：单元测试覆盖嵌套调用与异步透传
+- 交付：`apps/bff-node/src/lib/tenant-context.ts` + 7 个用例（异步透传、嵌套、并发不串号、
+  抛错后释放、欠费降级各档位的充提开关），typecheck 通过
+- core-node 侧同一份逻辑在 P0-5 落地（约 40 行，不提前抽公共包）
 
 ### P0-3 租户解析中间件（BFF）· 2d
 - `Host` → 平台库 `pf_tenant_domain` → 租户；Redis 缓存 300s，降级缓存 30s
@@ -76,8 +79,8 @@
 - 注意现有"已有库则标记全部迁移为已执行"的分支（`deploy-fast.sh:60-70`）
   **新建的空库绝不能走这条路径**，否则新站表结构直接是空的
 - 失败中止部署并明确指出是哪个租户库
-- **性能必须重做**：现在是「每个迁移文件一次 `SELECT COUNT(*)` 往返」，223 个文件已经要跑几分钟；
-  50 个租户库 = 上万次往返，一次部署要几小时。改为「一次查出该库全部已执行版本」再本地比对
+- ✅ **性能问题已提前修掉**（随 P0-1 交付）：改为一次取回该库全部已执行版本再本地比对，
+  单库耗时从 >180s 降到 18s；剩余工作是把单库循环扩成遍历租户列表
 - 验收：新建空库能从 `001` 跑到最新（当前 217）全部成功
 
 ### P0-9 日志 / trace / NATS / 对象存储加租户维度 · 2d
