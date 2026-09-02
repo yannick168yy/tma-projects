@@ -7,6 +7,7 @@ import { errorHandler } from './middleware/errorHandler.js'
 import { injectDeps, requestIdMiddleware } from './middleware/requestId.js'
 import { accessLogMiddleware } from './middleware/accessLog.js'
 import { rateLimitMiddleware } from './middleware/rateLimit.js'
+import { tenantMiddleware } from './middleware/tenant.js'
 import { childLogger } from './lib/logger.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
@@ -269,6 +270,7 @@ export function createApp(env: Env): Koa {
   )
   app.use(requestIdMiddleware())
   app.use(injectDeps(env, redis))
+  app.use(tenantMiddleware(env.TENANT_RESOLVE_STRICT))
   if (!env.BFF_DISABLE_RATE_LIMIT) app.use(rateLimitMiddleware())
   app.use(accessLogMiddleware())
   // banner/KYC 图以 base64 data URL 走 JSON 体，5MB 图 base64 后 ~6.7MB，限额需高于此，否则大图上传被 raw-body 拒绝并触发 nginx 504

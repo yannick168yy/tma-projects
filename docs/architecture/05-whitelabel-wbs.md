@@ -38,12 +38,23 @@
   抛错后释放、欠费降级各档位的充提开关），typecheck 通过
 - core-node 侧同一份逻辑在 P0-5 落地（约 40 行，不提前抽公共包）
 
-### P0-3 租户解析中间件（BFF）· 2d
+### P0-3 租户解析中间件（BFF）· 2d ✅ 已完成 2026-09-02
 - `Host` → 平台库 `pf_tenant_domain` → 租户；Redis 缓存 300s，降级缓存 30s
   （直接复用 `site-domain.service.ts` 已验证的降级策略）
 - 未匹配域名的兜底策略需明确（建议 404 + 告警，不默认落到自营站）
 - 挂载位置：`requestId` 之后、鉴权之前
 - 验收：不同 Host 解析到不同租户；平台库抖动时走缓存不影响线上
+- 交付：`clients/platform-mysql.client.ts`（独立小池，默认 4 连接）、`services/tenant.service.ts`、
+  `middleware/tenant.ts`，9 个用例 + 线上验证（Redis 缓存中可见 `188facai.com → tenant#1`）
+- **兜底策略最终定为两段式**：`TENANT_RESOLVE_STRICT=false`（默认，观察期）未登记域名回落自营站
+  并每域名告警一次；`=true` 直接 404。**第一个包网客户上线前必须切 true**
+- 未命中也写缓存（哨兵值 30s），否则乱填 Host 的扫描器能把平台库打满；
+  平台库报错时不写任何缓存，避免把故障态钉进缓存 5 分钟
+- 线上观察发现两件事，均已修：
+  1. 容器启动瞬间 podman DNS 未就绪导致平台库首查失败 → 补 `warmupPlatformMysql()` 六次重试
+     （与既有 `warmupMysql` 同一问题，仓库里早有先例）
+  2. `/health` 探针以 `Host: 127.0.0.1:3000` 直连，永远匹配不到域名 → 中间件放行无租户语义的路径，
+     否则 strict 模式会把健康检查打成 404，容器被判不健康反复重启
 
 ### P0-4 连接池按租户路由（BFF）· 2d
 - 改造 `apps/bff-node/src/clients/mysql.client.ts:20`：`Map<database, Pool>` + 闲置回收

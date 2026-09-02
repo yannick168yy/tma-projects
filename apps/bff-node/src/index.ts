@@ -3,6 +3,7 @@ import { createApp } from './app.js'
 import { logger } from './lib/logger.js'
 import { closeRedis, getRedis } from './clients/redis.client.js'
 import { closeMysql, getStorageMode, warmupMysql, isMysqlEnabled } from './clients/mysql.client.js'
+import { warmupPlatformMysql } from './clients/platform-mysql.client.js'
 import { syncFeatureBonusLockToRedis } from './services/feature-bonus-lock.service.js'
 
 const env = await bootstrapEnv()
@@ -29,6 +30,11 @@ if (isMysqlEnabled(env)) {
     await warmupMysql(env)
   } catch (err) {
     logger.error({ err }, 'mysql warmup failed, starting server anyway')
+  }
+  try {
+    await warmupPlatformMysql()
+  } catch (err) {
+    logger.error({ err }, 'platform mysql warmup failed, starting server anyway')
   }
 }
 

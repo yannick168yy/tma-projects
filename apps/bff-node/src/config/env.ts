@@ -38,6 +38,12 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((v) => v === 'true'),
+  // 租户解析严格模式。false=未登记域名回落自营站并告警（P0 观察期默认）；
+  // true=未登记域名直接 404。第一个包网客户上线前必须切 true，否则别家域名会打到自营库
+  TENANT_RESOLVE_STRICT: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   SESSION_TTL_SECONDS: z.coerce.number().default(86400),
   MARKET_DOMAIN_MAP: z.string()
     .default('{"betogo666.com":"PH","betogo777.com":"PH","betogo.ph":"PH","betogo.xyz":"ID","betogo.vip":"ID","betogo888.com":"ID","betogo.cc":"ID","betogo.games":"PH","betogo.app":"ID"}')
