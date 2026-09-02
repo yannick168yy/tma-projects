@@ -22,6 +22,7 @@ export interface PaymentChannel {
   withdrawGasDiscountThreshold: number | null
   withdrawGasDiscountFee: number | null
   enabled: boolean
+  clientVisible: boolean
   sortOrder: number
   rules: PaymentChannelRule[]
   createdAt: string
@@ -52,7 +53,7 @@ type ChannelRow = RowDataPacket & {
   withdraw_gas_fee: string | number
   withdraw_gas_discount_threshold: string | null
   withdraw_gas_discount_fee: string | null
-  enabled: number; sort_order: number; created_at: Date; updated_at: Date
+  enabled: number; client_visible: number; sort_order: number; created_at: Date; updated_at: Date
 }
 
 type RuleRow = RowDataPacket & {
@@ -75,6 +76,7 @@ function mapChannel(row: ChannelRow, rules: PaymentChannelRule[]): PaymentChanne
     withdrawGasDiscountThreshold: row.withdraw_gas_discount_threshold !== null ? Number(row.withdraw_gas_discount_threshold) : null,
     withdrawGasDiscountFee: row.withdraw_gas_discount_fee !== null ? Number(row.withdraw_gas_discount_fee) : null,
     enabled: row.enabled === 1, sortOrder: row.sort_order,
+    clientVisible: row.client_visible === 1,
     rules,
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
@@ -123,20 +125,20 @@ export async function createChannel(
     withdrawGasFee?: number
     withdrawGasDiscountThreshold?: number | null
     withdrawGasDiscountFee?: number | null
-    enabled: boolean; sortOrder: number
+    enabled: boolean; clientVisible?: boolean; sortOrder: number
   }
 ): Promise<number> {
   const [res] = await pool(env).query<ResultSetHeader>(
     `INSERT INTO payment_channels
-       (name, provider, label, category, deposit_fee_type, deposit_fee_value, withdraw_fee_type, withdraw_fee_value, withdraw_min, withdraw_max, withdraw_gas_fee, withdraw_gas_discount_threshold, withdraw_gas_discount_fee, enabled, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (name, provider, label, category, deposit_fee_type, deposit_fee_value, withdraw_fee_type, withdraw_fee_value, withdraw_min, withdraw_max, withdraw_gas_fee, withdraw_gas_discount_threshold, withdraw_gas_discount_fee, enabled, client_visible, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.name, data.provider, data.label, data.category ?? 'fiat',
       data.depositFeeType ?? 'none', data.depositFeeValue ?? 0,
       data.withdrawFeeType ?? 'none', data.withdrawFeeValue ?? 0,
       data.withdrawMin ?? null, data.withdrawMax ?? null, data.withdrawGasFee ?? 0,
       data.withdrawGasDiscountThreshold ?? null, data.withdrawGasDiscountFee ?? null,
-      data.enabled ? 1 : 0, data.sortOrder,
+      data.enabled ? 1 : 0, data.clientVisible !== false ? 1 : 0, data.sortOrder,
     ]
   )
   return res.insertId
@@ -153,7 +155,7 @@ export async function updateChannel(
     withdrawGasFee: number
     withdrawGasDiscountThreshold: number | null
     withdrawGasDiscountFee: number | null
-    enabled: boolean; sortOrder: number
+    enabled: boolean; clientVisible: boolean; sortOrder: number
   }>
 ): Promise<boolean> {
   const sets: string[] = []
@@ -172,6 +174,7 @@ export async function updateChannel(
   if ('withdrawGasDiscountThreshold' in data) { sets.push('withdraw_gas_discount_threshold = ?'); vals.push(data.withdrawGasDiscountThreshold ?? null) }
   if ('withdrawGasDiscountFee' in data) { sets.push('withdraw_gas_discount_fee = ?'); vals.push(data.withdrawGasDiscountFee ?? null) }
   if (data.enabled !== undefined) { sets.push('enabled = ?'); vals.push(data.enabled ? 1 : 0) }
+  if (data.clientVisible !== undefined) { sets.push('client_visible = ?'); vals.push(data.clientVisible ? 1 : 0) }
   if (data.sortOrder !== undefined) { sets.push('sort_order = ?'); vals.push(data.sortOrder) }
   if (sets.length === 0) return false
   vals.push(id)
@@ -304,6 +307,16 @@ export async function listAvailableChannels(
     minAmount: r.amount_min !== null ? Number(r.amount_min) : null,
     maxAmount: r.amount_max !== null ? Number(r.amount_max) : null,
   }))
+}
+
+// 客户端使用静态支付方式清单；这里返回需直接隐藏的法币渠道，避免关闭后仅灰显。
+export async function listClientHiddenChannels(env: Env): Promise<string[]> {
+  type Row = RowDataPacket & { name: string }
+  const [rows] = await pool(env).query<Row[]>(
+    `SELECT DISTINCT name FROM payment_channels
+     WHERE category = 'fiat' AND client_visible = 0`
+  )
+  return rows.map((r) => r.name)
 }
 
 export interface CryptoChannelState {

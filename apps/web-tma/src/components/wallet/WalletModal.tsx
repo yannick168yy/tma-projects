@@ -11,7 +11,7 @@ import { formatWithdrawRejectReason } from '@/utils/withdrawRejectReason'
 import { useWalletStore, formatBalanceWithCode } from '@/stores/wallet'
 import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import { fetchYfDepositOrders, fetchYfWithdrawOrders, fetchDepositHistory, fetchWithdrawHistory } from '@/api/yfpay'
-import { fetchPaymentChannels, fetchCryptoChannels, createPaymentDeposit, queryPaymentDeposit, createPaymentWithdrawal, type PaymentChannel } from '@/api/payment'
+import { fetchPaymentChannels, fetchHiddenPaymentChannels, fetchCryptoChannels, createPaymentDeposit, queryPaymentDeposit, createPaymentWithdrawal, type PaymentChannel } from '@/api/payment'
 import { fetchTurnoverProgress, type TurnoverProgress } from '@/api/wallet'
 import { fetchMatrixDepositAddress, createMatrixWithdrawal } from '@/api/matrix'
 import { fetchHomeContent } from '@/api/home'
@@ -116,6 +116,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [channelsLoading, setChannelsLoading] = useState(true)
   const [paymentDepositChannels, setPaymentDepositChannels] = useState<PaymentChannel[]>([])
   const [paymentWithdrawChannels, setPaymentWithdrawChannels] = useState<PaymentChannel[]>([])
+  const [hiddenPaymentChannels, setHiddenPaymentChannels] = useState<string[]>([])
   const [cryptoEnabled, setCryptoEnabled] = useState<Record<string, boolean>>({})
   const [cryptoChannelsLoaded, setCryptoChannelsLoaded] = useState(false)
   const [cryptoWithdrawGas, setCryptoWithdrawGas] = useState<Record<string, { gas: number; discountThreshold: number | null; discountFee: number | null }>>({})
@@ -248,12 +249,14 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       void fetchHomeContent(i18n.language).then((content) => setWalletBannerUrl(content.walletBanners[0]?.imageUrl ?? null)).catch(()=>setWalletBannerUrl(null))
       setChannelsLoading(true)
       setCryptoChannelsLoaded(false)
+      setHiddenPaymentChannels([])
       const depP = fetchPaymentChannels('deposit', activeCurrency).then(setPaymentDepositChannels).catch(()=>{})
+      const hiddenP = fetchHiddenPaymentChannels().then(setHiddenPaymentChannels).catch(()=>{})
       const cryP = fetchCryptoChannels().then((list)=>{
         setCryptoEnabled(Object.fromEntries(list.map((c)=>[c.name,c.enabled])))
         setCryptoWithdrawGas(Object.fromEntries(list.map((c)=>[c.name,{gas:c.withdrawGasFee,discountThreshold:c.withdrawGasDiscountThreshold,discountFee:c.withdrawGasDiscountFee}])))
       }).catch(()=>{}).finally(()=>setCryptoChannelsLoaded(true))
-      void Promise.all([depP, cryP]).finally(()=>setChannelsLoading(false))
+      void Promise.all([depP, hiddenP, cryP]).finally(()=>setChannelsLoading(false))
       void fetchPaymentChannels('withdraw', activeCurrency).then(setPaymentWithdrawChannels).catch(()=>{})
     } else { stopPolling() }
     return () => { document.body.style.overflow = '' }
@@ -325,18 +328,18 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
 
   useEffect(() => { return () => { stopPolling() } }, [])
 
-  const liveFiatDeposit = useMemo((): PayMethod[] => FIAT_DEPOSIT.filter((m) => !m.currency || m.currency === activeCurrency).map((m) => {
+  const liveFiatDeposit = useMemo((): PayMethod[] => FIAT_DEPOSIT.filter((m) => (!m.currency || m.currency === activeCurrency) && !hiddenPaymentChannels.includes(m.id)).map((m) => {
     const ch = paymentDepositChannels.find((c) => c.name === m.id)
     if (ch) return { ...m, id: `fiat_${m.id}`, tag: ch.minAmount ? `${fmtPreset(ch.minAmount, activeCurrency)}–${ch.maxAmount ? fmtPreset(ch.maxAmount, activeCurrency) : '∞'}` : 'Instant', enabled: true, channelId: `fiat_${m.id}`, paymentChannelName: m.id, minAmount: ch.minAmount ?? undefined, maxAmount: ch.maxAmount ?? undefined }
     return { ...m, enabled: false }
-  }), [paymentDepositChannels, activeCurrency])
+  }), [paymentDepositChannels, hiddenPaymentChannels, activeCurrency])
 
-  const liveFiatWithdraw = useMemo((): PayMethod[] => FIAT_WITHDRAW.filter((m) => !m.currency || m.currency === activeCurrency).map((m) => {
+  const liveFiatWithdraw = useMemo((): PayMethod[] => FIAT_WITHDRAW.filter((m) => (!m.currency || m.currency === activeCurrency) && !hiddenPaymentChannels.includes(m.id.replace('-w', ''))).map((m) => {
     const channelName = m.id.replace('-w', '')
     const ch = paymentWithdrawChannels.find((c) => c.name === channelName)
     if (ch) return { ...m, enabled: true, paymentChannelName: channelName, minAmount: ch.minAmount ?? undefined, maxAmount: ch.maxAmount ?? undefined, tag: ch.minAmount ? `${fmtPreset(ch.minAmount, activeCurrency)}–${ch.maxAmount ? fmtPreset(ch.maxAmount, activeCurrency) : '∞'}` : m.tag }
     return { ...m, enabled: false }
-  }), [paymentWithdrawChannels, activeCurrency])
+  }), [paymentWithdrawChannels, hiddenPaymentChannels, activeCurrency])
 
   // 虚拟币/TG 渠道开关由后台控制；开关未加载前不使用静态 enabled，避免误选已关闭币种
   const applyCrypto = (list: PayMethod[]) => list.map((m) => cryptoChannelsLoaded && m.id in cryptoEnabled ? { ...m, enabled: cryptoEnabled[m.id] } : { ...m, enabled: false })

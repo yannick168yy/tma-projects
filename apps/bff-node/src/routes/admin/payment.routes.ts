@@ -32,7 +32,7 @@ router.post('/channels', requireRole('super_admin'), async (ctx) => {
     withdrawFeeType?: string; withdrawFeeValue?: unknown
     withdrawMin?: unknown; withdrawMax?: unknown; withdrawGasFee?: unknown
     withdrawGasDiscountThreshold?: unknown; withdrawGasDiscountFee?: unknown
-    enabled?: unknown; sortOrder?: unknown
+    enabled?: unknown; clientVisible?: unknown; sortOrder?: unknown
   }
   if (!body.name || !body.provider || !body.label) {
     fail(ctx, 400, 'name / provider / label 必填'); return
@@ -55,6 +55,7 @@ router.post('/channels', requireRole('super_admin'), async (ctx) => {
     withdrawGasDiscountThreshold: parseAmount(body.withdrawGasDiscountThreshold),
     withdrawGasDiscountFee: parseAmount(body.withdrawGasDiscountFee),
     enabled: body.enabled !== false,
+    clientVisible: body.clientVisible !== false,
     sortOrder: Number(body.sortOrder ?? 0),
   })
   await writeAuditLog(ctx.state.env, {
@@ -73,7 +74,7 @@ router.put('/channels/:id', requireRole('super_admin'), async (ctx) => {
     withdrawFeeType?: string; withdrawFeeValue?: unknown
     withdrawMin?: unknown; withdrawMax?: unknown; withdrawGasFee?: unknown
     withdrawGasDiscountThreshold?: unknown; withdrawGasDiscountFee?: unknown
-    enabled?: unknown; sortOrder?: unknown
+    enabled?: unknown; clientVisible?: unknown; sortOrder?: unknown
   }
   const data: Parameters<typeof updateChannel>[2] = {}
   if (body.provider !== undefined && REMOVED_PAYMENT_PROVIDERS.has(String(body.provider).trim().toLowerCase())) {
@@ -93,6 +94,7 @@ router.put('/channels/:id', requireRole('super_admin'), async (ctx) => {
   if ('withdrawGasDiscountThreshold' in body) data.withdrawGasDiscountThreshold = parseAmount(body.withdrawGasDiscountThreshold)
   if ('withdrawGasDiscountFee' in body) data.withdrawGasDiscountFee = parseAmount(body.withdrawGasDiscountFee)
   if (body.enabled !== undefined) data.enabled = Boolean(body.enabled)
+  if (body.clientVisible !== undefined) data.clientVisible = Boolean(body.clientVisible)
   if (body.sortOrder !== undefined) data.sortOrder = Number(body.sortOrder)
   const updated = await updateChannel(ctx.state.env, id, data)
   if (!updated) { fail(ctx, 404, '渠道不存在'); return }

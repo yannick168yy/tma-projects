@@ -216,6 +216,7 @@ type ChannelFormValues = {
   withdrawGasDiscountThreshold: number | null
   withdrawGasDiscountFee: number | null
   enabled: boolean
+  clientVisible: boolean
   sortOrder: number
 }
 
@@ -256,6 +257,13 @@ export default function PaymentChannels() {
     } catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
   }
 
+  async function handleToggleClientVisible(channel: PaymentChannel, clientVisible: boolean) {
+    try {
+      await updatePaymentChannel(channel.id, { clientVisible })
+      setChannels((prev) => prev.map((c) => c.id === channel.id ? { ...c, clientVisible } : c))
+    } catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
+  }
+
   async function handleDelete(id: number) {
     try { await deletePaymentChannel(id); void load() } catch (e) { message.error(e instanceof Error ? e.message : '删除失败') }
   }
@@ -269,6 +277,7 @@ export default function PaymentChannels() {
         await updatePaymentChannel(channelModal.channel.id, {
           name: vals.name, provider: vals.provider, label: vals.label,
           category: vals.category ?? 'fiat', enabled: vals.enabled, sortOrder: vals.sortOrder ?? 0,
+          clientVisible: vals.clientVisible,
           depositFeeType: vals.depositFeeType ?? 'none',
           depositFeeValue: vals.depositFeeValue ?? 0,
           withdrawFeeType: vals.withdrawFeeType ?? 'none',
@@ -283,6 +292,7 @@ export default function PaymentChannels() {
         await createPaymentChannel({
           name: vals.name, provider: vals.provider, label: vals.label,
           category: vals.category ?? 'fiat', enabled: vals.enabled !== false, sortOrder: vals.sortOrder ?? 0,
+          clientVisible: vals.clientVisible !== false,
           depositFeeType: vals.depositFeeType ?? 'none',
           depositFeeValue: vals.depositFeeValue ?? 0,
           withdrawFeeType: vals.withdrawFeeType ?? 'none',
@@ -305,7 +315,7 @@ export default function PaymentChannels() {
   function openAdd() {
     channelForm.resetFields()
     channelForm.setFieldsValue({
-      enabled: true, sortOrder: 0, category: 'fiat',
+      enabled: true, clientVisible: true, sortOrder: 0, category: 'fiat',
       depositFeeType: 'none', depositFeeValue: 0,
       withdrawFeeType: 'none', withdrawFeeValue: 0,
     })
@@ -315,7 +325,7 @@ export default function PaymentChannels() {
   function openEdit(channel: PaymentChannel) {
     channelForm.setFieldsValue({
       name: channel.name, provider: channel.provider, label: channel.label,
-      category: channel.category ?? 'fiat', enabled: channel.enabled, sortOrder: channel.sortOrder,
+      category: channel.category ?? 'fiat', enabled: channel.enabled, clientVisible: channel.clientVisible, sortOrder: channel.sortOrder,
       depositFeeType: channel.depositFeeType ?? 'none',
       depositFeeValue: channel.depositFeeValue ?? 0,
       withdrawFeeType: channel.withdrawFeeType ?? 'none',
@@ -358,6 +368,17 @@ export default function PaymentChannels() {
           checked={r.enabled}
           disabled={!isSuperAdmin}
           onChange={(v) => handleToggle(r, v)}
+        />
+      ),
+    },
+    {
+      title: '客户端显示',
+      width: 110,
+      render: (_: unknown, r: PaymentChannel) => (
+        <Switch
+          checked={r.clientVisible}
+          disabled={!isSuperAdmin}
+          onChange={(v) => handleToggleClientVisible(r, v)}
         />
       ),
     },
@@ -504,6 +525,9 @@ export default function PaymentChannels() {
             <InputNumber min={0} step={0.01} precision={6} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item label="启用" name="enabled" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Form.Item label="客户端显示（关闭后客户端不展示此渠道）" name="clientVisible" valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>
