@@ -9,7 +9,8 @@
 #   SSH_OPTS="-o StrictHostKeyChecking=no" \
 #   bash deploy/single-node/deploy-fast.sh web-tma
 #
-# 目标（可多个）：web-tma | bff-node | core-node | all
+# 目标（可多个）：db | web-tma | web-admin | bff-node | core-node | all
+#   db = 只跑平台库+租户库迁移，不构建不重启
 
 set -euo pipefail
 
@@ -28,6 +29,64 @@ restart_container() {
     'if command -v podman >/dev/null 2>&1; then podman restart '"$name"';
      elif command -v docker >/dev/null 2>&1; then docker restart '"$name"';
      else echo "未找到 podman/docker" >&2; exit 1; fi'
+}
+
+run_platform_migrations() {
+  echo "==> [db] 同步并执行平台库迁移..."
+  RSYNC_RSH="$RSYNC_RSH" rsync -az \
+    "$ROOT/infra/database/platform/" "$HOST:$DIR/infra/database/platform/"
+  ssh "${SSH_ARGS[@]}" "$HOST" "bash -s" <<'REMOTE'
+cd /root/workspace/tma-projects
+ROOT_PW=$(grep -m1 '^MYSQL_ROOT_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
+APP_USER=$(grep -m1 '^MYSQL_BETOGO_USER=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
+APP_USER=${APP_USER:-betogo}
+PF_DB=betogo_platform
+CTR=$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)
+
+if [ -z "$ROOT_PW" ]; then
+  echo "  [db] .env 缺少 MYSQL_ROOT_PASSWORD，无法建平台库" >&2
+  exit 1
+fi
+
+# root 建库并给应用账号授权（应用账号同时要访问平台库与租户库）
+# 注意：不能加 -i，否则 docker/podman exec 会吞掉 heredoc 剩余脚本
+$CTR exec tma-mysql mysql -uroot -p"$ROOT_PW" -e "
+CREATE DATABASE IF NOT EXISTS \`$PF_DB\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON \`$PF_DB\`.* TO '$APP_USER'@'%';
+FLUSH PRIVILEGES;" 2>/dev/null
+
+pq() { $CTR exec tma-mysql mysql -uroot -p"$ROOT_PW" "$PF_DB" -sN -e "$1" 2>/dev/null; }
+pe() { $CTR exec tma-mysql mysql -uroot -p"$ROOT_PW" "$PF_DB" -e "$1" 2>/dev/null; }
+
+pe "CREATE TABLE IF NOT EXISTS schema_migrations (
+  version     VARCHAR(64) NOT NULL,
+  executed_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (version)
+)"
+
+# 平台库是新库，不做"已有库标记全部已执行"的兜底 —— 必须从 001 老老实实跑
+PF_SKIP=0
+for f in $(ls infra/database/platform/[0-9]*.sql 2>/dev/null | sort); do
+  [ -f "$f" ] || continue
+  ver=$(basename "$f" .sql)
+  done_cnt=$(pq "SELECT COUNT(*) FROM schema_migrations WHERE version='$ver'")
+  if [ "${done_cnt:-0}" -gt 0 ]; then
+    PF_SKIP=$((PF_SKIP+1))
+    continue
+  fi
+  OUT=$($CTR exec -i tma-mysql \
+    mysql --default-character-set=utf8mb4 -uroot -p"$ROOT_PW" "$PF_DB" < "$f" 2>&1)
+  if [ $? -eq 0 ]; then
+    pe "INSERT INTO schema_migrations (version) VALUES ('$ver')"
+    echo "  ran(platform): $f"
+  else
+    echo "  failed(platform): $f — $(echo "$OUT" | grep -v Warning)" >&2
+    exit 1
+  fi
+done
+[ "$PF_SKIP" -gt 0 ] && echo "  [db] 平台库跳过 $PF_SKIP 个已执行迁移"
+echo "  [db] 平台库租户数: $(pq 'SELECT COUNT(*) FROM pf_tenant')"
+REMOTE
 }
 
 run_db_migrations() {
@@ -99,6 +158,11 @@ TARGETS=("${@:-all}")
 
 for TARGET in "${TARGETS[@]}"; do
   case "$TARGET" in
+    db)
+      run_platform_migrations
+      run_db_migrations
+      echo "==> [db] 完成（仅迁移，未重启服务）"
+      ;;
     web-tma)
       echo "==> [web-tma] 本地构建..."
       (cd "$ROOT/apps/web-tma" && npm run build)
@@ -122,6 +186,7 @@ for TARGET in "${TARGETS[@]}"; do
       echo "==> [web-admin] 完成（nginx 即时生效，无需重启）"
       ;;
     bff-node)
+      run_platform_migrations
       run_db_migrations
       echo "==> [bff-node] 本地编译..."
       (cd "$ROOT/apps/bff-node" && npm run build)
@@ -154,7 +219,7 @@ for TARGET in "${TARGETS[@]}"; do
       echo "==> [core-node] 完成"
       ;;
     *)
-      echo "未知目标: $TARGET（可选: web-tma | bff-node | core-node | all）" >&2
+      echo "未知目标: $TARGET（可选: db | web-tma | web-admin | bff-node | core-node | all）" >&2
       exit 1
       ;;
   esac

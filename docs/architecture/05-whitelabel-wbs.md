@@ -21,11 +21,14 @@
 
 > 完成标志：线上功能表现与今天完全一致，但系统内部已按租户隔离，随时可开第二个库。
 
-### P0-1 平台库与独立迁移体系 · 2d
+### P0-1 平台库与独立迁移体系 · 2d ✅ 已完成 2026-09-02
 - 新建 `infra/database/platform/001_init.sql`：`pf_tenant`、`pf_tenant_domain`、`pf_tenant_market`
 - 平台库使用独立的 `schema_migrations`，与租户库迁移目录彻底分开
 - 自营站登记为 tenant #1，`database` 字段填现有 `betogo`（**保留库名，不改名不迁数据**）
 - 验收：平台库可查出 tenant #1 及其全部域名
+- 交付：`infra/database/platform/001_init.sql`、`scripts/apply-platform-schema.sh`、
+  `deploy-fast.sh` 新增 `run_platform_migrations()` 与只跑迁移的 `db` 目标
+- 已在阿里云测试环境验证：3 张表建成、tenant #1 + 11 条域名映射入库、应用账号授权通过
 
 ### P0-2 租户上下文（AsyncLocalStorage）· 1d
 - 新建 `apps/bff-node/src/lib/tenant-context.ts`：`TenantContext { id, code, database, market, status }`
@@ -73,6 +76,8 @@
 - 注意现有"已有库则标记全部迁移为已执行"的分支（`deploy-fast.sh:60-70`）
   **新建的空库绝不能走这条路径**，否则新站表结构直接是空的
 - 失败中止部署并明确指出是哪个租户库
+- **性能必须重做**：现在是「每个迁移文件一次 `SELECT COUNT(*)` 往返」，223 个文件已经要跑几分钟；
+  50 个租户库 = 上万次往返，一次部署要几小时。改为「一次查出该库全部已执行版本」再本地比对
 - 验收：新建空库能从 `001` 跑到最新（当前 217）全部成功
 
 ### P0-9 日志 / trace / NATS / 对象存储加租户维度 · 2d
