@@ -1559,7 +1559,7 @@ export interface PaymentChannel {
   withdrawGasFee: number
   withdrawGasDiscountThreshold: number | null
   withdrawGasDiscountFee: number | null
-  enabled: boolean; sortOrder: number; rules: PaymentChannelRule[]
+  enabled: boolean; clientVisible: boolean; sortOrder: number; rules: PaymentChannelRule[]
   createdAt: string; updatedAt: string
 }
 export type FeeType = 'none' | 'percent' | 'fixed'
@@ -1574,7 +1574,7 @@ export const createPaymentChannel = (data: {
   withdrawGasFee?: number
   withdrawGasDiscountThreshold?: number | null
   withdrawGasDiscountFee?: number | null
-  enabled: boolean; sortOrder: number
+  enabled: boolean; clientVisible?: boolean; sortOrder: number
 }) => post<{ id: number }>('/admin/payment/channels', data)
 
 export const updatePaymentChannel = (id: number, data: Partial<{
@@ -1585,7 +1585,7 @@ export const updatePaymentChannel = (id: number, data: Partial<{
   withdrawGasFee: number
   withdrawGasDiscountThreshold: number | null
   withdrawGasDiscountFee: number | null
-  enabled: boolean; sortOrder: number
+  enabled: boolean; clientVisible: boolean; sortOrder: number
 }>) => req<null>('PUT', `/admin/payment/channels/${id}`, data)
 
 export const deletePaymentChannel = (id: number) =>

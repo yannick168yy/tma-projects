@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
 import { nowIso } from '../utils/format.js'
-import { resolveChannel, listAvailableChannels, listCryptoChannelStates } from '../services/payment-channel.service.js'
+import { resolveChannel, listAvailableChannels, listClientHiddenChannels, listCryptoChannelStates } from '../services/payment-channel.service.js'
 import {
   getDepositChannels as yfpayGetChannels,
   createDeposit as yfpayCreateDeposit,
@@ -85,6 +85,12 @@ router.get('/payment/channels', async (ctx) => {
   // 不用服务商接口覆盖，金额区间始终以后端渠道规则为准。
   const channels = await getCachedAvailableChannels(ctx.state.redis as Redis, ctx.state.env, txType, currency)
   ok(ctx, channels)
+})
+
+// ── GET /payment/hidden-channels ─────────────────────────────────────────────
+
+router.get('/payment/hidden-channels', async (ctx) => {
+  ok(ctx, await listClientHiddenChannels(ctx.state.env))
 })
 
 // ── GET /payment/crypto-channels ───────────────────────────────────────────────

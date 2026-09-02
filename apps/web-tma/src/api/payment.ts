@@ -38,6 +38,10 @@ export async function fetchPaymentChannels(txType: 'deposit' | 'withdraw', curre
   return apiRequest<PaymentChannel[]>(`/payment/channels?txType=${txType}&currency=${currency}`)
 }
 
+export async function fetchHiddenPaymentChannels(): Promise<string[]> {
+  return apiRequest<string[]>('/payment/hidden-channels')
+}
+
 export interface CryptoChannelState {
   name: string
   label: string
