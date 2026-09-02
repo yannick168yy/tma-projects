@@ -1,4 +1,5 @@
 import pino, { type Logger } from 'pino'
+import { currentTenantOrNull } from './tenant-context.js'
 
 let instance: Logger | null = null
 
@@ -10,6 +11,12 @@ function create(): Logger {
   return pino({
     level: level(),
     base: { service: 'bff-node' },
+    // 每条日志自动带租户代号：全链路排障要能按租户下钻，
+    // 用 mixin 就不必改任何一处 log 调用
+    mixin: () => {
+      const tenant = currentTenantOrNull()
+      return tenant ? { tenant: tenant.code } : {}
+    },
     timestamp: pino.stdTimeFunctions.isoTime,
     formatters: {
       level: (label) => ({ level: label }),

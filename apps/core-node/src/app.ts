@@ -14,12 +14,18 @@ import { startSegmentRefreshCron } from './cron/segment-refresh.cron.js'
 import { startRiskSignalRefreshCron } from './cron/risk-signal-refresh.cron.js'
 import { startBiAggregateCron } from './cron/bi-aggregate.cron.js'
 import { env } from './config/env.js'
+import { currentTenantOrNull } from './lib/tenant-context.js'
 
 export async function buildApp() {
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL ?? (env.NODE_ENV === 'production' ? 'info' : 'debug'),
       base: { service: 'core-node' },
+      // 每条日志自动带租户代号，回调排障要能按租户下钻
+      mixin: () => {
+        const tenant = currentTenantOrNull()
+        return tenant ? { tenant: tenant.code } : {}
+      },
       transport: env.NODE_ENV !== 'production'
         ? { target: 'pino-pretty', options: { colorize: true } }
         : undefined,

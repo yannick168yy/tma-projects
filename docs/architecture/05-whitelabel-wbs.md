@@ -194,10 +194,23 @@
 - **Codex 提交的 218（支付渠道展示开关）已验证兼容**：新租户库里
   `payment_channels.client_visible` 正常建出，该功能代码走 `getMysqlPool(env)`，天然按租户路由
 
-### P0-9 日志 / trace / NATS / 对象存储加租户维度 · 2d
+### P0-9 日志 / trace / NATS / 对象存储加租户维度 · 2d ✅ 已完成 2026-09-02
 - 日志与 trace 全链路带 `tenantCode`
-- NATS subject：`tenant.{code}.wallet.ledger`
+  → 用 pino 的 `mixin`（BFF `lib/logger.ts`、core-node Fastify logger 配置）从
+  AsyncLocalStorage 取租户，**零调用点改动**，所有日志自动带 `tenant` 字段。
+  线上实测：BFF `http` 日志与 core-node 回调日志都带上了 `tenant=betogo`。
+  唯一例外是 Fastify 内置的 `incoming request`，它在路由前触发、早于租户解析，取不到；
+  与之配对的响应日志和错误日志都有，排障不受影响。
 - 对象存储路径按租户前缀隔离
+  → `TenantScopedStorage` 包装层，规则与 Redis 前缀一致：自营站空前缀（存量文件 key
+  已写进库，不能变），新租户 `t{id}/`。4 个用例覆盖。
+  **`put()` 必须返回未加前缀的 key** —— 返回带前缀的会被写进库，
+  下次 `get()` 再加一次前缀就成了 `t2/t2/...` 永远读不到（与 Redis `keys()` 同类的双重前缀坑）。
+- **NATS subject 决定不按租户拆分**，改为消息体带 `tenantCode`（P0-7 已实现）。
+  理由：拆 subject 要改 stream 配置且会让部署切换瞬间的在途消息失配，而 P0 阶段
+  拿不到任何额外隔离收益 —— 消费者已能按 `tenantCode` 正确路由到各自的库。
+  真正需要拆分的场景是「按租户独立扩容消费者」或「隔离毒消息」，
+  前者属 P3 规模化议题，后者已由 `max_deliver=5` + `nak` 覆盖。
 
 ### P0-10 跨租户越权测试套件 · 3d
 - 覆盖方案文档第 9 节 6 条清单，全部自动化

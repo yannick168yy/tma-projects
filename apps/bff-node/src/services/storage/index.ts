@@ -2,6 +2,7 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import type { Env } from '../../config/env.js'
+import { currentTenantOrNull } from '../../lib/tenant-context.js'
 
 export interface StorageProvider {
   /** 存入二进制，返回可持久化的 key */
@@ -90,10 +91,40 @@ class S3Storage implements StorageProvider {
   }
 }
 
-export function getStorageProvider(env: Env): StorageProvider {
-  if (env.S3_BUCKET) {
-    if (!env.S3_REGION) throw new Error('S3_REGION is required when S3_BUCKET is set')
-    return new S3Storage(env)
+/**
+ * 按租户隔离存储路径。与 Redis 前缀同一套规则：自营站前缀为空，
+ * 存量文件的 key 已经写进数据库，不能变；新租户从 `t{id}/` 起步，两边永不冲突。
+ */
+class TenantScopedStorage implements StorageProvider {
+  constructor(private readonly inner: StorageProvider) {}
+
+  private scope(key: string): string {
+    const tenant = currentTenantOrNull()
+    return !tenant || tenant.selfOperated ? key : `t${tenant.id}/${key}`
   }
-  return new LocalStorage(env.KYC_STORAGE_DIR)
+
+  async put(key: string, data: Buffer, mimeType: string): Promise<string> {
+    await this.inner.put(this.scope(key), data, mimeType)
+    // 必须返回未加前缀的 key：它会被写进租户自己的库，
+    // 存了带前缀的 key，下次 get 再加一次前缀就变成 t2/t2/... 永远读不到
+    return key
+  }
+
+  exists(key: string): Promise<boolean> {
+    return this.inner.exists(this.scope(key))
+  }
+
+  get(key: string): Promise<{ data: Buffer; mimeType: string } | null> {
+    return this.inner.get(this.scope(key))
+  }
+}
+
+export function getStorageProvider(env: Env): StorageProvider {
+  const base = env.S3_BUCKET
+    ? (() => {
+        if (!env.S3_REGION) throw new Error('S3_REGION is required when S3_BUCKET is set')
+        return new S3Storage(env)
+      })()
+    : new LocalStorage(env.KYC_STORAGE_DIR)
+  return new TenantScopedStorage(base)
 }
