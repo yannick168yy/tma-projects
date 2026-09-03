@@ -1,3 +1,8 @@
+# ⚠️ 这两个值必须与生产实际运行值一致。
+# 历史教训：生产实际跑的是 max_connections=200 / buffer_pool=8G（手工设的），
+# 而仓库里四处脚本与 compose 都写着 50 / 48M~128M。
+# 任何一条重建路径都会把缓冲池打回 1/64，全站查询雪崩且无任何报错。
+# 改这里之前先确认目标机器的内存，用 MYSQL_MAX_CONN / MYSQL_BUFFER_POOL 覆盖。
 # 生产 compose：web + BFF + core-node + Redis + NATS + 容器 MySQL
 #   docker compose -f deploy/single-node/docker-compose.prod.yml up -d --build
 
@@ -18,8 +23,9 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-authentication-plugin=mysql_native_password
-      - --max_connections=50
-      - --innodb_buffer_pool_size=128M
+      # 见文件顶部关于 MySQL 资源参数的说明
+      - --max_connections=${MYSQL_MAX_CONN:-200}
+      - --innodb_buffer_pool_size=${MYSQL_BUFFER_POOL:-8G}
       - --performance_schema=OFF
       - --table_open_cache=200
     healthcheck:

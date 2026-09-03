@@ -17,8 +17,10 @@ MEM_NATS="${MEM_NATS:-64m}"
 MEM_CORE="${MEM_CORE:-192m}"
 MEM_BFF="${MEM_BFF:-256m}"
 MEM_WEB="${MEM_WEB:-64m}"
-MYSQL_BUFFER_POOL="${MYSQL_BUFFER_POOL:-128M}"
-MYSQL_MAX_CONN="${MYSQL_MAX_CONN:-50}"
+# 默认值对齐生产实际运行值（4C/15G 机器）。小机器上务必用环境变量覆盖，
+# 否则 8G 缓冲池会把机器打爆。
+MYSQL_BUFFER_POOL="${MYSQL_BUFFER_POOL:-8G}"
+MYSQL_MAX_CONN="${MYSQL_MAX_CONN:-200}"
 REDIS_MAXMEM="${REDIS_MAXMEM:-64mb}"
 
 if [[ "$CTR" != podman ]] && [[ "$CTR" != docker ]]; then
