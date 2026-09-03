@@ -71,3 +71,28 @@ export interface TenantDetail extends PlatformTenant {
 export const getTenantDetail = (id: number) => get<TenantDetail>(`/platform/tenants/${id}`)
 export const updateTenantStatus = (id: number, status: string) =>
   put<{ id: number; status: string }>(`/platform/tenants/${id}/status`, { status })
+
+// ── 套餐 ──
+export interface PlatformPlan { code: string; name: string; description: string | null }
+export const listPlatformPlans = () => get<PlatformPlan[]>('/platform/plans')
+
+// ── 一键开站 ──
+export interface ProvisionRequest {
+  code: string
+  name: string
+  markets: Array<{ market: string; currency: string; timezone: string }>
+  domains: Array<{ domain: string; market: string }>
+  planCode: string
+  adminUsername: string
+  adminPassword: string
+  poolMin?: number
+  poolMax?: number
+}
+export interface ProvisionResult {
+  tenantId: number
+  database: string
+  tables: number
+  seededRows: Record<string, number>
+  smoke: { ok: boolean; checks: Array<{ name: string; ok: boolean; detail: string }> }
+}
+export const provisionTenant = (body: ProvisionRequest) => post<ProvisionResult>('/platform/tenants', body)

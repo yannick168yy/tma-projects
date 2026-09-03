@@ -61,6 +61,12 @@ export function createPlatformRouter(): Router {
     })))
   })
 
+  router.get('/plans', auth, async (ctx) => {
+    const [rows] = await getPlatformPool().query<RowDataPacket[]>(
+      'SELECT code, name, description FROM pf_plan WHERE enabled = 1 ORDER BY id')
+    ok(ctx, rows.map((r) => ({ code: r.code, name: r.name, description: r.description })))
+  })
+
   // 一键开站：建库 → 基线建表 → 种子配置 → 平台库登记 → 冒烟自检
   router.post('/tenants', platformAuthMiddleware('platform_super'), async (ctx) => {
     const b = ctx.request.body as Partial<ProvisionInput>

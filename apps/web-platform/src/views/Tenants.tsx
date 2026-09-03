@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button, Card, Table, Tag, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { listPlatformTenants, type PlatformTenant } from '../api'
+import { useAuthStore } from '../stores/auth'
 
 const STATUS: Record<string, { text: string; color: string }> = {
   trial: { text: '试用', color: 'blue' },
@@ -14,6 +15,7 @@ const STATUS: Record<string, { text: string; color: string }> = {
 
 export default function Tenants() {
   const nav = useNavigate()
+  const role = useAuthStore((s) => s.role)
   const [rows, setRows] = useState<PlatformTenant[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -27,7 +29,10 @@ export default function Tenants() {
   }, [])
 
   return (
-    <Card title="租户总览">
+    <Card
+      title="租户总览"
+      extra={role === 'platform_super' && <Button type="primary" onClick={() => nav('/tenants/new')}>一键开站</Button>}
+    >
       <Table
         rowKey="id"
         dataSource={rows}
