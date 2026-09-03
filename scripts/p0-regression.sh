@@ -102,8 +102,19 @@ fi
 T=$(r betogo_platform -e "SELECT COUNT(*) FROM pf_tenant")
 D=$(r betogo_platform -e "SELECT COUNT(*) FROM pf_tenant_domain")
 if [ "${T:-0}" -ge 1 ] && [ "${D:-0}" -ge 1 ]; then ok "平台库租户 $T 个 / 域名 $D 条"; else bad "平台库数据异常：租户 ${T:-空} 域名 ${D:-空}"; fi
-STRAY=$(podman exec tma-redis redis-cli --scan --pattern 't[0-9]*:*' 2>/dev/null | wc -l)
-if [ "${STRAY:-0}" -eq 0 ]; then ok "无残留租户前缀键（自营站键名未被污染）"; else bad "存在 $STRAY 个残留 t*: 键"; fi
+# 断言的是「自营站键名没被污染」，不是「不存在租户键」——
+# 有了真实租户之后 t<id>: 键是正常产物，只有不属于任何已知租户的才是残留。
+KNOWN=$(r betogo_platform -e "SELECT GROUP_CONCAT(CONCAT('t',id,':')) FROM pf_tenant WHERE self_operated=0")
+STRAY=0
+for k in $(podman exec tma-redis redis-cli --scan --pattern 't[0-9]*:*' 2>/dev/null | sed 's/\(t[0-9]*:\).*/\1/' | sort -u); do
+  case ",$KNOWN," in *",$k,"*|*"$k"*) ;; *) STRAY=$((STRAY+1)); echo "     未知前缀: $k";; esac
+done
+SELF_PREFIXED=$(podman exec tma-redis redis-cli --scan --pattern 't1:*' 2>/dev/null | wc -l)
+if [ "${STRAY:-0}" -eq 0 ] && [ "${SELF_PREFIXED:-0}" -eq 0 ]; then
+  ok "自营站键名未被污染，租户键前缀均属已知租户（$KNOWN）"
+else
+  bad "残留未知前缀 $STRAY 个 / 自营站被加前缀的键 $SELF_PREFIXED 个"
+fi
 
 echo
 echo "── 6. 日志错误扫描（最近 200 行）──"

@@ -32,6 +32,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   --memory=256m --memory-swap=256m \
   -p 127.0.0.1:3000:3000 \
   -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
+  -v "$DIR/infra/database":/app/infra/database:ro \
   -v "${DIR}/data/kyc:/app/data/kyc" \
   -v "${DIR}/backups:/app/data/backups" \
   -e NODE_ENV=production \
@@ -62,6 +63,9 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e TENANT_RESOLVE_STRICT="${TENANT_RESOLVE_STRICT:-false}" \
   -e PLATFORM_ADMIN_USERNAME="${PLATFORM_ADMIN_USERNAME:-}" \
   -e PLATFORM_ADMIN_PASSWORD="${PLATFORM_ADMIN_PASSWORD:-}" \
+  -e MYSQL_PROVISION_USER="${MYSQL_PROVISION_USER:-}" \
+  -e MYSQL_PROVISION_PASSWORD="${MYSQL_PROVISION_PASSWORD:-}" \
+  -e SCHEMA_BASELINE_PATH="${SCHEMA_BASELINE_PATH:-/app/infra/database/betogo/schema_baseline.sql}" \
   -e ADMIN_NOTIFY_ENV_LABEL="${ADMIN_NOTIFY_ENV_LABEL:-}" \
   -e SESSION_TTL_SECONDS="${SESSION_TTL_SECONDS:-86400}" \
   -e MARKET_DOMAIN_MAP="${MARKET_DOMAIN_MAP:-}" \

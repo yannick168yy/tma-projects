@@ -534,7 +534,7 @@ CREATE TABLE `bg_exchange_rate` (
   `fetched_at` datetime(3) NOT NULL COMMENT '抓取时间',
   PRIMARY KEY (`id`),
   KEY `idx_pair_fetched` (`currency_from`,`currency_to`,`fetched_at` DESC)
-) ENGINE=InnoDB AUTO_INCREMENT=61436 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='第三方汇率快照，每小时刷新一次';
+) ENGINE=InnoDB AUTO_INCREMENT=61739 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='第三方汇率快照，每小时刷新一次';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -736,7 +736,7 @@ CREATE TABLE `bg_login_log` (
   KEY `idx_login_log_fp` (`fp_visitor`),
   KEY `idx_login_log_entry_source` (`entry_source`),
   KEY `idx_created` (`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=3489 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户登录历史';
+) ENGINE=InnoDB AUTO_INCREMENT=3490 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户登录历史';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -770,7 +770,7 @@ CREATE TABLE `bg_payment_callback_issue` (
   PRIMARY KEY (`id`),
   KEY `idx_provider_created` (`provider`,`created_at`),
   KEY `idx_unresolved` (`resolved`,`notified`,`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支付回调异常与对账问题';
+) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支付回调异常与对账问题';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -893,7 +893,7 @@ CREATE TABLE `bg_redep_offer` (
   PRIMARY KEY (`id`),
   KEY `idx_user_ends` (`user_id`,`ends_at`),
   KEY `idx_user_starts` (`user_id`,`starts_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='复充限时优惠触发窗口（每窗口一次，参数快照）';
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='复充限时优惠触发窗口（每窗口一次，参数快照）';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -931,7 +931,7 @@ CREATE TABLE `bg_regular_redep_claim` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_regular_redep_order` (`order_id`),
   KEY `idx_regular_redep_user` (`user_id`,`status`,`expires_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='常规复充赠金待领取资格';
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='常规复充赠金待领取资格';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -979,7 +979,7 @@ CREATE TABLE `bg_risk_hit_log` (
   KEY `idx_user_created` (`user_id`,`created_at`),
   KEY `idx_checkpoint_created` (`checkpoint`,`created_at`),
   KEY `idx_action` (`action`)
-) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='风控命中日志';
+) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='风控命中日志';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -1414,7 +1414,7 @@ CREATE TABLE `bg_turnover_requirements` (
   KEY `idx_user_status` (`user_id`,`status`),
   KEY `idx_expires` (`expires_at`,`status`),
   KEY `idx_turnover_req_user_currency_status` (`user_id`,`currency`,`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=140 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户流水要求';
+) ENGINE=InnoDB AUTO_INCREMENT=143 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户流水要求';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -1596,7 +1596,7 @@ CREATE TABLE `bg_user_tag` (
   UNIQUE KEY `uniq_user_tag` (`user_id`,`tag_code`),
   KEY `idx_tag_code` (`tag_code`),
   KEY `idx_source` (`source`)
-) ENGINE=InnoDB AUTO_INCREMENT=885 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户风控标签（人工优先于自动）';
+) ENGINE=InnoDB AUTO_INCREMENT=908 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户风控标签（人工优先于自动）';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -2119,7 +2119,7 @@ CREATE TABLE `provider_balance_snapshot_history` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_provider_created_at` (`provider`,`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=4261 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='支付服务商余额快照历史';
+) ENGINE=InnoDB AUTO_INCREMENT=4319 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='支付服务商余额快照历史';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -2190,11 +2190,9 @@ CREATE TABLE `tg_broadcast_fail` (
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
-LOCK TABLES `schema_migrations` WRITE;
 /*!40000 ALTER TABLE `schema_migrations` DISABLE KEYS */;
 INSERT INTO `schema_migrations` VALUES ('001_schema','2026-06-12 03:02:53'),('002_payment_order','2026-06-12 03:02:53'),('003_sg_games','2026-06-12 03:02:54'),('004_admin','2026-06-12 03:02:54'),('005_user_activity','2026-06-12 03:02:54'),('006_admin_settings_geo','2026-06-12 03:02:54'),('007_wallet_ledger_admin_adjust','2026-06-12 03:02:54'),('008_consolidate_order_tables','2026-06-12 03:02:55'),('009_fix_comments_and_cleanup','2026-06-12 03:02:55'),('010_drop_legacy_order_tables','2026-06-12 03:02:55'),('011_alter_columns','2026-06-12 03:02:55'),('012_cs_tables','2026-06-12 03:02:56'),('013_cs_user_id_varchar','2026-06-12 03:02:56'),('014_currency_settlement','2026-06-12 03:02:56'),('015_add_column_comments','2026-06-12 03:02:56'),('016_unify_amounts_to_yuan','2026-06-12 03:02:56'),('017_sg_games_expand','2026-06-12 03:02:57'),('018_sg_games_enrichment','2026-06-12 03:02:57'),('019_fix_faq_encoding','2026-06-12 03:02:57'),('020_sg_games_weight_breakdown','2026-06-12 03:02:57'),('021_sg_games_ph_bonus_column','2026-06-12 03:02:58'),('022_fix_bingo_sort_category','2026-06-12 03:02:58'),('023_pinoy_sort_category','2026-06-12 03:02:58'),('024_game_name_i18n','2026-06-12 03:02:58'),('025_matrix_orders','2026-06-12 03:02:58'),('026_team_node','2026-06-12 03:02:59'),('027_team_optin','2026-06-12 03:02:59'),('028_wallet_ledger_team_type','2026-06-12 03:02:59'),('029_team_indexes','2026-06-12 03:02:59'),('030_drop_payment_order','2026-06-12 03:03:00'),('031_multicurrency_wallet','2026-06-12 03:03:00'),('032_drop_old_order_tables','2026-06-12 03:03:00'),('033_fix_collation','2026-06-12 03:03:00'),('034_add_admin_rejected_status','2026-06-12 03:03:00'),('035_promo_config','2026-06-12 03:03:01'),('036_turnover_system','2026-06-12 03:03:01'),('037_multi_currency','2026-06-12 03:03:01'),('038_commission_fx','2026-06-12 03:03:01'),('039_fix_commission_unique_key','2026-06-12 03:03:02'),('040_bet_order_currency_varchar','2026-06-12 03:03:02'),('041_currency_code_varchar16','2026-06-12 03:03:02'),('042_currency_code_varchar32','2026-06-12 03:03:02'),('043_drop_dead_tables','2026-06-12 03:03:03'),('044_daily_turnover_settlement','2026-06-12 03:03:03'),('045_turnover_currency_varchar32','2026-06-12 03:03:03'),('046_fix_table_comments','2026-06-12 03:03:03'),('047_fix_table_comments_utf8','2026-06-12 03:03:03'),('048_commission_period_char10','2026-06-12 03:03:04'),('049_update_default_rate_plan','2026-06-12 08:36:40'),('050_rebate_system','2026-06-13 01:49:56'),('051_auth_password','2026-06-13 12:34:34'),('052_kyc','2026-06-13 12:56:58'),('053_email_unique','2026-06-13 17:57:34'),('054_telegram_oidc_sub','2026-06-14 08:17:32'),('055_withdraw_auto_review','2026-06-14 08:35:53'),('056_withdraw_review_module','2026-06-14 09:05:39'),('057_kyc_steps','2026-06-14 11:05:02'),('058_kyc_reviewed_by','2026-06-14 11:26:28'),('059_kyc_user_override','2026-06-14 12:44:23'),('060_kyc_doc_log','2026-06-15 01:03:27'),('061_team_withdrawal_review','2026-06-15 01:32:48'),('062_payment_channels','2026-06-15 09:53:41'),('063_payment_rule_tx_type','2026-06-15 10:07:30'),('064_payment_channel_category','2026-06-15 13:15:19'),('065_provider_balance_snapshot','2026-06-15 16:12:32'),('066_rebate_levels','2026-06-16 02:39:32'),('067_rebate_max_bonus','2026-06-16 05:37:19'),('068_rewards_spin','2026-06-17 07:07:37'),('069_spin_tiers','2026-06-17 07:24:42'),('070_yfpay_withdraw_limits','2026-06-17 11:43:16'),('071_spin_fixed_levels','2026-06-17 14:49:00'),('072_spin_high_level_prizes','2026-06-18 01:57:18'),('073_drop_dead_promo_game_session','2026-06-18 12:07:13'),('074_provider_balance_snapshot_history','2026-06-19 01:38:20'),('075_payment_channel_fees','2026-06-19 01:49:43'),('076_agent','2026-06-19 04:27:43'),('077_agent_channel_registry','2026-06-19 12:35:17'),('078_drop_sg_settlement_report','2026-06-19 07:56:45'),('079_team_withdraw_auto_review','2026-06-19 13:19:40'),('080_home_content','2026-06-20 03:30:25'),('081_home_content_deeplink','2026-06-20 12:11:45'),('082_firstdep_tiers','2026-06-21 14:15:36'),('082_home_card_text','2026-06-20 14:13:18'),('083_wallet_banner_home_content','2026-06-21 15:31:58'),('084_review_config_scope','2026-06-22 13:12:08'),('085_kyc_badge_ignored','2026-06-22 14:21:02'),('086_drop_user_profile','2026-06-22 14:44:36'),('087_user_identity','2026-06-25 13:47:39'),('088_sms_daily_limit_setting','2026-06-26 13:18:43'),('089_sms_daily_ip_limit_setting','2026-06-26 13:27:42'),('090_otp_lock_seconds_setting','2026-06-26 13:36:20'),('091_kyc_failure_limits','2026-06-26 14:02:47'),('092_login_password_lock_settings','2026-06-26 14:38:23'),('093_admin_totp','2026-06-28 14:10:35'),('094_568win_integration','2026-07-02 00:17:41'),('095_568win_report_bets','2026-07-02 14:57:35'),('096_568win_key_auto_rotation','2026-07-02 15:37:05'),('097_568win_games','2026-07-02 15:49:02'),('098_568win_game_composite_key','2026-07-03 00:03:33'),('099_568win_game_override','2026-07-03 12:20:33'),('100_568win_game_comments','2026-07-03 12:58:43'),('101_568win_override_enrichment','2026-07-03 13:22:33'),('102_568win_txn_unique_fix','2026-07-03 13:48:30'),('103_568win_site_category','2026-07-03 14:33:47'),('104_568win_web_enrichment','2026-07-03 15:21:12'),('105_game_icon_dimensions','2026-07-04 05:44:07'),('105_gemini_search_quota','2026-07-04 09:28:03'),('106_image_override_source','2026-07-04 14:43:32'),('107_image_anim','2026-07-04 16:01:31'),('108_cover_candidate','2026-07-04 16:13:57'),('108_game_launch_history','2026-07-05 09:47:00'),('109_drop_ai_enrichment_fields','2026-07-05 10:22:50'),('109_homepage_section_game','2026-07-05 03:02:58'),('110_drop_sg_games','2026-07-05 10:59:20'),('111_review_rules_568win','2026-07-05 14:32:03'),('112_cs_escalation','2026-07-05 14:56:28'),('113_app_download_bonus','2026-07-05 14:56:30'),('114_team_review_rules','2026-07-06 00:18:12'),('115_remove_deprecated_crypto','2026-07-06 05:58:02'),('116_category_sort_game','2026-07-06 13:35:23'),('117_channel_deposit_bonus','2026-07-06 14:25:40'),('118_drop_channel_deposit_bonus','2026-07-06 15:55:26'),('119_login_device','2026-07-07 01:11:32'),('120_team_same_ip_device_param','2026-07-07 02:56:21'),('121_daily_checkin','2026-07-07 05:19:07'),('122_trial_turnover_3x','2026-07-07 12:22:09'),('123_user_segment','2026-07-07 12:56:29'),('124_spin_checkin_tab','2026-07-07 15:11:47'),('125_spin_checkin_tiers','2026-07-07 15:28:00'),('126_vip_growth','2026-07-08 06:48:03'),('127_vip_phase2','2026-07-08 07:50:43'),('128_task_system','2026-07-08 10:11:46'),('129_add_missing_comments','2026-07-08 14:41:48'),('130_user_entry_source','2026-07-09 05:45:13'),('131_risk_control','2026-07-10 04:02:32'),('132_drop_bind_telegram_task','2026-07-11 02:18:09'),('133_ledger_balance_after_decimal','2026-07-11 16:35:44'),('134_provider_normalize','2026-07-12 01:30:25'),('135_provider_weight','2026-07-12 02:58:01'),('136_redep_offer','2026-07-12 08:12:45'),('137_drop_slotegrator_aggregator','2026-07-12 13:19:22'),('138_loss_rebate','2026-07-12 14:09:32'),('139_promo_config_value_text','2026-07-12 14:42:07'),('140_568win_player_multicurrency','2026-07-13 10:34:41'),('141_multicurrency_vip_ledger','2026-07-13 12:42:53'),('142_task_claim_currency','2026-07-13 13:28:10'),('143_promo_multicurrency','2026-07-13 14:04:00'),('144_spin_multicurrency','2026-07-13 14:43:01'),('145_drop_unused_tables','2026-07-14 06:43:21'),('146_fix_usdt_vip_lv2_bonus','2026-07-14 11:55:31'),('147_cs_session_lifecycle','2026-07-15 02:13:53'),('148_virtual_game_config','2026-07-15 07:17:18'),('149_bet_round','2026-07-16 07:01:25'),('150_user_id_seq','2026-07-16 12:33:30'),('151_turnover_total_accumulator','2026-07-16 14:00:09'),('152_drop_account_identity','2026-07-17 05:43:38'),('153_normalize_kyc_id_no','2026-07-17 06:14:53'),('154_cs_agent_name','2026-07-17 07:03:58'),('155_community_marketing','2026-07-18 11:47:36'),('156_tg_broadcast','2026-07-19 14:03:10'),('157_bi_daily_tables','2026-07-20 07:15:47'),('158_bi_user_daily','2026-07-20 07:37:58'),('159_bi_daily_channel','2026-07-20 07:55:03'),('160_update_telegram_social_channel','2026-07-21 01:35:03'),('161_matrix_usdt_usdc_deposit_channels','2026-07-21 02:49:14'),('162_enable_matrix_usdc','2026-07-21 06:35:14'),('163_firstdep_tiers_adjust','2026-07-22 01:45:26'),('164_yfpay_limits_and_gotyme','2026-07-22 01:45:27'),('165_rename_virtual_sportsbook','2026-07-22 05:00:34'),('166_crypto_withdraw_limits','2026-07-23 03:40:11'),('167_crypto_withdraw_gas_fee','2026-07-23 04:02:37'),('168_crypto_gas_discount','2026-07-23 05:37:49'),('169_ad_attribution','2026-07-24 13:31:30'),('170_pending_install','2026-07-25 01:57:54'),('171_pending_install_key_index','2026-07-25 02:56:44'),('172_capi_pixel_token','2026-07-25 10:25:38'),('173_capi_test_event_code','2026-07-25 13:25:11'),('174_capi_promo_domain','2026-07-26 08:10:34'),('175_capi_channel_code','2026-07-26 09:13:00'),('176_ad_channel_price','2026-07-26 15:00:46'),('177_turnover_base_amount','2026-07-27 01:25:59'),('178_widen_report_bet_ref_no','2026-07-27 03:23:35'),('179_withdraw_user_reject_reason','2026-07-27 05:08:05'),('180_appdl_claim_device','2026-07-27 06:32:38'),('180_cs_ai_summary','2026-07-27 06:22:59'),('181_withdraw_deposit_ratio_rule','2026-07-27 10:15:54'),('182_promo_claim_whitelist','2026-07-27 10:52:54'),('183_review_thresholds_to_yuan','2026-07-27 11:11:55'),('184_login_platform','2026-07-27 13:17:58'),('185_announcement','2026-07-28 02:00:20'),('186_homepage_frozen_board','2026-07-28 07:23:18'),('187_withdraw_kyc_name_rules','2026-07-28 11:05:07'),('188_split_same_ip_device_review_rules','2026-07-28 12:33:26'),('189_withdraw_review_scoring','2026-07-28 13:14:04'),('190_feature_bonus_ratio_rule','2026-07-29 09:40:25'),('190_promo_device_dedup_policy','2026-07-28 15:30:00'),('191_bet_order_created_index','2026-08-01 08:44:29'),('192_homepage_section_visibility','2026-08-01 10:05:29'),('193_task_checkin_indexes','2026-08-01 15:20:18'),('194_same_name_review_rule','2026-08-02 12:04:55'),('195_withdraw_badge_ignored','2026-08-03 13:17:09'),('196_cs_ticket_read_marker','2026-08-03 13:47:23'),('197_cs_ticket_badge_ignored','2026-08-03 14:34:39'),('198_admin_report_indexes','2026-08-04 23:25:26'),('199_redep_tiers','2026-08-31 08:35:06'),('199_unispay_indonesia_channels','2026-08-28 08:02:24'),('200_regular_redep','2026-08-31 08:49:28'),('200_unispay_three_idr_methods','2026-08-28 08:25:05'),('201_home_content_localized_images','2026-08-29 04:52:58'),('202_seed_idr_promotion_values','2026-08-29 05:13:09'),('203_idr_market_defaults','2026-08-29 10:21:14'),('204_payment_callback_issues','2026-08-29 10:21:15'),('205_seed_indonesian_cs_knowledge','2026-08-29 10:21:16'),('206_align_idr_values_with_php','2026-08-29 10:24:09'),('207_team_market_timezone','2026-08-29 10:54:43'),('208_team_idr_wallet','2026-08-29 15:26:11'),('209_multicurrency_review_and_team_activation','2026-08-29 21:52:26'),('210_site_domain_mappings','2026-08-30 08:56:26'),('211_public_site_domains','2026-08-30 09:15:04'),('212_app_domain_groups','2026-08-30 10:02:27'),('213_backfill_task_spin_chances','2026-08-30 13:08:57'),('214_bi_market_targets_and_rate_snapshots','2026-08-31 01:06:27'),('215_backfill_ph_bi_active_history','2026-08-31 01:09:01'),('216_regular_redeposit_bonus','2026-08-31 01:36:17'),('217_regular_redeposit_per_tier_turnover','2026-08-31 13:41:23'),('218_payment_channel_client_visibility','2026-09-02 07:12:24');
 /*!40000 ALTER TABLE `schema_migrations` ENABLE KEYS */;
-UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

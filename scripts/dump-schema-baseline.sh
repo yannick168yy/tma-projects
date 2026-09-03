@@ -33,14 +33,27 @@ echo "SET NAMES utf8mb4;"
 # --skip-add-drop-table 是硬性要求：带 DROP TABLE 的基线一旦被误对生产库执行就是灾难
 $CTR exec tma-mysql mysqldump -uroot -p"$RPW" \
   --no-data --skip-add-drop-table --no-tablespaces --skip-comments \
+  --skip-add-locks --single-transaction \
   --default-character-set=utf8mb4 betogo 2>/dev/null
 echo "-- 已执行版本：新库据此认为基线内的迁移都已应用，之后的新迁移照常增量执行"
+# --skip-add-locks 是硬性要求：带 LOCK TABLES 的基线需要 LOCK TABLES 权限，
+# 而开站账号刻意不给这个权限（最小权限原则）。带锁的话开站会以
+# 「Access denied to database」失败，且报错完全看不出是缺锁权限。
 $CTR exec tma-mysql mysqldump -uroot -p"$RPW" \
   --no-create-info --skip-add-drop-table --no-tablespaces --skip-comments \
+  --skip-add-locks --single-transaction \
   --default-character-set=utf8mb4 betogo schema_migrations 2>/dev/null
 REMOTE
 
 TABLES=$(grep -c '^CREATE TABLE' "$OUT" || true)
 echo "==> 已写入 $OUT（$TABLES 张表，$(wc -l < "$OUT") 行）"
 [ "$TABLES" -lt 50 ] && { echo "表数异常偏少，导出可能失败" >&2; exit 1; }
+if grep -v '^--' "$OUT" | grep -q 'LOCK TABLES'; then
+  echo "基线里出现 LOCK TABLES，开站账号无此权限会失败" >&2
+  exit 1
+fi
+if grep -v '^--' "$OUT" | grep -qE 'DROP TABLE|CREATE DATABASE|^USE '; then
+  echo "基线里出现 DROP TABLE / CREATE DATABASE / USE，可能误对已有库执行" >&2
+  exit 1
+fi
 exit 0

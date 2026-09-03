@@ -5,6 +5,7 @@ import { getDefaultRedis } from '../../clients/redis.client.js'
 import { platformAuthMiddleware } from '../../middleware/platform-auth.js'
 import { loginPlatformAdmin, logoutPlatformAdmin } from '../../services/platform-auth.service.js'
 import { invalidateTenantHostCache } from '../../services/tenant.service.js'
+import { provisionTenant, type ProvisionInput } from '../../services/tenant-provision.service.js'
 import { ok, fail } from '../../utils/response.js'
 
 /**
@@ -58,6 +59,39 @@ export function createPlatformRouter(): Router {
       domainCount: Number(r.domain_count),
       createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
     })))
+  })
+
+  // 一键开站：建库 → 基线建表 → 种子配置 → 平台库登记 → 冒烟自检
+  router.post('/tenants', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const b = ctx.request.body as Partial<ProvisionInput>
+    if (!b.code || !b.name || !b.adminUsername || !b.adminPassword) {
+      return fail(ctx, 400, 'code / name / adminUsername / adminPassword 必填')
+    }
+    if (!Array.isArray(b.markets) || b.markets.length === 0) return fail(ctx, 400, '至少配置一个市场')
+    if (!Array.isArray(b.domains) || b.domains.length === 0) return fail(ctx, 400, '至少配置一个域名')
+    if (String(b.adminPassword).length < 10) return fail(ctx, 400, '租户后台密码至少 10 位')
+
+    try {
+      const result = await provisionTenant({
+        code: String(b.code).trim().toLowerCase(),
+        name: String(b.name).trim(),
+        markets: b.markets,
+        domains: b.domains,
+        planCode: String(b.planCode ?? 'standard'),
+        adminUsername: String(b.adminUsername).trim(),
+        adminPassword: String(b.adminPassword),
+        poolMin: b.poolMin,
+        poolMax: b.poolMax,
+      })
+      await invalidateTenantHostCache(getDefaultRedis(ctx.state.env))
+      await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.provision', result.tenantId, {
+        code: b.code, database: result.database, tables: result.tables, smokeOk: result.smoke.ok,
+      })
+      ok(ctx, result)
+    } catch (err) {
+      // 开站失败的原因必须原样透出：这一步出错时人要能立刻知道卡在哪
+      fail(ctx, 400, err instanceof Error ? err.message : '开站失败')
+    }
   })
 
   router.get('/tenants/:id', auth, async (ctx) => {
