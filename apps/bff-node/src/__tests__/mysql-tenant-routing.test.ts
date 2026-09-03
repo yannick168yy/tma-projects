@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Env } from '../config/env.js'
 
-const created: Array<{ database: string; connectionLimit: number }> = []
+const created: Array<{ database: string; connectionLimit: number; maxIdle: number; queueLimit: number }> = []
 vi.mock('mysql2/promise', () => ({
   default: {
-    createPool: (opts: { database: string; connectionLimit: number }) => {
-      created.push({ database: opts.database, connectionLimit: opts.connectionLimit })
-      return { end: async () => {}, __db: opts.database }
+    createPool: (opts: { database: string; connectionLimit: number; maxIdle: number; queueLimit: number }) => {
+      created.push({
+        database: opts.database,
+        connectionLimit: opts.connectionLimit,
+        maxIdle: opts.maxIdle,
+        queueLimit: opts.queueLimit,
+      })
+      return { end: async () => {}, getConnection: async () => ({ release() {} }), __db: opts.database }
     },
   },
 }))
@@ -42,14 +47,27 @@ describe('连接池按租户路由', () => {
     expect(created).toHaveLength(1)
   })
 
-  // 自营站的池 10 是压测验证过的吞吐上限，不能被多租户改造顺手缩掉
-  it('自营站保持大池，其他租户用小池', () => {
-    runWithTenant(self, () => getMysqlPool(env))
-    runWithTenant(t2, () => getMysqlPool(env))
+  // 池策略改为每租户可配（初始数/最大数/排队上限），断言配置被原样应用
+  it('按租户配置建池：初始数落到 maxIdle，最大数落到 connectionLimit', () => {
+    runWithTenant({ ...self, pool: { min: 2, max: 10, queueLimit: 0 } }, () => getMysqlPool(env))
+    runWithTenant({ ...t2, pool: { min: 1, max: 4, queueLimit: 20 } }, () => getMysqlPool(env))
     expect(created).toEqual([
-      { database: 'betogo', connectionLimit: 10 },
-      { database: 'betogo_t002', connectionLimit: 2 },
+      { database: 'betogo', connectionLimit: 10, maxIdle: 2, queueLimit: 0 },
+      { database: 'betogo_t002', connectionLimit: 4, maxIdle: 1, queueLimit: 20 },
     ])
+  })
+
+  // 初始数配得比最大数大时不能把 maxIdle 顶出上限，否则 mysql2 行为未定义
+  it('初始数超过最大数时被夹到最大数', () => {
+    runWithTenant({ ...t2, pool: { min: 99, max: 3, queueLimit: 0 } }, () => getMysqlPool(env))
+    expect(created[0]).toEqual({ database: 'betogo_t002', connectionLimit: 3, maxIdle: 3, queueLimit: 0 })
+  })
+
+  // 没有平台库配置时（bootstrap 兜底上下文）回落环境变量，不能建出 0 连接的死池
+  it('无池配置时回落环境变量默认值', () => {
+    runWithTenant(self, () => getMysqlPool(env))
+    expect(created[0].connectionLimit).toBeGreaterThan(0)
+    expect(created[0].maxIdle).toBeGreaterThanOrEqual(0)
   })
 
   it('无上下文时回落自营站库', () => {

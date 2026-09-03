@@ -27,9 +27,12 @@ interface TenantRow extends RowDataPacket {
   db_name: string
   status: TenantStatus
   self_operated: number
+  pool_min: number
+  pool_max: number
+  queue_limit: number
 }
 
-const SELECT_COLUMNS = 't.id, t.code, t.db_name, t.status, t.self_operated'
+const SELECT_COLUMNS = 't.id, t.code, t.db_name, t.status, t.self_operated, t.pool_min, t.pool_max, t.queue_limit'
 
 function toContext(row: TenantRow): TenantContext {
   return {
@@ -38,6 +41,7 @@ function toContext(row: TenantRow): TenantContext {
     database: row.db_name,
     status: row.status,
     selfOperated: row.self_operated === 1,
+    pool: { min: row.pool_min, max: row.pool_max, queueLimit: row.queue_limit },
   }
 }
 

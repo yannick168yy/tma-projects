@@ -279,6 +279,25 @@
 
 ## P1 开站能力与平台后台
 
+### P1-0 租户连接池策略（初始数 / 最大数）· 已完成 2026-09-03
+> 原 P0-4 用的是「自营站 10、其他租户固定 2」的写死策略。租户体量差异极大，
+> 试用站和旗舰客户不该拿同样的资源；而租户少的时候限制连接池毫无意义。
+> 改为**每租户可配的「初始数 + 最大数 + 排队上限」，后台可改**。
+
+- 平台库 `002_tenant_pool_config.sql`：`pf_tenant` 增加 `pool_min` / `pool_max` / `queue_limit`
+  （默认 2 / 10 / 0 —— 前期给足，扛不住再按租户下调）
+- 与 mysql2 的对应：`pool_max → connectionLimit`、`pool_min → maxIdle`（**mysql2 没有原生
+  「最小连接数」概念，maxIdle 是最接近的语义：常驻空闲连接不回收到更低**）、
+  `queue_limit → queueLimit`
+- 池创建后**后台顺序预热**到 `pool_min`，并重试 5 轮 ×3 秒盖住容器启动时的 DNS 抖动。
+  🔴 预热必须顺序且后台执行：并发 `Promise.all` 取连接一旦有一条失败，
+  其余 pending 的 getConnection 会占死池槽导致永久等待（P0-5 因此造成过测试站 502）
+- 后台页面「系统设置 → 租户与连接池」（仅 super_admin），改完**立即丢弃旧池**，
+  下一个请求按新配置重建 —— `connectionLimit`/`maxIdle` 在建池时固定，不重建不生效
+- `poolMax` 上限拍在 100：单租户占满 max_connections 会把其他租户饿死，分库隔离就白做了
+- 线上验证：预热未完成告警 0 次；无真实流量时 betogo 已有常驻连接（证明是预热而非按需）
+- ⚠️ 仍需先做的前置：**`max_connections` 从 50 调到 300+**，否则池配得再大也没用
+
 ### P1-1 平台库商务表扩展 · 2d
 `pf_plan`、`pf_tenant_plan`、`pf_tenant_provider`、`pf_tenant_channel`、`pf_admin`、`pf_admin_role`、`pf_audit_log`
 

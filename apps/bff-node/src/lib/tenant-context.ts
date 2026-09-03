@@ -15,6 +15,17 @@ export interface TenantContext {
   database: string
   status: TenantStatus
   selfOperated: boolean
+  /** 连接池策略。来自平台库 pf_tenant；兜底上下文没有此配置，回落环境变量默认值 */
+  pool?: TenantPoolConfig
+}
+
+export interface TenantPoolConfig {
+  /** 常驻连接数：池创建后后台预热到此数，空闲也不回收到更低 */
+  min: number
+  /** 连接数上限 */
+  max: number
+  /** 等待队列上限，0 = 不限 */
+  queueLimit: number
 }
 
 const storage = new AsyncLocalStorage<TenantContext>()

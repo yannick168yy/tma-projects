@@ -1,7 +1,7 @@
 import fp from 'fastify-plugin'
 import mysql from 'mysql2/promise'
 import { env } from '../config/env.js'
-import { currentTenantOrNull } from '../lib/tenant-context.js'
+import { currentTenantOrNull, type TenantContext, type TenantPoolConfig } from '../lib/tenant-context.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -13,19 +13,44 @@ interface TenantPool {
   pool: mysql.Pool
   lastUsedAt: number
   selfOperated: boolean
+  config: TenantPoolConfig
 }
 
 const pools = new Map<string, TenantPool>()
 const IDLE_EVICT_MS = 30 * 60 * 1000
 const EVICT_INTERVAL_MS = 5 * 60 * 1000
 
-function poolSizeFor(selfOperated: boolean): number {
-  return selfOperated
-    ? Number(process.env.CORE_POOL_SIZE ?? 10)
-    : Number(process.env.CORE_TENANT_POOL_SIZE ?? 2)
+// 池配置优先取平台库的每租户配置，取不到才回落环境变量
+function resolvePoolConfig(tenant: TenantContext | null): TenantPoolConfig {
+  if (tenant?.pool) return tenant.pool
+  return {
+    min: Number(process.env.CORE_POOL_MIN ?? 2),
+    max: Number(process.env.CORE_POOL_SIZE ?? 10),
+    queueLimit: Number(process.env.CORE_QUEUE_LIMIT ?? 0),
+  }
 }
 
-function poolForDatabase(database: string, selfOperated: boolean): mysql.Pool {
+// 顺序预热，且必须后台执行：并发取连接失败会占死池槽导致永久等待（P0-5 踩过）
+function prewarm(pool: mysql.Pool, min: number): void {
+  if (min <= 0) return
+  void (async () => {
+    // 容器刚起时 DNS 有几秒不可用，重试几轮，否则常驻连接要等真实流量才建起来
+    for (let round = 1; round <= 5; round++) {
+      let established = 0
+      for (let i = 0; i < min; i++) {
+        try {
+          const conn = await pool.getConnection()
+          conn.release()
+          established++
+        } catch { break }
+      }
+      if (established >= min || round === 5) return
+      await new Promise((r) => setTimeout(r, 3000))
+    }
+  })()
+}
+
+function poolForDatabase(database: string, selfOperated: boolean, config: TenantPoolConfig): mysql.Pool {
   const existing = pools.get(database)
   if (existing) {
     existing.lastUsedAt = Date.now()
@@ -37,17 +62,21 @@ function poolForDatabase(database: string, selfOperated: boolean): mysql.Pool {
     database,
     user: env.MYSQL_USER,
     password: env.MYSQL_PASSWORD,
-    connectionLimit: poolSizeFor(selfOperated),
+    connectionLimit: config.max,
+    // maxIdle 是 mysql2 里最接近「最小连接数」的语义
+    maxIdle: Math.min(config.min, config.max),
+    queueLimit: config.queueLimit,
     waitForConnections: true,
     timezone: '+00:00',
   })
-  pools.set(database, { pool, lastUsedAt: Date.now(), selfOperated })
+  pools.set(database, { pool, lastUsedAt: Date.now(), selfOperated, config })
+  prewarm(pool, Math.min(config.min, config.max))
   return pool
 }
 
 export default fp(async (app) => {
   // 自营站池预建：回调链路对延迟敏感，不能等第一个请求现连
-  const defaultPool = poolForDatabase(env.MYSQL_DATABASE, true)
+  const defaultPool = poolForDatabase(env.MYSQL_DATABASE, true, resolvePoolConfig(null))
 
   // 启动时主动建立连接，确保 DNS 已就绪（aardvark-dns 在容器重启后短暂不可用）
   for (let i = 0; i < 6; i++) {
@@ -68,7 +97,7 @@ export default fp(async (app) => {
     getter: () => {
       const tenant = currentTenantOrNull()
       if (!tenant) return defaultPool
-      return poolForDatabase(tenant.database, tenant.selfOperated)
+      return poolForDatabase(tenant.database, tenant.selfOperated, resolvePoolConfig(tenant))
     },
   })
 

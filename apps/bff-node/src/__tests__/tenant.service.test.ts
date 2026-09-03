@@ -26,7 +26,7 @@ function fakeRedis() {
   } as unknown as Redis & { store: Map<string, string> }
 }
 
-const row = { id: 1, code: 'betogo', db_name: 'betogo', status: 'active', self_operated: 1 }
+const row = { id: 1, code: 'betogo', db_name: 'betogo', status: 'active', self_operated: 1, pool_min: 2, pool_max: 10, queue_limit: 0 }
 
 beforeEach(() => { query.mockReset() })
 
@@ -41,7 +41,10 @@ describe('租户解析', () => {
     const redis = fakeRedis()
     query.mockResolvedValue([[row]])
     const first = await resolveTenantByHost(redis, 'www.betogo.games')
-    expect(first).toEqual({ id: 1, code: 'betogo', database: 'betogo', status: 'active', selfOperated: true })
+    expect(first).toEqual({
+      id: 1, code: 'betogo', database: 'betogo', status: 'active', selfOperated: true,
+      pool: { min: 2, max: 10, queueLimit: 0 },
+    })
 
     const second = await resolveTenantByHost(redis, 'betogo.games')
     expect(second).toEqual(first)

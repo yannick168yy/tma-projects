@@ -11,6 +11,9 @@ interface TenantRow extends RowDataPacket {
   db_name: string
   status: TenantStatus
   self_operated: number
+  pool_min: number
+  pool_max: number
+  queue_limit: number
 }
 
 let cache: { value: TenantContext[]; expiresAt: number } | null = null
@@ -24,7 +27,7 @@ const CACHE_MS = 60_000
 export async function listRunnableTenants(): Promise<TenantContext[]> {
   if (cache && cache.expiresAt > Date.now()) return cache.value
   const [rows] = await getPlatformPool().query<TenantRow[]>(
-    `SELECT id, code, db_name, status, self_operated
+    `SELECT id, code, db_name, status, self_operated, pool_min, pool_max, queue_limit
        FROM pf_tenant WHERE status <> 'closed' ORDER BY id`,
   )
   const tenants = rows.map((row) => ({
@@ -33,6 +36,7 @@ export async function listRunnableTenants(): Promise<TenantContext[]> {
     database: row.db_name,
     status: row.status,
     selfOperated: row.self_operated === 1,
+    pool: { min: row.pool_min, max: row.pool_max, queueLimit: row.queue_limit },
   }))
   cache = { value: tenants, expiresAt: Date.now() + CACHE_MS }
   return tenants
