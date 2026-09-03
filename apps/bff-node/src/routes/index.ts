@@ -1,5 +1,6 @@
 import Router from '@koa/router'
 import { createAdminRouter } from './admin/index.js'
+import { createPlatformRouter } from './platform/index.js'
 import adminSseRoutes from './admin/sse.routes.js'
 import authRoutes from './auth.routes.js'
 import csRoutes from './cs.routes.js'
@@ -54,6 +55,10 @@ export function createApiRouter(): Router {
   // 管理后台路由（自带 /admin 前缀）
   const adminRouter = createAdminRouter()
   api.use(adminRouter.routes(), adminRouter.allowedMethods())
+
+  // 平台控制台：与租户后台分离的独立命名空间
+  const platformRouter = createPlatformRouter()
+  api.use(platformRouter.routes(), platformRouter.allowedMethods())
 
   // SSE 推送端点：自行在 handler 内验 token，不经过 adminAuthMiddleware
   api.use(adminSseRoutes.routes(), adminSseRoutes.allowedMethods())

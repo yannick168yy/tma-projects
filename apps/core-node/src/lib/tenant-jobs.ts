@@ -14,16 +14,27 @@ interface TenantRow extends RowDataPacket {
   queue_limit: number
 }
 
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch {
+    await new Promise((r) => setTimeout(r, 300))
+    return fn()
+  }
+}
+
 let cache: { value: TenantContext[]; expiresAt: number } | null = null
 const CACHE_MS = 60_000
 
 /** 只排除 closed：停站/停充提的租户仍要继续结算与对账，否则关停期间数据永久缺失 */
 export async function listRunnableTenants(): Promise<TenantContext[]> {
   if (cache && cache.expiresAt > Date.now()) return cache.value
-  const [rows] = await getPlatformPool().query<TenantRow[]>(
+  // 容器网络的 DNS 偶发 ENOTFOUND，取不到租户清单会让整轮定时任务被跳过。
+  // 重试一次盖住抖动；仍失败才让调用方按失败处理。
+  const [rows] = await withRetry(() => getPlatformPool().query<TenantRow[]>(
     `SELECT id, code, db_name, status, self_operated, pool_min, pool_max, queue_limit
        FROM pf_tenant WHERE status <> 'closed' ORDER BY id`,
-  )
+  ))
   const tenants = rows.map((row) => ({
     id: row.id,
     code: row.code,

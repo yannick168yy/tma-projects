@@ -327,8 +327,31 @@
   要限制用 `pf_tenant_feature` 对单个租户关）；自营站挂旗舰版
 - ⚠️ 踩坑：`INSERT ... SELECT` 里带 `UNION` 时 MySQL 不接受 `ON DUPLICATE KEY UPDATE`，改用 `INSERT IGNORE`
 
-### P1-2 `apps/web-platform` 应用脚手架 · 2d
-复用 web-admin 的技术栈与构建配置，独立部署、独立域名、IP 白名单
+### P1-2 `apps/web-platform` 应用脚手架 · 2d ✅ 已完成 2026-09-03
+- 前端：`apps/web-platform`（React 19 + antd 5 + Vite，base `/platform/`），
+  登录页 + 租户总览 + 布局；**独立 token key** `platform_token`，
+  与租户后台 `admin_token` 隔离，同一浏览器同时开两边不会互相顶掉登录态
+- 后端：`services/platform-auth.service.ts` + `middleware/platform-auth.ts` +
+  `routes/platform/index.ts`（`/api/v1/platform/*`）
+  - 会话键 `platform:sess:`，**走无前缀 Redis 客户端** —— 平台身份跨租户，
+    走带 keyPrefix 的客户端会被当前请求所属租户污染，换个域名进来就读不到会话
+  - 账号不存在时也走一次密码校验，避免用响应时间差枚举账号
+  - 超管密码只从环境变量播种，**不写死默认密码**
+- 部署：`deploy-fast.sh` 新增 `web-platform` 目标；`nginx-platform.conf` 提供
+  `/platform/` 静态目录 + `noindex` 头 + IP 白名单占位
+- 线上验证：页面 200、未登录 401、登录返回 `platform_super`、
+  `/auth/me` 与 `/tenants` 正常（返回自营站：旗舰版 / 2 市场 / 11 域名）、错误密码 401
+
+> 🔴 **发现一个影响面更大的问题：容器环境变量是 `recreate-*.sh` 里的显式白名单。**
+> 也就是说 P0 加的 `TENANT_RESOLVE_STRICT`、`MYSQL_PLATFORM_DATABASE`、
+> 连接池相关变量，**改 `.env` 根本不生效**（`podman restart` 沿用建容器时的环境）。
+> 已把这些变量补进 `recreate-bff-node.sh` / `recreate-core-node.sh`。
+> **注意：改这类环境变量必须走 `recreate-*.sh` 重建容器，快速部署的 restart 不够。**
+
+> ⚠️ 环境遗留问题（非本次引入，已第三次出现）：容器网络对 `tma-mysql` 的 DNS
+> 偶发 `ENOTFOUND`。本次给 `listRunnableTenants` 加了一次重试 ——
+> 取不到租户清单会让**整轮定时任务被跳过**，代价太大。
+> 根因属基础设施层（podman aardvark-dns），建议作为独立运维任务处理。
 
 ### P1-3 平台后台：租户列表 / 详情 / 状态管理 · 3d
 状态机：试用 → 正常 → 欠费停提现 → 停充值 → 停站 → 关站

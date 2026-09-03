@@ -9,7 +9,7 @@
 #   SSH_OPTS="-o StrictHostKeyChecking=no" \
 #   bash deploy/single-node/deploy-fast.sh web-tma
 #
-# 目标（可多个）：db | web-tma | web-admin | bff-node | core-node | all
+# 目标（可多个）：db | web-tma | web-admin | web-platform | bff-node | core-node | all
 #   db = 只跑平台库+租户库迁移，不构建不重启
 
 set -euo pipefail
@@ -221,6 +221,17 @@ for TARGET in "${TARGETS[@]}"; do
         "$ROOT/apps/web-tma/dist/" "$HOST:/www/wwwroot/188facai.com/"
       echo "==> [web-tma] 完成（nginx 即时生效，无需重启）"
       ;;
+    web-platform)
+      echo "==> [web-platform] 本地构建..."
+      (cd "$ROOT/apps/web-platform" && npm run build)
+      echo "==> [web-platform] 同步 dist..."
+      RSYNC_RSH="$RSYNC_RSH" rsync -az --delete \
+        "$ROOT/apps/web-platform/dist/" "$HOST:$DIR/apps/web-platform/dist/"
+      echo "==> [web-platform] 同步到站点目录 /platform/..."
+      RSYNC_RSH="$RSYNC_RSH" rsync -az --delete \
+        "$ROOT/apps/web-platform/dist/" "$HOST:/www/wwwroot/188facai.com/platform/"
+      echo "==> [web-platform] 完成（nginx 即时生效，无需重启）"
+      ;;
     web-admin)
       echo "==> [web-admin] 本地构建..."
       (cd "$ROOT/apps/web-admin" && npm run build)
@@ -263,7 +274,7 @@ for TARGET in "${TARGETS[@]}"; do
       echo "==> [core-node] 完成"
       ;;
     *)
-      echo "未知目标: $TARGET（可选: db | web-tma | web-admin | bff-node | core-node | all）" >&2
+      echo "未知目标: $TARGET（可选: db | web-tma | web-admin | web-platform | bff-node | core-node | all）" >&2
       exit 1
       ;;
   esac

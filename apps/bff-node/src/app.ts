@@ -29,6 +29,7 @@ import { runDepositStatusTick } from './services/deposit-status-sync.service.js'
 import { ok } from './utils/response.js'
 import { getMaintenanceMode } from './services/admin-store.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
+import { seedPlatformAdmin } from './services/platform-auth.service.js'
 import { forEachTenant } from './services/tenant-jobs.js'
 
 export function createApp(env: Env): Koa {
@@ -57,6 +58,10 @@ export function createApp(env: Env): Koa {
   if (singletonJobs && isMysqlEnabled(env)) {
     // 重试放在租户回调内：forEachTenant 吞掉单租户异常以隔离故障，
     // 放外面会让第一次失败被当成成功，重试永远不触发
+    // 平台管理员在平台库，不属于任何租户，不能放进 forEachTenant
+    setTimeout(() => void seedPlatformAdmin().catch((err: unknown) =>
+      log.admin.error({ err }, 'platform admin seed failed')), 12_000)
+
     setTimeout(() => void forEachTenant('seed-admin', async () => {
       for (let attempt = 0; attempt < 8; attempt += 1) {
         try {
