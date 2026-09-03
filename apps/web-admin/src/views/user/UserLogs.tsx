@@ -6,10 +6,10 @@ import type { SorterResult, SortOrder } from 'antd/es/table/interface'
 import {
   getUserTurnover, adjustTurnoverRequirement, addTurnoverRequirement, TURNOVER_SOURCE_TYPE_OPTIONS,
   getUserLedgerPage, getUserLoginLogsPage, getUserBetOrdersPage, getUserPromoClaimsPage,
-  getRebateRecords, getVipRecords, getUserTaskClaimsPage, getUserCheckinsPage,
+  getDeposits, getWithdrawals, getRebateRecords, getVipRecords, getUserTaskClaimsPage, getUserCheckinsPage,
   platformMeta,
   type TurnoverRequirement, type PagedResult, type UserBetRound,
-  type RebateRecord, type VipRewardRecord, type UserTaskClaimRecord, type UserCheckinRecord,
+  type AdminDeposit, type AdminWithdrawal, type RebateRecord, type VipRewardRecord, type UserTaskClaimRecord, type UserCheckinRecord,
 } from '../../api'
 import type { Dayjs } from 'dayjs'
 
@@ -63,6 +63,29 @@ function ledgerTypeColor(t: string) {
 function ledgerTypeText(t: string) {
   return ({ deposit: '存款', withdraw: '取款', bet: '投注', win: '中奖', bonus: '奖励', red_packet: '红包', adjust: '调整', admin_adjust: '后台调整' } as Record<string, string>)[t] ?? t
 }
+function depositStatusTag(s: string) {
+  const map: Record<string, { color: string; text: string }> = {
+    pending: { color: 'orange', text: '待支付' },
+    paid: { color: 'green', text: '已支付' },
+    failed: { color: 'red', text: '失败' },
+    cancelled: { color: 'default', text: '已取消' },
+    rejected: { color: 'red', text: '已拒绝' },
+  }
+  const status = map[s] ?? { color: 'default', text: s }
+  return <Tag color={status.color}>{status.text}</Tag>
+}
+function withdrawStatusTag(s: string) {
+  const map: Record<string, { color: string; text: string }> = {
+    pending: { color: 'orange', text: '待审核' },
+    processing: { color: 'blue', text: '处理中' },
+    completed: { color: 'green', text: '已完成' },
+    rejected: { color: 'red', text: '已拒绝' },
+    admin_rejected: { color: 'red', text: '管理员拒绝' },
+    failed: { color: 'red', text: '失败' },
+  }
+  const status = map[s] ?? { color: 'default', text: s }
+  return <Tag color={status.color}>{status.text}</Tag>
+}
 // 与洗码/VIP 列表页保持一致的展示口径
 const REBATE_CATEGORY_LABELS: Record<string, string> = {
   slots: '🎰 Slots', live: '🎲 Live Casino', sports: '⚽ Sports', fishing: '🐟 Fishing', poker: '♠️ Poker',
@@ -109,6 +132,13 @@ export default function UserLogs({ userId }: Props) {
   const logins = usePaged(useCallback((p: number, ps: number) => getUserLoginLogsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'login')
   const bets = usePaged(useCallback((p: number, ps: number, sortBy?: string, sortOrder?: ServerSortOrder) => getUserBetOrdersPage(userId, { page: p, pageSize: ps, sortBy, sortOrder }), [userId]), activeTab === 'bets')
   const promos = usePaged(useCallback((p: number, ps: number) => getUserPromoClaimsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'promo')
+  const [paymentTab, setPaymentTab] = useState('deposit')
+  const deposits = usePaged(useCallback(async (p: number, ps: number) => ({
+    ...await getDeposits({ userId, page: p, pageSize: ps }), page: p, pageSize: ps,
+  }), [userId]), activeTab === 'payments' && paymentTab === 'deposit')
+  const withdrawals = usePaged(useCallback(async (p: number, ps: number) => ({
+    ...await getWithdrawals({ userId, page: p, pageSize: ps }), page: p, pageSize: ps,
+  }), [userId]), activeTab === 'payments' && paymentTab === 'withdraw')
   const taskClaims = usePaged(useCallback((p: number, ps: number) => getUserTaskClaimsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'task')
   const checkins = usePaged(useCallback((p: number, ps: number) => getUserCheckinsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'checkin')
   const rebates = usePaged(useCallback((p: number, ps: number) => getRebateRecords({ userId, page: p, pageSize: ps }), [userId]), activeTab === 'rebate')
@@ -211,6 +241,22 @@ export default function UserLogs({ userId }: Props) {
     { title: '币种', dataIndex: 'currency', key: 'currency', width: 100 },
     { title: '描述', dataIndex: 'description', key: 'desc', ellipsis: true },
     { title: '领取时间', dataIndex: 'claimedAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
+  ]
+  const depositCols = [
+    { title: '订单号', dataIndex: 'orderId', key: 'orderId', width: 210 },
+    { title: '金额', key: 'amount', width: 140, render: (_: unknown, r: AdminDeposit) => `${r.amount} ${r.currency}` },
+    { title: '渠道', dataIndex: 'channelId', key: 'channel', width: 160 },
+    { title: '状态', key: 'status', width: 100, render: (_: unknown, r: AdminDeposit) => depositStatusTag(r.status) },
+    { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt', width: 170, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
+    { title: '支付时间', dataIndex: 'paidAt', key: 'paidAt', width: 170, render: (v: string | null) => v ? new Date(v).toLocaleString('zh-CN') : '—' },
+  ]
+  const withdrawalCols = [
+    { title: '订单号', dataIndex: 'orderId', key: 'orderId', width: 210 },
+    { title: '金额', key: 'amount', width: 140, render: (_: unknown, r: AdminWithdrawal) => `${r.amount} ${r.currency}` },
+    { title: '渠道', dataIndex: 'channelId', key: 'channel', width: 160 },
+    { title: '状态', key: 'status', width: 110, render: (_: unknown, r: AdminWithdrawal) => withdrawStatusTag(r.status) },
+    { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt', width: 170, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
+    { title: '完成时间', dataIndex: 'completedAt', key: 'completedAt', width: 170, render: (v: string | null) => v ? new Date(v).toLocaleString('zh-CN') : '—' },
   ]
   const taskCols = [
     { title: '任务', dataIndex: 'title', key: 'title', width: 180, ellipsis: true },
@@ -330,6 +376,19 @@ export default function UserLogs({ userId }: Props) {
           },
           { key: 'bets', label: `游戏记录${bets.total ? ` (${bets.total})` : ''}`, children: <Table columns={betCols} dataSource={bets.items} rowKey={(r) => `${r.roundId}_${r.currencyCode}`} loading={bets.loading} pagination={bets.pagination} onChange={bets.onTableChange} size="small" /> },
           { key: 'promo', label: `优惠领取${promos.total ? ` (${promos.total})` : ''}`, children: <Table columns={promoCols} dataSource={promos.items} rowKey="id" loading={promos.loading} pagination={promos.pagination} size="small" /> },
+          {
+            key: 'payments', label: '充提记录',
+            children: (
+              <Tabs
+                activeKey={paymentTab}
+                onChange={setPaymentTab}
+                items={[
+                  { key: 'deposit', label: `充值${deposits.total ? ` (${deposits.total})` : ''}`, children: <Table columns={depositCols} dataSource={deposits.items} rowKey="orderId" loading={deposits.loading} pagination={deposits.pagination} size="small" scroll={{ x: 'max-content' }} /> },
+                  { key: 'withdraw', label: `提现${withdrawals.total ? ` (${withdrawals.total})` : ''}`, children: <Table columns={withdrawalCols} dataSource={withdrawals.items} rowKey="orderId" loading={withdrawals.loading} pagination={withdrawals.pagination} size="small" scroll={{ x: 'max-content' }} /> },
+                ]}
+              />
+            ),
+          },
           {
             key: 'rebate', label: `洗码派发${rebates.total ? ` (${rebates.total})` : ''}`,
             children: <Table columns={rebateCols} dataSource={rebates.items as RebateRecord[]} rowKey="id" loading={rebates.loading} pagination={rebates.pagination} size="small" scroll={{ x: 'max-content' }} />,
