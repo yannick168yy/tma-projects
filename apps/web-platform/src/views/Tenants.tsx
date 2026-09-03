@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Card, Table, Tag, message } from 'antd'
+import { Button, Card, Table, Tag, message } from 'antd'
+import { useNavigate } from 'react-router-dom'
 import { listPlatformTenants, type PlatformTenant } from '../api'
 
 const STATUS: Record<string, { text: string; color: string }> = {
@@ -12,6 +13,7 @@ const STATUS: Record<string, { text: string; color: string }> = {
 }
 
 export default function Tenants() {
+  const nav = useNavigate()
   const [rows, setRows] = useState<PlatformTenant[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -43,6 +45,8 @@ export default function Tenants() {
           { title: '市场', dataIndex: 'marketCount', width: 70 },
           { title: '域名', dataIndex: 'domainCount', width: 70 },
           { title: '创建时间', dataIndex: 'createdAt', width: 170 },
+          { title: '操作', width: 90,
+            render: (_, r) => <Button size="small" onClick={() => nav(`/tenants/${r.id}`)}>详情</Button> },
         ]}
       />
     </Card>

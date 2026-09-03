@@ -58,3 +58,16 @@ export interface PlatformTenant {
   createdAt: string
 }
 export const listPlatformTenants = () => get<PlatformTenant[]>('/platform/tenants')
+
+export interface TenantDetail extends PlatformTenant {
+  remark: string | null
+  planCode: string | null
+  pool: { min: number; max: number; queueLimit: number }
+  markets: Array<{ market: string; currency: string; timezone: string; enabled: boolean }>
+  domains: Array<{ id: number; domain: string; market: string; purpose: string; enabled: boolean; appMarket: string | null; appPriority: number }>
+  providers: Array<{ provider: string; agentAccount: string; status: string }>
+  channels: Array<{ channelCode: string; owner: string; merchantNo: string | null; enabled: boolean }>
+}
+export const getTenantDetail = (id: number) => get<TenantDetail>(`/platform/tenants/${id}`)
+export const updateTenantStatus = (id: number, status: string) =>
+  put<{ id: number; status: string }>(`/platform/tenants/${id}/status`, { status })
