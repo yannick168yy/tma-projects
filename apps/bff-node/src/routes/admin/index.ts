@@ -46,11 +46,21 @@ export function createAdminRouter(): Router {
   // 需要 admin token
   const guard = adminAuthMiddleware()
 
-  // 业务后台菜单按功能开关过滤（P1-8 第四处生效点）。
-  // 只下发不校验：菜单是体验层，真正的边界在各业务路由的 requireFeature 与 requireRole。
-  admin.get('/features', guard, async (ctx) => {
+  // 后台启动自举（P1-7/P1-8）：角色与功能开关一次下发。
+  //
+  // 🔴 role 必须来自服务端会话，不能由前端读 localStorage 自称。
+  // 之前 web-admin 的 RequireRole 只看 localStorage.admin_role，改一行就能点进
+  // 超管页面 —— 后端各路由有 requireRole 兜底所以数据没漏，但前端等于没有守卫。
+  //
+  // features 只下发不校验：菜单是体验层，真正的边界在 requireFeature / requireRole。
+  admin.get('/auth/me', guard, async (ctx) => {
     const tenant = ctx.state.tenant
-    ok(ctx, tenant ? await getTenantFeatures(ctx.state.env, tenant.id) : {})
+    ok(ctx, {
+      adminId: ctx.state.adminId,
+      username: ctx.state.adminUsername,
+      role: ctx.state.adminRole,
+      features: tenant ? await getTenantFeatures(ctx.state.env, tenant.id) : {},
+    })
   })
   for (const r of [dashboardRoutes, usersRoutes, depositsRoutes, withdrawalsRoutes, auditRoutes, gamesRoutes, settingsRoutes, securityRoutes, csRoutes, betOrdersRoutes, teamRoutes, agentRoutes, promotionsRoutes, rebateRoutes, vipRoutes, spinRoutes, homeContentRoutes, announcementRoutes, reviewRoutes, kycRoutes, paymentRoutes, ledgerRoutes, deviceLookupRoutes, checkinRoutes, taskRoutes, riskRoutes, communityRoutes, broadcastRoutes, biRoutes, marketingRoutes, dbBackupRoutes, growthRoutes]) {
     admin.use(guard, r.routes(), r.allowedMethods())

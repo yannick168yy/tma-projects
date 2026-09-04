@@ -186,3 +186,31 @@ export const uploadBrandAsset = (
   slot: 'logoLight' | 'logoDark' | 'favicon' | 'appIcon',
   imageData: string,
 ) => post<{ key: string }>(`/platform/tenants/${tenantId}/brand/asset`, { slot, imageData })
+
+// ── 文案覆盖（P1-11）──
+export interface I18nCatalogEntry { key: string; defaultValue: string }
+export interface I18nOverrideRow {
+  locale: string
+  keyPath: string
+  value: string
+  updatedAt: string | null
+}
+export const searchI18nKeys = (q: string) =>
+  get<{ total: number; matched: number; entries: I18nCatalogEntry[] }>(
+    `/platform/i18n/keys?q=${encodeURIComponent(q)}`)
+
+export const listTenantI18n = (tenantId: number, locale?: string, q?: string) => {
+  const params = new URLSearchParams()
+  if (locale) params.set('locale', locale)
+  if (q) params.set('q', q)
+  const qs = params.toString()
+  return get<{ locales: string[]; rows: I18nOverrideRow[]; total: number; max: number }>(
+    `/platform/tenants/${tenantId}/i18n${qs ? `?${qs}` : ''}`)
+}
+
+export const setTenantI18n = (tenantId: number, locale: string, keyPath: string, value: string) =>
+  put<{ locale: string; keyPath: string }>(`/platform/tenants/${tenantId}/i18n`, { locale, keyPath, value })
+
+export const deleteTenantI18n = (tenantId: number, locale: string, keyPath: string) =>
+  del<{ locale: string; keyPath: string }>(
+    `/platform/tenants/${tenantId}/i18n?locale=${encodeURIComponent(locale)}&keyPath=${encodeURIComponent(keyPath)}`)

@@ -1,3 +1,4 @@
+import { useAuthStore } from '../stores/auth'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Alert, Button, Card, DatePicker, Input, InputNumber, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, Typography, message } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
@@ -18,7 +19,7 @@ const manilaToday = () => dayjs()
 // CAPI 像素 token 配置：投流方各 BM 出像素，token 按像素一一配置。
 // token 默认只显尾号；super_admin 可点「显示」拉完整明文（走独立接口+审计）。支持编辑既有像素。
 function CapiTokenPanel() {
-  const isSuper = localStorage.getItem('admin_role') === 'super_admin'
+  const isSuper = useAuthStore((s) => s.verifiedRole) === 'super_admin'
   const [rows, setRows] = useState<CapiPixelToken[]>([])
   const [loading, setLoading] = useState(false)
   const emptyForm = { platform: 'facebook', pixelId: '', channelCode: '', accessToken: '', testEventCode: '', promoDomain: '', remark: '' }
@@ -195,7 +196,7 @@ export default function BiAdSources() {
   const [spends, setSpends] = useState<Record<string, number>>({})
   const [verdict, setVerdict] = useState<{ text: string; ai: boolean } | null>(null)
   const [verdictLoading, setVerdictLoading] = useState(false)
-  const isSuper = localStorage.getItem('admin_role') === 'super_admin'
+  const isSuper = useAuthStore((s) => s.verifiedRole) === 'super_admin'
 
   const load = useCallback(() => {
     setLoading(true)

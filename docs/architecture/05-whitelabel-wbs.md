@@ -513,9 +513,12 @@ P0-3 留的两段式兜底，观察期结束。未登记域名现在直接 404�
 - 系统排查了跨租户能力面：平台库直连、硬编码库名、文件系统访问、外部命令、
   无前缀 Redis 客户端、硬编码租户 id —— 除 db-backup 外均无问题
 
-**未完成**：`apps/web-admin/src/App.tsx:81` 的 `RequireRole` 仍只读 localStorage。
-**这不是开放漏洞**——后端 `requireRole('super_admin', …)` 在 db-backup / 风控策略 / 群发 /
-审核配置等敏感路由上都有二次校验，前端那行只负责隐藏菜单。属加固项，未排优先级。
+**加固已补齐 2026-09-05**：新增 `GET /admin/auth/me`，角色与功能开关一次下发。
+`RequireRole` 改用服务端会话下发的 `verifiedRole`，另有 3 个视图
+（BiDashboard / BiAdSources / BiChannels）里直接读 `localStorage.admin_role` 判权限的地方一并改掉。
+- 还没拉到角色时**不放行**：默认放行会在页面加载那一小段窗口里露出内容
+- `localStorage.admin_role` 保留但降级为「首屏渲染用的缓存」，注释写明不得用于权限判断
+- 合并掉了 P1-8 加的 `/admin/features` —— 两个端点做重叠的事没必要
 
 ### P1-8 功能开关矩阵（定制化第一批核心）· 4d ✅ 已完成 2026-09-04
 20 个 flag（P1-1 已建表，此前无人消费）现已四处生效。
@@ -611,9 +614,33 @@ demo1   siteName=LuckyOne  logo=LUCKY/ONE  theme={primary:#00c853, radius:1.25re
 审计    tenant.brand 与 tenant.brand.asset 均留痕
 ```
 
-### P1-11 文案覆盖包 · 3d
-租户可覆盖任意 i18n key；服务端下发 patch，客户端 merge 进 i18next
-（`apps/web-tma/src/i18n/index.ts` 现为静态 import，需加 override 层）；后台配 key 搜索编辑器
+### P1-11 文案覆盖包 · 3d ✅ 已完成 2026-09-05
+平台库 `006_tenant_i18n.sql` + bootstrap 下发 patch + 平台控制台 key 搜索编辑器。
+
+- 存**扁平点号键**（`checkin.title`）而不是嵌套 JSON：编辑器要按 key 搜索、按条增删，
+  嵌套结构做不到。客户端用 `i18n.addResource()` 逐条盖上去，
+  点号键的嵌套还原交给 i18next，不必自己再写一遍
+- 🔴 **key 目录是显式构建产物**：i18n 词条定义在 `apps/web-tma` 里，BFF 与平台控制台
+  都读不到它的源码。与其让 BFF 反向依赖前台源码，不如像 `schema_baseline` 那样
+  产出 `infra/i18n/keys.en.json`（`scripts/dump-i18n-keys.mjs`，1334 条）。
+  词条改动后需重跑，否则编辑器搜不到新 key —— **只影响后台搜索，不影响前台**
+- 目录读不到时接口报 **503 而不是返回空目录**：空目录会让人以为「一条 key 都没有」，
+  而不是「产物没生成」
+- **覆盖条数上限 800**（所有语言合计）。bootstrap 每次页面加载都带上全部覆盖，
+  放任增长会拖慢首屏；客户端要能运行时切语言而不重拉 bootstrap，所以必须一起下发
+- 覆盖不存在的 key 不报错：后台加了新 key、前端还没发版的过渡期不该炸
+- 编辑器不提供「浏览全部 key」入口 —— 1334 条翻不动，搜索才是实际用法
+- 容器挂载从 `infra/database` 放宽到整个 `infra`（只读），**改挂载必须重建容器**
+
+**线上验证**
+```
+key 目录     total=1334，搜 checkin.title 命中并带出平台默认文案
+覆盖         demo1 配 en/id 两条 → bootstrap 下发，自营站 i18nOverrides={} 零影响
+校验         locale=fr 400 / keyPath="a b;drop" 400 / value=123 400
+删除         删掉 id 那条后只剩 en，该条回落平台默认文案
+审计         add/add/delete 三条留痕
+```
+
 
 ### P1-12 前端去硬编码 · 2d ✅ 已完成 2026-09-04
 - `BetogoLogo.tsx` → **`SiteLogo.tsx`**，配置驱动。组件名里带自家品牌，本身就是要清的硬编码

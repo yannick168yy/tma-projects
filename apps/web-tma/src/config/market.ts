@@ -1,5 +1,6 @@
 import { setSiteFeatures } from './features'
 import { applySiteIdentity, applySiteTheme, setSiteBrand } from './brand'
+import { setI18nOverrides } from './i18n-overrides'
 
 export type SiteMarket = 'PH' | 'ID'
 
@@ -55,12 +56,19 @@ export async function initSiteMarketConfig(): Promise<void> {
     if (!res.ok) return
     const body = await res.json() as {
       code?: number
-      data?: { market?: string; features?: unknown; brand?: unknown; theme?: unknown }
+      data?: {
+        market?: string
+        features?: unknown
+        brand?: unknown
+        theme?: unknown
+        i18nOverrides?: unknown
+      }
     }
     if (body.code !== 0) return
     // /site/config 是租户 bootstrap（P1-9）：市场 + 功能开关 + 品牌 + 主题一次下发
     setSiteFeatures(body.data?.features)
     setSiteBrand(body.data?.brand)
+    setI18nOverrides(body.data?.i18nOverrides)
     applySiteTheme(body.data?.theme)
     applySiteIdentity()
     const market = body.data?.market?.toUpperCase()

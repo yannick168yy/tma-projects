@@ -1,3 +1,4 @@
+import { useAuthStore } from '../stores/auth'
 import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Col, Modal, Row, Segmented, Space, Spin, Switch, Table, Tag, message } from 'antd'
 import {
@@ -16,7 +17,7 @@ const fmtSecs = (v: number | null) => {
 
 export default function BiChannels() {
   const { market, timezone } = useMarketScope()
-  const isSuperAdmin = localStorage.getItem('admin_role') === 'super_admin'
+  const isSuperAdmin = useAuthStore((s) => s.verifiedRole) === 'super_admin'
   const [days, setDays] = useState(30)
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<Awaited<ReturnType<typeof getBiChannels>> | null>(null)

@@ -12,7 +12,7 @@ import {
   AlertOutlined, BarChartOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
-import { adminChangePassword, getAdminBadges, getAdminFeatures, type AdminBadges } from '../api'
+import { adminChangePassword, getAdminBadges, getAdminMe, type AdminBadges } from '../api'
 import HistoryTabs from './HistoryTabs'
 import './admin-menu.css'
 
@@ -214,16 +214,24 @@ function getDefaultOpenKeys(pathname: string): string[] {
 }
 
 /**
- * 本租户的功能开关。失败时保持 null —— 见 filterMenu：null 表示不过滤。
- * 开关几乎不变，登录后拉一次即可，不做轮询。
+ * 后台启动自举（P1-7/P1-8）：一次取回服务端角色与功能开关。
+ *
+ * 角色写回 store 供 RequireRole 使用 —— 权限判断必须以服务端为准。
+ * features 失败时保持 null，见 filterMenu：null 表示不过滤，
+ * 一次接口抖动不该让整个菜单消失。
  */
-function useAdminFeatures(): Record<string, boolean> | null {
+function useAdminBootstrap(): Record<string, boolean> | null {
   const [features, setFeatures] = useState<Record<string, boolean> | null>(null)
+  const setVerifiedRole = useAuthStore((s) => s.setVerifiedRole)
   useEffect(() => {
     void (async () => {
-      try { setFeatures(await getAdminFeatures()) } catch { /* 拉不到就不过滤 */ }
+      try {
+        const me = await getAdminMe()
+        setVerifiedRole(me.role)
+        setFeatures(me.features)
+      } catch { /* 401 由 api 层踢回登录页；其余情况不过滤菜单 */ }
     })()
-  }, [])
+  }, [setVerifiedRole])
   return features
 }
 
@@ -266,7 +274,7 @@ function useAdminBadges(): AdminBadges {
 export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { role, logout } = useAuthStore()
+  const { role, verifiedRole, logout } = useAuthStore()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const [collapsed, setCollapsed] = useState(false)
@@ -275,11 +283,11 @@ export default function AppLayout() {
   const [pwdLoading, setPwdLoading] = useState(false)
   const [form] = Form.useForm<{ current: string; newPwd: string; confirm: string }>()
   const badges = useAdminBadges()
-  const features = useAdminFeatures()
+  const features = useAdminBootstrap()
   const defaultOpenKeys = useMemo(() => getDefaultOpenKeys(location.pathname), [])
   const showMarketScope = location.pathname === '/dashboard' || location.pathname.startsWith('/bi/')
 
-  const menuItems = useMemo(() => filterMenu(buildMenuItems(badges) as MenuNode[], role, features), [badges, role, features])
+  const menuItems = useMemo(() => filterMenu(buildMenuItems(badges) as MenuNode[], verifiedRole ?? role, features), [badges, role, verifiedRole, features])
 
   async function handleChangePwd() {
     const values = form.getFieldsValue()

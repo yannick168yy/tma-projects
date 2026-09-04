@@ -9,6 +9,17 @@ import { dropTenantPool } from '../../clients/mysql.client.js'
 import { platformRootDomain, refreshDomainCertStatus } from '../../services/domain-cert.service.js'
 import { provisionTenant, type ProvisionInput } from '../../services/tenant-provision.service.js'
 import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
+import {
+  countTenantI18n,
+  deleteTenantI18n,
+  invalidateTenantI18nCache,
+  isSupportedLocale,
+  listTenantI18n,
+  MAX_OVERRIDES_PER_TENANT,
+  setTenantI18n,
+  SUPPORTED_LOCALES,
+} from '../../services/tenant-i18n.service.js'
 import { runWithTenant } from '../../lib/tenant-context.js'
 import { tenantById } from '../../services/tenant.service.js'
 import { getStorageProvider } from '../../services/storage/index.js'
@@ -38,6 +49,23 @@ import { ok, fail } from '../../utils/response.js'
  * 平台控制台 API。与 /admin（租户后台）完全分离：
  * 页面零重叠、会话零重叠、权限模型零重叠。
  */
+/**
+ * key 目录。容器里通过 infra/database 同一个挂载点拿到 infra/i18n。
+ * 进程内缓存：文件是构建产物，运行期不会变；读不到就让接口报 503 而不是静默返回空目录，
+ * 空目录会让人以为「一条 key 都没有」而不是「产物没生成」。
+ */
+let i18nCatalog: Record<string, string> | null | undefined
+async function loadI18nCatalog(): Promise<Record<string, string> | null> {
+  if (i18nCatalog !== undefined) return i18nCatalog
+  try {
+    const path = process.env.I18N_KEYS_PATH ?? '/app/infra/i18n/keys.en.json'
+    i18nCatalog = JSON.parse(await readFile(path, 'utf8')) as Record<string, string>
+  } catch {
+    i18nCatalog = null
+  }
+  return i18nCatalog
+}
+
 export function createPlatformRouter(): Router {
   const router = new Router({ prefix: '/platform' })
 
@@ -208,6 +236,73 @@ export function createPlatformRouter(): Router {
       to: { min: poolMin, max: poolMax, queueLimit },
     })
     ok(ctx, { id, poolMin, poolMax, queueLimit, poolRecreated: dropped })
+  })
+
+  // ── 文案覆盖（P1-11）──
+  // key 目录来自 infra/i18n/keys.en.json（scripts/dump-i18n-keys.mjs 生成）。
+  // i18n 词条定义在 apps/web-tma 里，BFF 与平台控制台都读不到它的源码，
+  // 与其让 BFF 反向依赖前台源码，不如像 schema_baseline 那样产出一份显式产物。
+  router.get('/i18n/keys', platformAuthMiddleware(), async (ctx) => {
+    const catalog = await loadI18nCatalog()
+    if (!catalog) return fail(ctx, 503, 'key 目录未生成，请先跑 scripts/dump-i18n-keys.mjs')
+    const q = String(ctx.query.q ?? '').trim().toLowerCase()
+    const entries = Object.entries(catalog)
+      .filter(([k, v]) => !q || k.toLowerCase().includes(q) || v.toLowerCase().includes(q))
+      .slice(0, 200)
+      .map(([key, defaultValue]) => ({ key, defaultValue }))
+    ok(ctx, { total: Object.keys(catalog).length, matched: entries.length, entries })
+  })
+
+  router.get('/tenants/:id/i18n', platformAuthMiddleware(), async (ctx) => {
+    const id = Number(ctx.params.id)
+    if (!(await tenantById(id))) return fail(ctx, 404, '租户不存在')
+    const locale = isSupportedLocale(ctx.query.locale) ? String(ctx.query.locale) : undefined
+    const search = String(ctx.query.q ?? '').trim() || undefined
+    const [rows, total] = await Promise.all([
+      listTenantI18n(id, locale, search),
+      countTenantI18n(id),
+    ])
+    ok(ctx, { locales: SUPPORTED_LOCALES, rows, total, max: MAX_OVERRIDES_PER_TENANT })
+  })
+
+  router.put('/tenants/:id/i18n', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    if (!(await tenantById(id))) return fail(ctx, 404, '租户不存在')
+    const b = ctx.request.body as { locale?: unknown; keyPath?: unknown; value?: unknown }
+    if (!isSupportedLocale(b.locale)) return fail(ctx, 400, 'locale 不支持')
+    const keyPath = String(b.keyPath ?? '').trim()
+    // 键形如 checkin.title：限死字符集，免得写进去一个前端永远匹配不到的怪键
+    if (!/^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/.test(keyPath) || keyPath.length > 191) {
+      return fail(ctx, 400, 'keyPath 需为点号分隔的字母数字下划线')
+    }
+    if (typeof b.value !== 'string') return fail(ctx, 400, 'value 需为字符串')
+    if (b.value.length > 2000) return fail(ctx, 400, 'value 不能超过 2000 字')
+
+    // 上限拦在写入前：bootstrap 每次页面加载都会带上全部覆盖，放任增长会拖慢首屏
+    const existing = await listTenantI18n(id, String(b.locale))
+    const isNew = !existing.some((r) => r.keyPath === keyPath)
+    if (isNew && (await countTenantI18n(id)) >= MAX_OVERRIDES_PER_TENANT) {
+      return fail(ctx, 400, `覆盖条数已达上限 ${MAX_OVERRIDES_PER_TENANT}`)
+    }
+
+    await setTenantI18n(id, String(b.locale), keyPath, b.value)
+    await invalidateTenantI18nCache(ctx.state.env, id)
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.i18n', id,
+      { locale: b.locale, keyPath, action: isNew ? 'add' : 'update' })
+    ok(ctx, { locale: b.locale, keyPath })
+  })
+
+  router.delete('/tenants/:id/i18n', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    if (!(await tenantById(id))) return fail(ctx, 404, '租户不存在')
+    const locale = String(ctx.query.locale ?? '')
+    const keyPath = String(ctx.query.keyPath ?? '')
+    if (!isSupportedLocale(locale) || !keyPath) return fail(ctx, 400, '参数无效')
+    await deleteTenantI18n(id, locale, keyPath)
+    await invalidateTenantI18nCache(ctx.state.env, id)
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.i18n', id,
+      { locale, keyPath, action: 'delete' })
+    ok(ctx, { locale, keyPath })
   })
 
   // ── 品牌包（P1-10）──

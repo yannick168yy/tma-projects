@@ -1540,8 +1540,14 @@ export interface AdminBadges {
 }
 export const getAdminBadges = () => get<AdminBadges>('/admin/dashboard/badges')
 
-/** 本租户的功能开关。菜单据此过滤（P1-8） */
-export const getAdminFeatures = () => get<Record<string, boolean>>('/admin/features')
+/** 后台启动自举：角色与功能开关一次下发（P1-7/P1-8）。role 以此为准，不信 localStorage */
+export interface AdminMe {
+  adminId: string
+  username: string
+  role: string
+  features: Record<string, boolean>
+}
+export const getAdminMe = () => get<AdminMe>('/admin/auth/me')
 
 // ── 支付渠道管理 ──────────────────────────────────────────────────────────────
 

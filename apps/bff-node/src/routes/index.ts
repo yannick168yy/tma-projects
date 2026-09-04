@@ -43,6 +43,7 @@ import { signRoutes } from '../services/app-route-sign.service.js'
 import { recordRouteProbes } from '../services/route-health.service.js'
 import { getTenantFeatures } from '../services/tenant-feature.service.js'
 import { DEFAULT_BRAND, getTenantBrand, getTenantMarkets } from '../services/brand.service.js'
+import { getTenantI18nOverrides } from '../services/tenant-i18n.service.js'
 
 function requestHost(ctx: import('koa').Context): string {
   for (const raw of [ctx.get('x-viewer-host'), ctx.get('origin'), ctx.get('referer'), ctx.get('host')]) {
@@ -87,13 +88,14 @@ export function createApiRouter(): Router {
 
     // 无租户上下文只可能出现在 strict=false 且平台库同时挂了的极端情况。
     // 此时仍要给出可用的品牌与市场，否则前台会变成空白站。
-    const [brand, features, markets] = tenant
+    const [brand, features, markets, i18nOverrides] = tenant
       ? await Promise.all([
           getTenantBrand(env, tenant.id),
           getTenantFeatures(env, tenant.id),
           getTenantMarkets(tenant.id).catch(() => []),
+          getTenantI18nOverrides(env, tenant.id),
         ])
-      : [DEFAULT_BRAND, {}, []]
+      : [DEFAULT_BRAND, {}, [], {}]
 
     // 域名没配市场映射时（租户库的 site_domain 里没这条），单市场租户可以无歧义地推定；
     // 多市场租户不猜 —— 下发一个错币种比不下发严重得多，客户端还有自己的兜底逻辑。
@@ -116,6 +118,7 @@ export function createApiRouter(): Router {
       },
       theme: brand.theme,
       features,
+      i18nOverrides,
       currency: current?.currency ?? null,
       timezone: current?.timezone ?? null,
       markets: markets.map((m) => m.market),

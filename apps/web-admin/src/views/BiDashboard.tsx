@@ -1,3 +1,4 @@
+import { useAuthStore } from '../stores/auth'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Alert, Button, Card, Col, Collapse, Form, InputNumber, Modal, Progress, Row,
@@ -33,7 +34,7 @@ function DeltaTag({ cur, base, label }: { cur: number; base: number; label: stri
 }
 
 function TargetSection({ market, unit }: { market: AdminMarketScope; unit: string }) {
-  const canEdit = ['super_admin', 'finance'].includes(localStorage.getItem('admin_role') ?? '')
+  const canEdit = ['super_admin', 'finance'].includes(useAuthStore((s) => s.verifiedRole) ?? '')
   const [progress, setProgress] = useState<{ period: string; items: BiTargetProgress[] } | null>(null)
   const [editing, setEditing] = useState(false)
   const [form] = Form.useForm()

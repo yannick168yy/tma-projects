@@ -1,3 +1,4 @@
+import { useAuthStore } from './stores/auth'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import { AdminMarketProvider } from './components/MarketScope'
@@ -77,8 +78,20 @@ function GuestOnly({ children }: { children: React.ReactNode }) {
 }
 
 // 前端守卫只防误入，真正的权限边界在后端 requireRole 中间件
+/**
+ * 角色守卫（P1-7）。
+ *
+ * 以服务端会话下发的 verifiedRole 为准。此前这里读的是 localStorage.admin_role，
+ * 用户改一行就能进超管页 —— 后端各路由的 requireRole 兜住了数据，
+ * 但前端这层等于形同虚设。
+ *
+ * 还没拉到角色时**不放行**：默认放行会在页面加载的那一小段窗口里露出内容。
+ * 拉取失败会被 api 层的 401 处理踢回登录页，不会永久卡住。
+ */
 function RequireRole({ role, children }: { role: string; children: React.ReactNode }) {
-  if (localStorage.getItem('admin_role') !== role) return <Navigate to="/dashboard" replace />
+  const verifiedRole = useAuthStore((s) => s.verifiedRole)
+  if (verifiedRole === null) return null
+  if (verifiedRole !== role) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 

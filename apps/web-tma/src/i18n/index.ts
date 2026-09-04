@@ -1,6 +1,7 @@
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { getSiteName } from '@/config/brand'
+import { getI18nOverrides } from '@/config/i18n-overrides'
 import en from '@/i18n/locales/en'
 import id from '@/i18n/locales/id'
 import idComplete from '@/i18n/locales/id-complete'
@@ -89,6 +90,21 @@ void i18n.use(initReactI18next).init({
   // 且不报错、只是显示成 BETOGO —— 包网客户站上就是事故。
   interpolation: { escapeValue: false, defaultVariables: { brandName: getSiteName() } },
 })
+
+/**
+ * 租户文案覆盖（P1-11）。在资源装好之后逐条盖上去。
+ *
+ * 用 `addResource` 而不是把 patch 深合并进 resources：点号键的嵌套由 i18next 自己处理，
+ * 我们不必再写一遍 `checkin.title` → `{checkin:{title}}` 的还原逻辑。
+ *
+ * 覆盖不存在的 key 是无害的 —— 只是多一个没人读的词条。因此这里不校验 key
+ * 是否在默认词表里：后台加了新 key、前端还没发版的过渡期不该报错。
+ */
+for (const [locale, entries] of Object.entries(getI18nOverrides())) {
+  for (const [keyPath, value] of Object.entries(entries)) {
+    i18n.addResource(locale, 'translation', keyPath, value)
+  }
+}
 
 export function setAppLocale(locale: SupportedLocale) {
   void i18n.changeLanguage(locale)

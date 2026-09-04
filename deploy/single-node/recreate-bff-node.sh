@@ -37,7 +37,7 @@ run run -d --name tma-bff-node --network "$NET" --ip "$PEER_IP_BFF_NODE" --resta
   --memory=256m --memory-swap=256m \
   -p 127.0.0.1:3000:3000 \
   -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
-  -v "$DIR/infra/database":/app/infra/database:ro \
+  -v "$DIR/infra":/app/infra:ro \
   -v "${DIR}/data/kyc:/app/data/kyc" \
   -v "${DIR}/backups:/app/data/backups" \
   -e NODE_ENV=production \

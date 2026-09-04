@@ -248,6 +248,12 @@ for TARGET in "${TARGETS[@]}"; do
       echo "==> [bff-node] 同步 dist + package..."
       RSYNC_RSH="$RSYNC_RSH" rsync -az --delete \
         "$ROOT/apps/bff-node/dist/" "$HOST:$DIR/apps/bff-node/dist/"
+      # i18n key 目录（P1-11）：平台控制台的文案编辑器靠它做搜索。
+      # 是构建产物不是迁移，所以跟着 bff 走而不是跟着 db 走。
+      if [ -f "$ROOT/infra/i18n/keys.en.json" ]; then
+        RSYNC_RSH="$RSYNC_RSH" rsync -az \
+          "$ROOT/infra/i18n/" "$HOST:$DIR/infra/i18n/"
+      fi
       RSYNC_RSH="$RSYNC_RSH" rsync -az \
         "$ROOT/apps/bff-node/package.json" \
         "$ROOT/apps/bff-node/package-lock.json" \
