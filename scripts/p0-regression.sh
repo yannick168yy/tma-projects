@@ -21,22 +21,30 @@ RPW=$(grep -m1 '^MYSQL_ROOT_PASSWORD=' .env | cut -d= -f2- | tr -d "\"'")
 BFF=http://127.0.0.1:3000
 CORE=http://127.0.0.1:4000
 SITE=https://www.188facai.com
+# BFF/core 直连探测必须带真实 Host：TENANT_RESOLVE_STRICT=true 后，
+# Host 为 127.0.0.1 的请求属未登记域名，会被租户中间件判 404。
+# 真实流量都经 nginx 带着域名进来，不带 Host 探到的 404 是探针工件而非回归。
+PROBE_HOST=www.188facai.com
 r() { podman exec tma-mysql mysql --default-character-set=utf8mb4 -uroot -p"$RPW" -sN "$@" 2>/dev/null; }
 
 PASS=0; FAIL=0
 ok()  { echo "  [OK] $1"; PASS=$((PASS+1)); }
 bad() { echo "  [NG] $1"; FAIL=$((FAIL+1)); }
 
-# probe <名称> <URL> <期望码|alive> [方法]
+# probe <名称> <URL> <期望码|alive> [方法] [--no-host]
 #   alive = 只要求「存在且不崩」：非 5xx 且非 404。
 #   404 不能算通过 —— 路径写错会被 404 掩盖成假通过，这类假绿比红更危险。
+#   --no-host：不带 Host 头，用于回调链路 —— 那里要探的正是「无 Host 时如何归属租户」，
+#   带上 Host 就变成走 Host 解析，测不到原本要测的回落路径。
 probe() {
-  local name="$1" url="$2" expect="$3" method="${4:-GET}"
+  local name="$1" url="$2" expect="$3" method="${4:-GET}" hostmode="${5:-}"
   local code
+  local -a hostarg=()
+  [ "$hostmode" != "--no-host" ] && case "$url" in http://127.0.0.1:*) hostarg=(-H "Host: $PROBE_HOST");; esac
   if [ "$method" = "POST" ]; then
-    code=$(curl -s -o /dev/null -w '%{http_code}' -m 15 -X POST -H 'Content-Type: application/json' -d '{}' "$url")
+    code=$(curl -s -o /dev/null -w '%{http_code}' -m 15 "${hostarg[@]}" -X POST -H 'Content-Type: application/json' -d '{}' "$url")
   else
-    code=$(curl -s -o /dev/null -w '%{http_code}' -m 15 "$url")
+    code=$(curl -s -o /dev/null -w '%{http_code}' -m 15 "${hostarg[@]}" "$url")
   fi
   if [ "$code" = "000" ]; then bad "$name：连接失败"; return; fi
   if [ "$expect" = "alive" ]; then
@@ -71,7 +79,7 @@ probe "VIP 等级"   "$BFF/api/v1/vip/levels" alive
 echo
 echo "── 3. 鉴权链路（未带 token 必须 401/403，不能 500）──"
 for p in /api/v1/user/me /api/v1/wallet/balances /api/v1/bets/ /api/v1/withdrawals/records /api/v1/ledger/records; do
-  code=$(curl -s -o /dev/null -w '%{http_code}' -m 15 "$BFF$p")
+  code=$(curl -s -o /dev/null -w '%{http_code}' -m 15 -H "Host: $PROBE_HOST" "$BFF$p")
   case "$code" in
     401|403) ok "受保护 $p（$code）";;
     5*)      bad "受保护 $p 返回 $code（鉴权链路异常）";;
@@ -81,10 +89,10 @@ done
 
 echo
 echo "── 4. 回调链路（租户归属）──"
-probe "自营站原路径回调"   "$CORE/api/v1/callback/unispay" 401 POST
+probe "自营站原路径回调"   "$CORE/api/v1/callback/unispay" 401 POST --no-host
 probe "带租户段回调"       "$CORE/t/betogo/api/v1/callback/unispay" 401 POST
 probe "错误租户段必须拒绝" "$CORE/t/nosuch/api/v1/callback/unispay" 503 POST
-probe "win568 GetBalance"  "$CORE/GetBalance" alive POST
+probe "win568 GetBalance"  "$CORE/GetBalance" alive POST --no-host
 probe "win568 带租户段"    "$CORE/t/betogo/GetBalance" alive POST
 
 echo
