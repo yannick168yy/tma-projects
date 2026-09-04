@@ -254,13 +254,22 @@ for TARGET in "${TARGETS[@]}"; do
         RSYNC_RSH="$RSYNC_RSH" rsync -az \
           "$ROOT/infra/i18n/" "$HOST:$DIR/infra/i18n/"
       fi
+      # 🔴 依赖变更检测必须在同步 lock 之前做。
+      # 原来的顺序是「先 rsync 再 dry-run 比对同一个文件」—— 同步完就没差异了，
+      # 于是 npm 依赖升级从来不会触发重建镜像，容器一直跑着旧的 node_modules，
+      # 而服务器上的 lock 文件却显示已升级，对不上还很难发现。
+      if [[ "${BFF_REBUILD_IMAGE:-}" == "1" ]] || \
+         RSYNC_RSH="$RSYNC_RSH" rsync -ain \
+           "$ROOT/apps/bff-node/package-lock.json" "$HOST:$DIR/apps/bff-node/" | grep -q '^[<>]'; then
+        BFF_DEPS_CHANGED=1
+      else
+        BFF_DEPS_CHANGED=0
+      fi
       RSYNC_RSH="$RSYNC_RSH" rsync -az \
         "$ROOT/apps/bff-node/package.json" \
         "$ROOT/apps/bff-node/package-lock.json" \
         "$HOST:$DIR/apps/bff-node/"
-      if [[ "${BFF_REBUILD_IMAGE:-}" == "1" ]] || \
-         RSYNC_RSH="$RSYNC_RSH" rsync -ain \
-           "$ROOT/apps/bff-node/package-lock.json" "$HOST:$DIR/apps/bff-node/" | grep -q '^[<>]'; then
+      if [[ "$BFF_DEPS_CHANGED" == "1" ]]; then
         echo "==> [bff-node] 依赖变更，重建镜像并替换容器..."
         ssh "${SSH_ARGS[@]}" "$HOST" "cd '$DIR' && bash deploy/single-node/recreate-bff-node.sh"
       else
@@ -272,11 +281,28 @@ for TARGET in "${TARGETS[@]}"; do
     core-node)
       echo "==> [core-node] 本地编译..."
       (cd "$ROOT/apps/core-node" && npm run build)
+      # 同 bff：先比对再同步，否则依赖升级永远检测不出来
+      if [[ "${CORE_REBUILD_IMAGE:-}" == "1" ]] || \
+         RSYNC_RSH="$RSYNC_RSH" rsync -ain \
+           "$ROOT/apps/core-node/package-lock.json" "$HOST:$DIR/apps/core-node/" | grep -q '^[<>]'; then
+        CORE_DEPS_CHANGED=1
+      else
+        CORE_DEPS_CHANGED=0
+      fi
       echo "==> [core-node] 同步 dist..."
       RSYNC_RSH="$RSYNC_RSH" rsync -az --delete \
         "$ROOT/apps/core-node/dist/" "$HOST:$DIR/apps/core-node/dist/"
-      echo "==> [core-node] 重启容器..."
-      restart_container tma-core-node
+      RSYNC_RSH="$RSYNC_RSH" rsync -az \
+        "$ROOT/apps/core-node/package.json" \
+        "$ROOT/apps/core-node/package-lock.json" \
+        "$HOST:$DIR/apps/core-node/"
+      if [[ "$CORE_DEPS_CHANGED" == "1" ]]; then
+        echo "==> [core-node] 依赖变更，重建镜像并替换容器..."
+        ssh "${SSH_ARGS[@]}" "$HOST" "cd '$DIR' && bash deploy/single-node/recreate-core-node.sh"
+      else
+        echo "==> [core-node] 重启容器..."
+        restart_container tma-core-node
+      fi
       echo "==> [core-node] 完成"
       ;;
     *)
