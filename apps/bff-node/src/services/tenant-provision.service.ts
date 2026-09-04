@@ -76,6 +76,8 @@ export interface ProvisionInput {
 export interface ProvisionResult {
   tenantId: number
   database: string
+  /** 业务后台入口域名，开站后要交付给租户 */
+  adminDomain: string
   tables: number
   seededRows: Record<string, number>
   smoke: { ok: boolean; checks: Array<{ name: string; ok: boolean; detail: string }> }
@@ -217,6 +219,14 @@ export async function provisionTenant(input: ProvisionInput): Promise<ProvisionR
       'INSERT INTO pf_tenant_domain (tenant_id, domain, market, purpose) VALUES (?, ?, ?, \'site\')',
       [tenantId, d.domain, d.market])
   }
+
+  // 业务后台入口：只给主域名（第一个）配一个 admin.<domain>。
+  // 其余 site 域名是备用线路，各配一个后台入口没有意义，只会让域名表膨胀。
+  // 平台子域名走泛解析自动可用；客户自带域名需要客户把 admin.<domain> 也解析过来。
+  const adminDomain = `admin.${domains[0].domain}`
+  await platform.execute(
+    'INSERT INTO pf_tenant_domain (tenant_id, domain, market, purpose) VALUES (?, ?, ?, \'admin\')',
+    [tenantId, adminDomain, domains[0].market])
   await platform.execute(
     `INSERT INTO pf_tenant_plan (tenant_id, plan_id) SELECT ?, id FROM pf_plan WHERE code = ?`,
     [tenantId, input.planCode])
@@ -235,8 +245,8 @@ export async function provisionTenant(input: ProvisionInput): Promise<ProvisionR
   smoke.ok = smoke.checks.every((c) => c.ok)
   await conn.end()
 
-  log.info({ tenantId, database, tables, smokeOk: smoke.ok }, '开站完成')
-  return { tenantId, database, tables, seededRows, smoke }
+  log.info({ tenantId, database, adminDomain, tables, smokeOk: smoke.ok }, '开站完成')
+  return { tenantId, database, adminDomain, tables, seededRows, smoke }
 }
 
 /** 开站自检：只查「站点能不能正常起来」的几项，不通过要在返回里明确暴露 */

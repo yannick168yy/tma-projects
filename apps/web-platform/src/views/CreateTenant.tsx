@@ -83,6 +83,14 @@ export default function CreateTenant() {
           <Button key="again" onClick={() => { setResult(null); form.resetFields(); setMarkets([]) }}>再开一个</Button>,
         ]}
       >
+        <Card size="small" title="交付信息" style={{ marginBottom: 12 }}>
+          <Typography.Paragraph style={{ marginBottom: 4 }}>
+            业务后台入口：<Typography.Text code copyable>https://{result.adminDomain}/admin-panel/</Typography.Text>
+          </Typography.Paragraph>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            平台子域名走泛解析即刻可用；客户自带域名需要客户把该地址也解析到本服务器。
+          </Typography.Text>
+        </Card>
         <Card size="small" title="冒烟自检">
           <Table
             size="small"

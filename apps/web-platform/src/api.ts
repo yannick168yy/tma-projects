@@ -94,6 +94,7 @@ export interface ProvisionRequest {
 export interface ProvisionResult {
   tenantId: number
   database: string
+  adminDomain: string
   tables: number
   seededRows: Record<string, number>
   smoke: { ok: boolean; checks: Array<{ name: string; ok: boolean; detail: string }> }
