@@ -6,6 +6,7 @@ import { platformAuthMiddleware } from '../../middleware/platform-auth.js'
 import { loginPlatformAdmin, logoutPlatformAdmin } from '../../services/platform-auth.service.js'
 import { invalidateTenantHostCache } from '../../services/tenant.service.js'
 import { dropTenantPool } from '../../clients/mysql.client.js'
+import { platformRootDomain, refreshDomainCertStatus } from '../../services/domain-cert.service.js'
 import { provisionTenant, type ProvisionInput } from '../../services/tenant-provision.service.js'
 import { ok, fail } from '../../utils/response.js'
 
@@ -115,7 +116,9 @@ export function createPlatformRouter(): Router {
     const [markets] = await pool.query<RowDataPacket[]>(
       'SELECT market, currency, timezone, enabled FROM pf_tenant_market WHERE tenant_id = ? ORDER BY market', [id])
     const [domains] = await pool.query<RowDataPacket[]>(
-      'SELECT id, domain, market, purpose, enabled, app_market, app_priority FROM pf_tenant_domain WHERE tenant_id = ? ORDER BY purpose, app_priority, domain', [id])
+      `SELECT id, domain, market, purpose, enabled, app_market, app_priority,
+              domain_type, cert_status, cert_expires_at, cert_checked_at, cert_detail, dns_resolved_ip
+         FROM pf_tenant_domain WHERE tenant_id = ? ORDER BY purpose, app_priority, domain`, [id])
     const [providers] = await pool.query<RowDataPacket[]>(
       'SELECT provider, agent_account, status FROM pf_tenant_provider WHERE tenant_id = ?', [id])
     const [channels] = await pool.query<RowDataPacket[]>(
@@ -137,6 +140,10 @@ export function createPlatformRouter(): Router {
       domains: domains.map((d) => ({
         id: d.id, domain: d.domain, market: d.market, purpose: d.purpose,
         enabled: d.enabled === 1, appMarket: d.app_market, appPriority: d.app_priority,
+        domainType: d.domain_type, certStatus: d.cert_status,
+        certExpiresAt: d.cert_expires_at ? String(d.cert_expires_at) : null,
+        certCheckedAt: d.cert_checked_at ? String(d.cert_checked_at) : null,
+        certDetail: d.cert_detail, dnsResolvedIp: d.dns_resolved_ip,
       })),
       providers: providers.map((p) => ({ provider: p.provider, agentAccount: p.agent_account, status: p.status })),
       channels: channels.map((c) => ({ channelCode: c.channel_code, owner: c.owner, merchantNo: c.merchant_no, enabled: c.enabled === 1 })),
@@ -177,6 +184,75 @@ export function createPlatformRouter(): Router {
       to: { min: poolMin, max: poolMax, queueLimit },
     })
     ok(ctx, { id, poolMin, poolMax, queueLimit, poolRecreated: dropped })
+  })
+
+  // ── 域名管理（P1-4）──
+  // 子域名走平台泛解析 + 泛域名证书，开站即用；自带域名需客户先配 A 记录再签发。
+  router.post('/tenants/:id/domains', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const tenantId = Number(ctx.params.id)
+    const b = ctx.request.body as { domain?: unknown; market?: unknown; purpose?: unknown; type?: unknown }
+    const purpose = String(b.purpose ?? 'site')
+    const market = String(b.market ?? '')
+    const type = b.type === 'platform_subdomain' ? 'platform_subdomain' : 'custom'
+    if (!['site', 'admin', 'app_route', 'landing'].includes(purpose)) return fail(ctx, 400, '非法 purpose')
+    if (!market) return fail(ctx, 400, 'market 必填')
+
+    const pool = getPlatformPool()
+    const [[tenant]] = await pool.query<RowDataPacket[]>(
+      'SELECT code FROM pf_tenant WHERE id = ? LIMIT 1', [tenantId]) as unknown as [RowDataPacket[]]
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+
+    // 子域名由平台按租户代号生成，不接受调用方指定 —— 否则可以借这个口子
+    // 抢注别家的子域名，或者写出不在泛解析覆盖范围内的域名
+    const domain = type === 'platform_subdomain'
+      ? `${purpose === 'admin' ? 'admin.' : ''}${tenant.code}.${platformRootDomain()}`
+      : String(b.domain ?? '').trim().toLowerCase().replace(/^www\./, '')
+    if (!domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) return fail(ctx, 400, '域名格式不合法')
+
+    const [dup] = await pool.query<RowDataPacket[]>(
+      'SELECT tenant_id FROM pf_tenant_domain WHERE domain = ? LIMIT 1', [domain])
+    if (dup[0]) return fail(ctx, 400, '该域名已被占用')
+
+    // 子域名落在泛域名证书覆盖范围内，直接算已签发；自带域名要等 DNS 生效
+    const certStatus = type === 'platform_subdomain' ? 'issued' : 'pending_dns'
+    const [res] = await pool.execute(
+      `INSERT INTO pf_tenant_domain (tenant_id, domain, market, purpose, domain_type, cert_status)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [tenantId, domain, market, purpose, type, certStatus])
+    await invalidateTenantHostCache(getDefaultRedis(ctx.state.env))
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'domain.add', tenantId, { domain, purpose, type })
+    ok(ctx, { id: (res as { insertId: number }).insertId, domain, certStatus })
+  })
+
+  router.delete('/tenants/:id/domains/:domainId', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const tenantId = Number(ctx.params.id)
+    const domainId = Number(ctx.params.domainId)
+    const pool = getPlatformPool()
+    const [[row]] = await pool.query<RowDataPacket[]>(
+      'SELECT domain, purpose FROM pf_tenant_domain WHERE id = ? AND tenant_id = ? LIMIT 1',
+      [domainId, tenantId]) as unknown as [RowDataPacket[]]
+    if (!row) return fail(ctx, 404, '域名不存在')
+
+    // 删掉最后一个 site 域名 = 该租户前台彻底无法访问，这种误操作要挡住
+    if (row.purpose === 'site') {
+      const [[cnt]] = await pool.query<RowDataPacket[]>(
+        "SELECT COUNT(*) AS n FROM pf_tenant_domain WHERE tenant_id = ? AND purpose = 'site' AND enabled = 1",
+        [tenantId]) as unknown as [RowDataPacket[]]
+      if (Number(cnt.n) <= 1) return fail(ctx, 400, '不能删除最后一个站点域名')
+    }
+
+    await pool.execute('DELETE FROM pf_tenant_domain WHERE id = ?', [domainId])
+    await invalidateTenantHostCache(getDefaultRedis(ctx.state.env))
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'domain.remove', tenantId, { domain: row.domain })
+    ok(ctx, { id: domainId })
+  })
+
+  // 巡检：只读探测 DNS 与证书并回写状态，不签发、不改 nginx
+  router.post('/domains/probe', auth, async (ctx) => {
+    const b = ctx.request.body as { domainIds?: unknown }
+    const ids = Array.isArray(b.domainIds) ? b.domainIds.map(Number).filter(Number.isInteger) : undefined
+    const probes = await refreshDomainCertStatus(ids)
+    ok(ctx, probes)
   })
 
   // 状态机：欠费按 正常 → 停提现 → 停充值 → 停站 逐级降级；关站是终态

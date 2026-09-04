@@ -37,6 +37,7 @@ async function unwrap<T>(p: Promise<{ data: { code: number; message?: string; da
 export const get = <T>(url: string) => unwrap<T>(http.get(url))
 export const post = <T>(url: string, body?: unknown) => unwrap<T>(http.post(url, body))
 export const put = <T>(url: string, body?: unknown) => unwrap<T>(http.put(url, body))
+export const del = <T>(url: string) => unwrap<T>(http.delete(url))
 
 // ── 平台认证 ──
 export interface PlatformLoginResult { token: string; role: string; username: string }
@@ -59,12 +60,28 @@ export interface PlatformTenant {
 }
 export const listPlatformTenants = () => get<PlatformTenant[]>('/platform/tenants')
 
+export interface TenantDomain {
+  id: number
+  domain: string
+  market: string
+  purpose: string
+  enabled: boolean
+  appMarket: string | null
+  appPriority: number
+  domainType: 'platform_subdomain' | 'custom'
+  certStatus: 'none' | 'pending_dns' | 'issued' | 'expiring' | 'failed'
+  certExpiresAt: string | null
+  certCheckedAt: string | null
+  certDetail: string | null
+  dnsResolvedIp: string | null
+}
+
 export interface TenantDetail extends PlatformTenant {
   remark: string | null
   planCode: string | null
   pool: { min: number; max: number; queueLimit: number }
   markets: Array<{ market: string; currency: string; timezone: string; enabled: boolean }>
-  domains: Array<{ id: number; domain: string; market: string; purpose: string; enabled: boolean; appMarket: string | null; appPriority: number }>
+  domains: TenantDomain[]
   providers: Array<{ provider: string; agentAccount: string; status: string }>
   channels: Array<{ channelCode: string; owner: string; merchantNo: string | null; enabled: boolean }>
 }
@@ -100,3 +117,23 @@ export interface ProvisionResult {
   smoke: { ok: boolean; checks: Array<{ name: string; ok: boolean; detail: string }> }
 }
 export const provisionTenant = (body: ProvisionRequest) => post<ProvisionResult>('/platform/tenants', body)
+
+// ── 域名管理 ──
+export interface DomainProbe {
+  domain: string
+  dnsResolvedIp: string | null
+  dnsOk: boolean
+  certStatus: string
+  certExpiresAt: string | null
+  detail: string | null
+}
+export const addTenantDomain = (
+  tenantId: number,
+  body: { domain?: string; market: string; purpose: string; type: 'platform_subdomain' | 'custom' },
+) => post<{ id: number; domain: string; certStatus: string }>(`/platform/tenants/${tenantId}/domains`, body)
+
+export const removeTenantDomain = (tenantId: number, domainId: number) =>
+  del<{ id: number }>(`/platform/tenants/${tenantId}/domains/${domainId}`)
+
+export const probeDomains = (domainIds?: number[]) =>
+  post<DomainProbe[]>('/platform/domains/probe', { domainIds })
