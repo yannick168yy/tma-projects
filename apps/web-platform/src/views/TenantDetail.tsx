@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Card, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd'
 import {
-  addTenantDomain, deleteTenantI18n, getTenantBrand, getTenantDetail, getTenantFeatures,
+  addTenantDomain, deleteTenantI18n, getTenantBrand, getTenantDetail, getTenantFeatures, impersonateTenant,
   listTenantI18n, probeDomains, removeTenantDomain, saveTenantBrand, searchI18nKeys,
   setTenantFeature, setTenantI18n, updateTenantPool, updateTenantStatus, uploadBrandAsset,
   type I18nCatalogEntry, type I18nOverrideRow,
@@ -68,6 +68,7 @@ export default function TenantDetail() {
   const nav = useNavigate()
   const [d, setD] = useState<Detail | null>(null)
   const [loading, setLoading] = useState(false)
+  const [impersonating, setImpersonating] = useState(false)
   const [next, setNext] = useState<string>()
   const [pool, setPool] = useState({ min: 0, max: 1, queueLimit: 0 })
   const [savingPool, setSavingPool] = useState(false)
@@ -146,11 +147,33 @@ export default function TenantDetail() {
 
   const options = (FLOW[d.status] ?? []).map((s) => ({ value: s, label: STATUS[s]?.text ?? s }))
 
+  async function doImpersonate() {
+    setImpersonating(true)
+    try {
+      const { url } = await impersonateTenant(d!.id)
+      // 新标签打开：平台控制台的会话要留着，否则跳过去就回不来了
+      window.open(url, '_blank', 'noopener')
+    } catch (e) {
+      message.error((e as Error).message)
+    } finally {
+      setImpersonating(false)
+    }
+  }
+
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
       <Card
         title={`租户详情 · ${d.code}`}
-        extra={<Button onClick={() => nav('/tenants')}>返回列表</Button>}
+        extra={<Space>
+          <Popconfirm
+            title="以该租户身份登录"
+            description="将在新标签打开客户的业务后台。全程留痕，客户在自己的操作日志里能看到。"
+            onConfirm={() => void doImpersonate()}
+          >
+            <Button loading={impersonating} disabled={d.status === 'closed'}>以租户身份登录</Button>
+          </Popconfirm>
+          <Button onClick={() => nav('/tenants')}>返回列表</Button>
+        </Space>}
         loading={loading}
       >
         <Descriptions column={3} size="small" bordered>

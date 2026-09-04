@@ -1,5 +1,11 @@
 import Router from '@koa/router'
-import { loginAdmin, logoutAdmin, changeAdminPassword, verifyAdminTotpLogin } from '../../services/admin-auth.service.js'
+import {
+  changeAdminPassword, createImpersonationSession, loginAdmin, logoutAdmin, verifyAdminTotpLogin,
+} from '../../services/admin-auth.service.js'
+import { consumeImpersonateTicket } from '../../services/impersonate.service.js'
+import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
+import { getAdminById, writeAuditLog } from '../../services/admin-store.js'
+import type { RowDataPacket } from 'mysql2/promise'
 import { adminAuthMiddleware } from '../../middleware/admin-auth.js'
 import { fail, ok } from '../../utils/response.js'
 
@@ -82,3 +88,45 @@ router.post('/change-password', adminAuthMiddleware(), async (ctx) => {
 })
 
 export default router
+
+/**
+ * 兑换 impersonate 票据（P1-6）。跑在**租户后台域名**上，所以此处已有租户上下文。
+ *
+ * 不挂 adminAuthMiddleware：这条接口本身就是用来拿会话的。
+ */
+router.post('/impersonate', async (ctx) => {
+  const ticket = String((ctx.request.body as { ticket?: unknown })?.ticket ?? '')
+  const payload = await consumeImpersonateTicket(ctx.state.env, ticket)
+  // 票据无效 / 已用过 / 已过期，一律同一句话：区分开来等于告诉试探者票据格式对不对
+  if (!payload) { fail(ctx, 401, '票据无效或已过期', 401); return }
+
+  // 🔴 最关键的一处：票据必须与当前域名所属租户一致。
+  // 不校验的话，拿到 A 租户的票就能在 B 租户的后台域名兑换出 B 的超管会话。
+  const tenant = ctx.state.tenant
+  if (!tenant || tenant.id !== payload.tenantId) {
+    fail(ctx, 401, '票据无效或已过期', 401); return
+  }
+  if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, '存储不可用', 503); return }
+
+  // 绑到该租户真实的 super_admin：审计表 admin_id 无外键，
+  // 但填一个不存在的 id 会让「按管理员查审计」永远查不到这些记录
+  const [rows] = await getMysqlPool(ctx.state.env).query<RowDataPacket[]>(
+    "SELECT id FROM admin_accounts WHERE role = 'super_admin' AND status = 'active' ORDER BY id LIMIT 1")
+  const accountId = rows[0] ? Number(rows[0].id) : null
+  if (accountId === null) { fail(ctx, 400, '该租户没有可用的超级管理员账号'); return }
+  const account = await getAdminById(ctx.state.env, accountId)
+  if (!account) { fail(ctx, 400, '该租户没有可用的超级管理员账号'); return }
+
+  const session = await createImpersonationSession(ctx.state.redis, account, payload.platformUsername)
+  // 审计写进**租户自己的**库：客户查自己的操作日志时必须能看到平台方进来过
+  await writeAuditLog(ctx.state.env, {
+    adminId: account.id,
+    adminUsername: session.username,
+    action: 'admin_impersonate_login',
+    targetType: 'admin',
+    targetId: String(account.id),
+    detail: { platformUsername: payload.platformUsername, platformAdminId: payload.platformAdminId },
+    ip: ctx.ip,
+  })
+  ok(ctx, { token: session.token, role: session.role, username: session.username, expiresIn: session.expiresIn })
+})

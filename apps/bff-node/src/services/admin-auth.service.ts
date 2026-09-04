@@ -16,6 +16,9 @@ import { verifyTotpCode } from '../utils/totp.js'
 
 const scryptAsync = promisify(scrypt)
 const ADMIN_SESSION_TTL = 8 * 60 * 60 // 8h
+// impersonate 会话只给 1 小时：它是平台方临时代客户操作的通道，
+// 不该像客户自己登录那样挂一整天
+const IMPERSONATE_SESSION_TTL = 60 * 60
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex')
@@ -36,6 +39,11 @@ export interface AdminSession {
   username: string
   role: string
   expiresAt: string
+  /**
+   * 平台管理员以租户身份登录时填这里（P1-6）。
+   * 有值即表示这条会话不是租户自己人开的，审计要能看出来。
+   */
+  impersonatedBy?: string
   /** 角色要求 TOTP 但尚未绑定：session 只能访问 TOTP 绑定与登出接口 */
   totpSetupRequired?: boolean
 }
@@ -166,4 +174,34 @@ export async function seedDefaultAdmin(env: Env): Promise<void> {
   const passwordHash = await hashPassword('Betogo@2025')
   await createAdmin(env, { username: 'admin', passwordHash, role: 'super_admin' })
   console.log('[admin-seed] Created default admin account: admin / Betogo@2025')
+}
+
+/**
+ * 为 impersonate 建会话（P1-6）。
+ *
+ * 绑到租户**真实的** super_admin 账号 id：审计表的 admin_id 没有外键，
+ * 但用一个不存在的 id 会让「按管理员查审计」永远查不到这些记录。
+ * 同时把 username 改写成 `平台管理员@impersonate`，
+ * 每一条审计行都自带来源，不必再去关联会话才知道是谁在操作。
+ *
+ * **不刷新 last_login**：那是账号主人自己登录的口径，
+ * 被平台代登录一次就把它改掉会让「这个账号多久没人用了」失真。
+ */
+export async function createImpersonationSession(
+  redis: Redis,
+  account: AdminAccount,
+  platformUsername: string,
+): Promise<{ token: string; expiresIn: number; role: string; username: string }> {
+  const token = randomToken()
+  const expiresAt = new Date(Date.now() + IMPERSONATE_SESSION_TTL * 1000).toISOString()
+  const username = `${platformUsername}@impersonate`
+  const session: AdminSession = {
+    adminId: account.id,
+    username,
+    role: account.role,
+    expiresAt,
+    impersonatedBy: platformUsername,
+  }
+  await redis.setex(sessionKey(token), IMPERSONATE_SESSION_TTL, JSON.stringify(session))
+  return { token, expiresIn: IMPERSONATE_SESSION_TTL, role: account.role, username }
 }

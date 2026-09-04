@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import { AdminMarketProvider } from './components/MarketScope'
 import Login from './views/Login'
+import Impersonate from './views/Impersonate'
 import Dashboard from './views/Dashboard'
 import BiDashboard from './views/BiDashboard'
 import BiProviders from './views/BiProviders'
@@ -100,6 +101,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
+        {/* impersonate 落地页不能包 GuestOnly：平台方可能本来就在这台机器上登着别的账号 */}
+        <Route path="/impersonate" element={<Impersonate />} />
         <Route path="/" element={<RequireAuth><AdminMarketProvider><AppLayout /></AdminMarketProvider></RequireAuth>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />

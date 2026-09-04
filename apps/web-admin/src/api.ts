@@ -1549,6 +1549,11 @@ export interface AdminMe {
 }
 export const getAdminMe = () => get<AdminMe>('/admin/auth/me')
 
+/** 用平台控制台签发的一次性票据换本租户后台会话（P1-6） */
+export const adminImpersonate = (ticket: string) =>
+  post<{ token: string; role: string; username: string; expiresIn: number }>(
+    '/admin/auth/impersonate', { ticket })
+
 // ── 支付渠道管理 ──────────────────────────────────────────────────────────────
 
 export type PaymentTxType = 'deposit' | 'withdraw' | 'both'

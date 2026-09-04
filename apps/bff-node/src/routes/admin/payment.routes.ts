@@ -11,6 +11,7 @@ import {
   setAlertThreshold, setManualProviderBalance, getPaymentReconciliation, ALERT_PROVIDERS,
 } from '../../services/payment-accounting.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
+import { checkPlanLimits } from '../../services/plan-limit.service.js'
 import { requireRole } from '../../middleware/require-role.js'
 import { queryDeposit as queryUnispayDeposit, queryWithdrawal as queryUnispayWithdrawal, UnispayError } from '../../services/unispay.service.js'
 
@@ -40,6 +41,15 @@ router.post('/channels', requireRole('super_admin'), async (ctx) => {
   if (REMOVED_PAYMENT_PROVIDERS.has(String(body.provider).trim().toLowerCase())) {
     fail(ctx, 400, '该支付服务商已停用'); return
   }
+  // 套餐允许改动范围（P1-14）：提现上下限直接决定资金口径，必须受套餐约束
+  const limitErr = await checkPlanLimits(ctx.state.env, [
+    ...(parseAmount(body.withdrawMin) !== null
+      ? [{ key: 'withdraw_min' as const, value: parseAmount(body.withdrawMin)! }] : []),
+    ...(parseAmount(body.withdrawMax) !== null
+      ? [{ key: 'withdraw_max' as const, value: parseAmount(body.withdrawMax)! }] : []),
+  ])
+  if (limitErr) { fail(ctx, 400, limitErr); return }
+
   const id = await createChannel(ctx.state.env, {
     name: String(body.name).trim(),
     provider: String(body.provider).trim(),
@@ -96,6 +106,15 @@ router.put('/channels/:id', requireRole('super_admin'), async (ctx) => {
   if (body.enabled !== undefined) data.enabled = Boolean(body.enabled)
   if (body.clientVisible !== undefined) data.clientVisible = Boolean(body.clientVisible)
   if (body.sortOrder !== undefined) data.sortOrder = Number(body.sortOrder)
+
+  // 套餐允许改动范围（P1-14）。只校验本次真的传了的字段：
+  // 没传的字段不该因为库里的历史值超范围而卡住这次无关的修改
+  const putLimitErr = await checkPlanLimits(ctx.state.env, [
+    ...(data.withdrawMin != null ? [{ key: 'withdraw_min' as const, value: data.withdrawMin }] : []),
+    ...(data.withdrawMax != null ? [{ key: 'withdraw_max' as const, value: data.withdrawMax }] : []),
+  ])
+  if (putLimitErr) { fail(ctx, 400, putLimitErr); return }
+
   const updated = await updateChannel(ctx.state.env, id, data)
   if (!updated) { fail(ctx, 404, '渠道不存在'); return }
   await writeAuditLog(ctx.state.env, {

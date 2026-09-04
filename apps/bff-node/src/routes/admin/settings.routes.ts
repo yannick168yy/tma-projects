@@ -1,3 +1,4 @@
+import { checkPlanLimits } from '../../services/plan-limit.service.js'
 import Router from '@koa/router'
 import type { Redis } from 'ioredis'
 import { getOpPasswordHash, setOpPassword, getSmsTestMode, setSmsTestMode, getMaintenanceMode, setMaintenanceMode, getAdminSetting, setAdminSetting, writeAuditLog } from '../../services/admin-store.js'
@@ -331,6 +332,12 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
   if (!Number.isFinite(featureBonusLockWagerMult) || featureBonusLockWagerMult < 0 || featureBonusLockWagerMult > 100) {
     fail(ctx, 400, 'featureBonusLockWagerMult must be a number between 0 and 100'); return
   }
+  // 套餐允许改动范围（P1-14）：流水倍数直接影响彩金成本，必须受套餐约束
+  const limitErr = await checkPlanLimits(ctx.state.env, [
+    { key: 'bonus_wager_mult', value: featureBonusLockWagerMult },
+  ])
+  if (limitErr) { fail(ctx, 400, limitErr); return }
+
   await setAdminSetting(ctx.state.env, SMS_DAILY_LIMIT_KEY, String(smsDailyLimitPerUser || DEFAULT_SMS_DAILY_LIMIT))
   await setAdminSetting(ctx.state.env, SMS_DAILY_IP_LIMIT_KEY, String(smsDailyLimitPerIp || DEFAULT_SMS_DAILY_IP_LIMIT))
   await setAdminSetting(ctx.state.env, OTP_LOCK_SECONDS_KEY, String(otpLockSeconds || DEFAULT_OTP_LOCK_SECONDS))

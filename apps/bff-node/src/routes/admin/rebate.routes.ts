@@ -1,5 +1,6 @@
 import Router from '@koa/router'
 import { ok, fail } from '../../utils/response.js'
+import { checkPlanLimits } from '../../services/plan-limit.service.js'
 import {
   getLevelConfig,
   saveLevelConfig,
@@ -68,6 +69,16 @@ router.put('/config', async (ctx) => {
       return
     }
   }
+  // 套餐允许改动范围（P1-14）：上面的 0~100 是全局硬边界，
+  // 这里再按租户所属套餐收窄 —— 不能让试用站把返水调到 50%
+  const limitErr = await checkPlanLimits(ctx.state.env, body.config.flatMap((item) => [
+    { key: 'rebate_rate_pct' as const, value: item.ratePct, label: `L${item.level}/${item.gameCategory}` },
+    ...(typeof item.maxBonus === 'number'
+      ? [{ key: 'rebate_max_bonus' as const, value: item.maxBonus, label: `L${item.level}/${item.gameCategory}` }]
+      : []),
+  ]))
+  if (limitErr) { fail(ctx, 400, limitErr); return }
+
   await saveLevelConfig(ctx.state.env, body.config, currency)
   ok(ctx, { saved: body.config.length })
 })

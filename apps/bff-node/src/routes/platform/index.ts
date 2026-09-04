@@ -9,6 +9,15 @@ import { dropTenantPool } from '../../clients/mysql.client.js'
 import { platformRootDomain, refreshDomainCertStatus } from '../../services/domain-cert.service.js'
 import { provisionTenant, type ProvisionInput } from '../../services/tenant-provision.service.js'
 import { randomUUID } from 'node:crypto'
+import { issueImpersonateTicket } from '../../services/impersonate.service.js'
+import {
+  deletePlanOverride,
+  invalidatePlanLimitCache,
+  isLimitKey,
+  LIMIT_KEYS,
+  listPlanOverrides,
+  setPlanOverride,
+} from '../../services/plan-limit.service.js'
 import { readFile } from 'node:fs/promises'
 import {
   countTenantI18n,
@@ -236,6 +245,81 @@ export function createPlatformRouter(): Router {
       to: { min: poolMin, max: poolMax, queueLimit },
     })
     ok(ctx, { id, poolMin, poolMax, queueLimit, poolRecreated: dropped })
+  })
+
+  // ── impersonate（P1-6）──
+  // 平台后台签发一次性票据 → 跳转租户后台域名 → 那边兑换成租户会话。
+  // 不直接下发租户 token：平台域名与租户域名不同源，token 传不过去；
+  // 且票据 60 秒即焚，比把一个 8 小时的后台 token 塞进 URL 安全得多。
+  router.post('/tenants/:id/impersonate', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+    if (tenant.status === 'closed') return fail(ctx, 400, '已关站的租户不可登录')
+
+    const [[domain]] = await getPlatformPool().query<RowDataPacket[]>(
+      `SELECT domain FROM pf_tenant_domain
+        WHERE tenant_id = ? AND purpose = 'admin' AND enabled = 1 ORDER BY id LIMIT 1`,
+      [id]) as unknown as [RowDataPacket[]]
+    if (!domain) return fail(ctx, 400, '该租户没有登记业务后台域名（purpose=admin）')
+
+    const admin = ctx.state.platformAdmin
+    const { ticket, expiresIn } = await issueImpersonateTicket(ctx.state.env, {
+      tenantId: id,
+      platformAdminId: admin?.adminId ?? null,
+      platformUsername: admin?.username ?? 'unknown',
+    })
+    await writeAudit(admin?.adminId ?? null, ctx.ip, 'tenant.impersonate.issue', id,
+      { domain: String(domain.domain) })
+    ok(ctx, {
+      url: `https://${String(domain.domain)}/admin-panel/impersonate?ticket=${ticket}`,
+      expiresIn,
+    })
+  })
+
+  // ── 套餐可覆盖范围（P1-14）──
+  // 区间是「租户后台能把这个参数改到多少」的边界，不是默认值。
+  // 未登记的 key 一律放行 —— 白名单语义：平台没表态就是不管。
+  router.get('/plans/:id/overrides', platformAuthMiddleware(), async (ctx) => {
+    const planId = Number(ctx.params.id)
+    const [[plan]] = await getPlatformPool().query<RowDataPacket[]>(
+      'SELECT id, code, name FROM pf_plan WHERE id = ? LIMIT 1', [planId]) as unknown as [RowDataPacket[]]
+    if (!plan) return fail(ctx, 404, '套餐不存在')
+    ok(ctx, {
+      plan: { id: plan.id, code: plan.code, name: plan.name },
+      keys: Object.entries(LIMIT_KEYS).map(([key, label]) => ({ key, label })),
+      overrides: await listPlanOverrides(planId),
+    })
+  })
+
+  router.put('/plans/:id/overrides/:key', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const planId = Number(ctx.params.id)
+    const key = String(ctx.params.key)
+    if (!isLimitKey(key)) return fail(ctx, 400, '未知的配置项')
+    const b = ctx.request.body as { min?: unknown; max?: unknown }
+
+    const parse = (raw: unknown): number | null | undefined => {
+      if (raw === null || raw === '' || raw === undefined) return null
+      const n = Number(raw)
+      return Number.isFinite(n) ? n : undefined
+    }
+    const min = parse(b.min)
+    const max = parse(b.max)
+    if (min === undefined || max === undefined) return fail(ctx, 400, 'min / max 需为数字或留空')
+    // 区间反了会让所有取值都被拒，且报错信息看起来像配置项本身有问题，很难查
+    if (min !== null && max !== null && min > max) return fail(ctx, 400, 'min 不能大于 max')
+
+    const [[plan]] = await getPlatformPool().query<RowDataPacket[]>(
+      'SELECT id FROM pf_plan WHERE id = ? LIMIT 1', [planId]) as unknown as [RowDataPacket[]]
+    if (!plan) return fail(ctx, 404, '套餐不存在')
+
+    if (min === null && max === null) await deletePlanOverride(planId, key)
+    else await setPlanOverride(planId, key, min, max)
+
+    // 套餐改了要清掉挂这个套餐的所有租户的缓存。租户数少，全清最省事也最不容易漏
+    await invalidatePlanLimitCache(ctx.state.env)
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'plan.override', planId, { key, min, max })
+    ok(ctx, { planId, key, min, max })
   })
 
   // ── 文案覆盖（P1-11）──

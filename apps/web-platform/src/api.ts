@@ -214,3 +214,7 @@ export const setTenantI18n = (tenantId: number, locale: string, keyPath: string,
 export const deleteTenantI18n = (tenantId: number, locale: string, keyPath: string) =>
   del<{ locale: string; keyPath: string }>(
     `/platform/tenants/${tenantId}/i18n?locale=${encodeURIComponent(locale)}&keyPath=${encodeURIComponent(keyPath)}`)
+
+// ── impersonate（P1-6）──
+export const impersonateTenant = (tenantId: number) =>
+  post<{ url: string; expiresIn: number }>(`/platform/tenants/${tenantId}/impersonate`, {})
