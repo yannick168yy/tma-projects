@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X, Phone, Lock, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react'
 import { createPortal } from 'react-dom'
-import BetogoLogo from '@/components/BetogoLogo'
+import SiteLogo from '@/components/SiteLogo'
 import { resetForgotPassword, sendForgotPasswordOtp } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { clearLastLogin, getLastLogin, isRememberMeEnabled, setRememberMeEnabled } from '@/utils/lastLogin'
@@ -281,7 +281,7 @@ export default function LoginSheet({ open, onClose }: Props) {
 
         <div className="relative px-5 pb-5 pt-6">
           <div className="mb-4 flex justify-center">
-            <BetogoLogo />
+            <SiteLogo />
           </div>
           <h2 className="text-center text-[24px] font-black leading-tight text-white">
             {view === 'forgot' ? t('auth.forgotTitle') : (

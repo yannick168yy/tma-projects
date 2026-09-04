@@ -45,7 +45,7 @@ export const PROMOS: Promo[] = [
     tagline: 'Install & Claim Free Bonus',
     reward: '₱ 66',
     rewardLabel: 'Free Bonus',
-    desc: 'Install the BETOGO app or add it to your home screen, open it and claim your free bonus — app users only!',
+    desc: 'Install the {{brandName}} app or add it to your home screen, open it and claim your free bonus — app users only!',
     gradient: 'from-[#064e3b] via-[#065f46] to-[#047857]',
     accentColor: '#34d399',
     icon: '📲',

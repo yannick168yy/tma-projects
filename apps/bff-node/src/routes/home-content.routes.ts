@@ -13,7 +13,9 @@ router.get('/content', async (ctx) => {
 // 单段 :key 会匹配失败，故用 (.*) 吃下整段路径
 router.get('/images/(.*)', async (ctx) => {
   const key = decodeURIComponent(ctx.params[0] ?? '')
-  if ((!key.startsWith('home/') && !key.startsWith('covers/')) || key.includes('..') || key.startsWith('/')) {
+  // brand/ 是 P1-10 的品牌资产。走同一个出口是有意的：这条路由按 Host 认租户、
+  // 再按租户前缀读文件，各租户的资产天然隔离，不需要另起一套服务路径。
+  if ((!key.startsWith('home/') && !key.startsWith('covers/') && !key.startsWith('brand/')) || key.includes('..') || key.startsWith('/')) {
     fail(ctx, 400, 'Invalid image key')
     return
   }

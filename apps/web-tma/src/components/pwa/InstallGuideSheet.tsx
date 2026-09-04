@@ -1,3 +1,4 @@
+import { getSiteName } from '@/config/brand'
 import { useTranslation } from 'react-i18next'
 import {
   X,
@@ -131,7 +132,7 @@ export default function InstallGuideSheet({
           <div className="flex items-center gap-3 border-t border-black/8 px-1 pt-3">
             <img src="/icons/icon-192.png" alt="" className="h-11 w-11 rounded-xl" />
             <div className="min-w-0">
-              <p className="text-[14px] font-semibold text-black/90">BETOGO</p>
+              <p className="text-[14px] font-semibold text-black/90">{getSiteName()}</p>
               <p className="truncate text-[12px] text-black/45">https://{host}</p>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
+import { getSiteName } from '@/config/brand'
 import en from '@/i18n/locales/en'
 import id from '@/i18n/locales/id'
 import idComplete from '@/i18n/locales/id-complete'
@@ -80,7 +81,13 @@ void i18n.use(initReactI18next).init({
     vi: { translation: vi },
     'zh-CN': { translation: zhCN },
   },
-  interpolation: { escapeValue: false },
+  // brandName 作为全局插值变量下发给所有文案（P1-10/P1-12）：
+  // 品牌名散落在十几条文案里，逐条传参会漏，defaultVariables 一处配置全局生效。
+  //
+  // ⚠️ 顺序依赖：main.tsx 里 `await initSiteMarketConfig()` 必须在 `import('@/i18n')`
+  // 之前，本模块初始化时品牌才已就位。调换顺序会让所有文案回落到默认站名，
+  // 且不报错、只是显示成 BETOGO —— 包网客户站上就是事故。
+  interpolation: { escapeValue: false, defaultVariables: { brandName: getSiteName() } },
 })
 
 export function setAppLocale(locale: SupportedLocale) {

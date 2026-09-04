@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import BetogoLogo from '@/components/BetogoLogo'
+import SiteLogo from '@/components/SiteLogo'
 import { bindTelegramOidc, completeTelegramLogin } from '@/api/auth'
 import { clearStoredOAuthState, getTelegramRedirectUri, readStoredNonce, readStoredRef } from '@/utils/telegramOAuth'
 import { useAuthStore } from '@/stores/auth'
@@ -56,7 +56,7 @@ export default function TelegramAuthCallback() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
-      <BetogoLogo />
+      <SiteLogo />
       {loading && <Loader2 size={32} className="mt-6 animate-spin text-primary" />}
       {loading && <p className="mt-4 text-sm text-muted-foreground">{t('auth.signingInTelegram')}</p>}
       {error && !loading && <p className="mt-6 text-sm text-red-400">{error}</p>}

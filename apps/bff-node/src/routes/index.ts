@@ -42,6 +42,7 @@ import { appDomainsForMarket, defaultAppDomainsForMarket, getSiteDomainMappings,
 import { signRoutes } from '../services/app-route-sign.service.js'
 import { recordRouteProbes } from '../services/route-health.service.js'
 import { getTenantFeatures } from '../services/tenant-feature.service.js'
+import { DEFAULT_BRAND, getTenantBrand, getTenantMarkets } from '../services/brand.service.js'
 
 function requestHost(ctx: import('koa').Context): string {
   for (const raw of [ctx.get('x-viewer-host'), ctx.get('origin'), ctx.get('referer'), ctx.get('host')]) {
@@ -79,13 +80,45 @@ export function createApiRouter(): Router {
   api.get('/site/config', async (ctx) => {
     ctx.set('Cache-Control', 'no-store')
     const host = requestHost(ctx)
-    const mappings = await getSiteDomainMappings(ctx.state.redis, ctx.state.env)
+    const env = ctx.state.env
+    const mappings = await getSiteDomainMappings(ctx.state.redis, env)
     const tenant = ctx.state.tenant
+    const market = marketForHost(mappings, host)
+
+    // 无租户上下文只可能出现在 strict=false 且平台库同时挂了的极端情况。
+    // 此时仍要给出可用的品牌与市场，否则前台会变成空白站。
+    const [brand, features, markets] = tenant
+      ? await Promise.all([
+          getTenantBrand(env, tenant.id),
+          getTenantFeatures(env, tenant.id),
+          getTenantMarkets(tenant.id).catch(() => []),
+        ])
+      : [DEFAULT_BRAND, {}, []]
+
+    // 域名没配市场映射时（租户库的 site_domain 里没这条），单市场租户可以无歧义地推定；
+    // 多市场租户不猜 —— 下发一个错币种比不下发严重得多，客户端还有自己的兜底逻辑。
+    const current = markets.find((m) => m.market === market)
+      ?? (markets.length === 1 ? markets[0] : undefined)
     ok(ctx, {
       domain: host.toLowerCase().replace(/^www\./, ''),
-      market: marketForHost(mappings, host),
+      market,
       tenant: tenant ? { code: tenant.code, status: tenant.status } : null,
-      features: tenant ? await getTenantFeatures(ctx.state.env, tenant.id) : {},
+      brand: {
+        siteName: brand.siteName,
+        shortName: brand.shortName,
+        logoTextPrimary: brand.logoTextPrimary,
+        logoTextAccent: brand.logoTextAccent,
+        tagline: brand.tagline,
+        logoLightUrl: brand.logoLightUrl,
+        logoDarkUrl: brand.logoDarkUrl,
+        faviconUrl: brand.faviconUrl,
+        appIconUrl: brand.appIconUrl,
+      },
+      theme: brand.theme,
+      features,
+      currency: current?.currency ?? null,
+      timezone: current?.timezone ?? null,
+      markets: markets.map((m) => m.market),
     })
   })
 

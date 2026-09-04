@@ -1,3 +1,4 @@
+import { getSiteName } from '@/config/brand'
 import { X, Download, ShieldAlert, ChevronRight, CheckCircle2 } from 'lucide-react'
 
 // APK 安装图文引导：Android 从网页装 APK 会被 Play Protect / 未知来源拦截，
@@ -88,13 +89,13 @@ export default function ApkInstallGuideSheet({
         </div>
 
         {/* Step 3：装完打开 */}
-        <p className="mt-5 text-center text-[15px] font-bold text-[#e02020]">3. Open BETOGO</p>
+        <p className="mt-5 text-center text-[15px] font-bold text-[#e02020]">3. Open {getSiteName()}</p>
         <div className="mx-4 mt-2.5 rounded-2xl bg-white p-3 shadow-sm">
           <div className="relative flex items-center gap-3 rounded-xl border-2 border-[#e02020] px-3 py-2.5">
             <StepBadge n={3} />
             <img src="/icons/icon-192.png" alt="" className="h-11 w-11 rounded-xl" />
             <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-semibold text-black/90">BETOGO</p>
+              <p className="text-[14px] font-semibold text-black/90">{getSiteName()}</p>
               <p className="text-[12px] text-black/50">Tap Open when install finishes</p>
             </div>
             <CheckCircle2 size={20} className="text-[#137333]" />

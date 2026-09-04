@@ -8,6 +8,21 @@ import { invalidateTenantHostCache } from '../../services/tenant.service.js'
 import { dropTenantPool } from '../../clients/mysql.client.js'
 import { platformRootDomain, refreshDomainCertStatus } from '../../services/domain-cert.service.js'
 import { provisionTenant, type ProvisionInput } from '../../services/tenant-provision.service.js'
+import { randomUUID } from 'node:crypto'
+import { runWithTenant } from '../../lib/tenant-context.js'
+import { tenantById } from '../../services/tenant.service.js'
+import { getStorageProvider } from '../../services/storage/index.js'
+import { parseImageDataUrl } from '../../services/home-content.service.js'
+import {
+  DEFAULT_BRAND,
+  getTenantBrandRaw,
+  invalidateTenantBrandCache,
+  saveTenantBrand,
+  THEME_KEYS,
+  validateThemeValue,
+  type BrandUpdate,
+  type ThemeKey,
+} from '../../services/brand.service.js'
 import {
   FEATURE_KEYS,
   getPlanDefaults,
@@ -193,6 +208,113 @@ export function createPlatformRouter(): Router {
       to: { min: poolMin, max: poolMax, queueLimit },
     })
     ok(ctx, { id, poolMin, poolMax, queueLimit, poolRecreated: dropped })
+  })
+
+  // ── 品牌包（P1-10）──
+  router.get('/tenants/:id/brand', platformAuthMiddleware(), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+    const raw = await getTenantBrandRaw(id)
+    ok(ctx, {
+      themeKeys: THEME_KEYS,
+      // 未配过品牌时给默认值而不是 null：后台表单要有东西可编辑，
+      // 且让人一眼看出"没配就是长这样"
+      brand: raw ?? {
+        siteName: DEFAULT_BRAND.siteName,
+        shortName: DEFAULT_BRAND.shortName,
+        logoTextPrimary: DEFAULT_BRAND.logoTextPrimary,
+        logoTextAccent: DEFAULT_BRAND.logoTextAccent,
+        tagline: DEFAULT_BRAND.tagline,
+        logoLightKey: null, logoDarkKey: null, faviconKey: null, appIconKey: null,
+        theme: {}, updatedAt: null,
+      },
+      // 预览用：走平台自己的读取端点，不能直接用租户站的相对路径
+      // （平台控制台跑在平台域名下，那条路径会被解析成平台所属租户的资产）
+      assetPreviewBase: `/api/v1/platform/tenants/${id}/brand/asset/`,
+    })
+  })
+
+  router.put('/tenants/:id/brand', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+
+    const b = ctx.request.body as Record<string, unknown>
+    const patch: BrandUpdate = {}
+    const texts: Array<[keyof BrandUpdate, number]> = [
+      ['siteName', 64], ['shortName', 32], ['logoTextPrimary', 16], ['logoTextAccent', 16], ['tagline', 64],
+    ]
+    for (const [field, max] of texts) {
+      if (!(field in b)) continue
+      const value = String(b[field] ?? '').trim()
+      if (value.length > max) return fail(ctx, 400, `${field} 超过 ${max} 字`)
+      patch[field] = value as never
+    }
+    for (const field of ['logoLightKey', 'logoDarkKey', 'faviconKey', 'appIconKey'] as const) {
+      if (!(field in b)) continue
+      const value = b[field]
+      if (value !== null && typeof value !== 'string') return fail(ctx, 400, `${field} 需为字符串或 null`)
+      // 只接受本平台生成的 key：否则可以填任意路径把别处的文件读出来
+      if (typeof value === 'string' && !/^brand\/[A-Za-z0-9._/-]+$/.test(value)) return fail(ctx, 400, `${field} 非法`)
+      patch[field] = value as never
+    }
+    if ('theme' in b) {
+      const raw = b.theme
+      if (raw !== null && (typeof raw !== 'object' || Array.isArray(raw))) return fail(ctx, 400, 'theme 需为对象')
+      const theme: Record<string, string> = {}
+      for (const [k, v] of Object.entries((raw ?? {}) as Record<string, unknown>)) {
+        if (!(THEME_KEYS as readonly string[]).includes(k)) return fail(ctx, 400, `未知主题变量 ${k}`)
+        if (v === null || v === '') continue
+        if (typeof v !== 'string') return fail(ctx, 400, `${k} 需为字符串`)
+        const err = validateThemeValue(k as ThemeKey, v)
+        if (err) return fail(ctx, 400, `${k}：${err}`)
+        theme[k] = v
+      }
+      patch.theme = theme
+    }
+    if (Object.keys(patch).length === 0) return fail(ctx, 400, '没有要更新的字段')
+
+    await saveTenantBrand(id, patch)
+    await invalidateTenantBrandCache(ctx.state.env, id)
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.brand', id, { fields: Object.keys(patch) })
+    ok(ctx, await getTenantBrandRaw(id))
+  })
+
+  // 上传必须在租户上下文里做：存储层按 currentTenant() 加 `t{id}/` 前缀，
+  // 不包上下文会把客户的 logo 存进自营站目录。
+  router.post('/tenants/:id/brand/asset', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+
+    const b = ctx.request.body as { slot?: unknown; imageData?: unknown }
+    const slot = String(b.slot ?? '')
+    if (!['logoLight', 'logoDark', 'favicon', 'appIcon'].includes(slot)) return fail(ctx, 400, '非法 slot')
+    if (typeof b.imageData !== 'string') return fail(ctx, 400, 'imageData 必填')
+    const parsed = parseImageDataUrl(b.imageData)
+    if (!parsed) return fail(ctx, 400, '只支持 PNG、JPG、WEBP 图片')
+    if (parsed.data.length > 2 * 1024 * 1024) return fail(ctx, 400, '图片不能超过 2MB')
+
+    const key = `brand/${slot}/${Date.now()}-${randomUUID()}.${parsed.ext}`
+    await runWithTenant(tenant, () => getStorageProvider(ctx.state.env).put(key, parsed.data, parsed.mimeType))
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.brand.asset', id, { slot, key })
+    ok(ctx, { key })
+  })
+
+  // 预览：平台控制台不在租户域名下，读不到租户作用域的文件，故由平台代读
+  router.get('/tenants/:id/brand/asset/(.*)', platformAuthMiddleware(), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const key = decodeURIComponent(ctx.params[0] ?? '')
+    if (!/^brand\/[A-Za-z0-9._/-]+$/.test(key) || key.includes('..')) return fail(ctx, 400, '非法 key')
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+
+    const file = await runWithTenant(tenant, () => getStorageProvider(ctx.state.env).get(key))
+    if (!file) return fail(ctx, 404, '文件不存在', 404)
+    ctx.set('Content-Type', file.mimeType)
+    ctx.set('Cache-Control', 'private, max-age=60')
+    ctx.body = file.data
   })
 
   // ── 功能开关（P1-8）──

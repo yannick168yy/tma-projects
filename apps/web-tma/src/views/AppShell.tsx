@@ -2,7 +2,7 @@ import { Suspense, useState, useEffect, useLayoutEffect, useRef, useMemo } from 
 import { lazyWithReload } from '@/utils/lazyWithReload'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Gamepad2, Check, Search, Headset } from 'lucide-react'
-import BetogoLogo from '@/components/BetogoLogo'
+import SiteLogo from '@/components/SiteLogo'
 import { NAV_ITEMS } from '@/data/home'
 import { isFeatureEnabled } from '@/config/features'
 import { useAuthStore } from '@/stores/auth'
@@ -574,7 +574,7 @@ export default function AppShell() {
             />
           )}
           <div className="app-safe-header flex items-center gap-3 px-4 pb-2">
-            <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
+            <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><SiteLogo /></button>
 
             <div className="flex flex-1 items-center justify-center gap-3">
               <button ref={balanceTriggerRef} type="button" className="flex flex-col items-center gap-0.5" onClick={() => void onBalanceTap()}>

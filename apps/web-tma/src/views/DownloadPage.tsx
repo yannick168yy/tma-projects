@@ -1,3 +1,4 @@
+import { getBrand, getSiteName } from '@/config/brand'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Star, Loader2, CheckCircle2, ShieldCheck, Share2, Trash2, Flag } from 'lucide-react'
 import InstallGuideSheet from '@/components/pwa/InstallGuideSheet'
@@ -226,9 +227,9 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
 
       {/* 应用头 */}
       <div className="flex items-start gap-4 px-5">
-        <img src="/icons/icon-192.png" alt="BETOGO" className="h-[76px] w-[76px] flex-shrink-0 rounded-2xl shadow-md shadow-black/20" />
+        <img src={getBrand().appIconUrl ?? '/icons/icon-192.png'} alt={getSiteName()} className="h-[76px] w-[76px] flex-shrink-0 rounded-2xl shadow-md shadow-black/20" />
         <div className="min-w-0 pt-0.5">
-          <h1 className="text-[22px] font-bold leading-tight">BETOGO Cash Craze</h1>
+          <h1 className="text-[22px] font-bold leading-tight">{getSiteName()} Cash Craze</h1>
           <p className="mt-1 text-[14px] font-semibold text-[#1a73e8]">Brand website, 100% credibility</p>
           <p className="mt-0.5 text-[12px] text-[#5f6368]">App Verified</p>
         </div>

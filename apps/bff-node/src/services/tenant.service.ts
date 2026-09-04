@@ -59,6 +59,19 @@ async function queryByHost(host: string): Promise<TenantContext | null> {
   return rows[0] ? toContext(rows[0]) : null
 }
 
+/**
+ * 按 id 取租户上下文。平台控制台代租户做事时用它包 `runWithTenant` ——
+ * 比如上传品牌资产：不包上下文会按自营站作用域存，存进别人的目录。
+ */
+export async function tenantById(id: number): Promise<TenantContext | null> {
+  const [rows] = await getPlatformPool().query<TenantRow[]>(
+    `SELECT id, code, db_name, status, self_operated, pool_min, pool_max, queue_limit
+       FROM pf_tenant WHERE id = ? LIMIT 1`,
+    [id],
+  )
+  return rows[0] ? toContext(rows[0]) : null
+}
+
 /** 自营站兜底。P0 阶段只有它一个租户，未登记域名先落到这里而不是直接 404 */
 export async function selfOperatedTenant(): Promise<TenantContext | null> {
   const [rows] = await getPlatformPool().query<TenantRow[]>(

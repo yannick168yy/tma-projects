@@ -297,7 +297,7 @@ export default {
     footNote1: 'Rebate hanya dihitung dari taruhan valid yang sudah selesai.',
     footNote2: 'Ronde belum selesai atau batal tidak masuk jumlah klaim.',
     footNote3: 'Tarif per kategori game dan level mengikuti tabel di atas.',
-    footNote4: 'BETOGO berhak atas interpretasi akhir program ini.',
+    footNote4: '{{brandName}} berhak atas interpretasi akhir program ini.',
     cashbackGames: 'Game Cashback',
     cashbackGamesDesc: 'Tarif rebate lebih tinggi pada game pilihan',
     tierElite: 'Elite',

@@ -1,3 +1,4 @@
+import { getSiteName } from '@/config/brand'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -777,7 +778,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
               </span>
             ))}
           </div>
-          <p className="mb-4 mt-5 text-center text-[10px] text-muted-foreground/50">@2025-2026 BETOGO ALL RIGHTS RESERVED</p>
+          <p className="mb-4 mt-5 text-center text-[10px] text-muted-foreground/50">@2025-2026 {getSiteName()} ALL RIGHTS RESERVED</p>
         </section>
       </footer>
 

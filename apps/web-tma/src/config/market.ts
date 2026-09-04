@@ -1,7 +1,12 @@
 import { setSiteFeatures } from './features'
+import { applySiteIdentity, applySiteTheme, setSiteBrand } from './brand'
 
 export type SiteMarket = 'PH' | 'ID'
 
+// 兜底表，不是真相源（P1-12）：真相是服务端 bootstrap 下发的 market，
+// 其次是它上次对该域名的判定（下面的 domain-market 缓存）。
+// 这张编译期快照只在两者都拿不到时才用得上，且只覆盖自营站自己的域名 ——
+// 包网客户的域名永远不会出现在这里，他们必须靠服务端下发。
 const DEFAULT_DOMAIN_MARKETS: Record<string, SiteMarket> = {
   'betogo666.com': 'PH',
   'betogo777.com': 'PH',
@@ -48,10 +53,16 @@ export async function initSiteMarketConfig(): Promise<void> {
   try {
     const res = await fetch(`${window.location.origin}/api/v1/site/config`, { signal: controller.signal, cache: 'no-store' })
     if (!res.ok) return
-    const body = await res.json() as { code?: number; data?: { market?: string; features?: unknown } }
+    const body = await res.json() as {
+      code?: number
+      data?: { market?: string; features?: unknown; brand?: unknown; theme?: unknown }
+    }
     if (body.code !== 0) return
-    // /site/config 已扩为租户 bootstrap（P1-9 最小版）：除市场外还带功能开关
+    // /site/config 是租户 bootstrap（P1-9）：市场 + 功能开关 + 品牌 + 主题一次下发
     setSiteFeatures(body.data?.features)
+    setSiteBrand(body.data?.brand)
+    applySiteTheme(body.data?.theme)
+    applySiteIdentity()
     const market = body.data?.market?.toUpperCase()
     if (market === 'PH' || market === 'ID') {
       runtimeMarket = market

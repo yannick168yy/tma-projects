@@ -154,3 +154,35 @@ export const getTenantFeatures = (tenantId: number) =>
 export const setTenantFeature = (tenantId: number, key: string, enabled: boolean | null) =>
   put<{ id: number; key: string; effective: Record<string, boolean> }>(
     `/platform/tenants/${tenantId}/features/${key}`, { enabled })
+
+// ── 品牌包（P1-10）──
+export interface TenantBrandConfig {
+  siteName: string
+  shortName: string
+  logoTextPrimary: string
+  logoTextAccent: string
+  tagline: string
+  logoLightKey: string | null
+  logoDarkKey: string | null
+  faviconKey: string | null
+  appIconKey: string | null
+  theme: Record<string, string>
+  updatedAt: string | null
+}
+export interface TenantBrandResponse {
+  themeKeys: string[]
+  brand: TenantBrandConfig
+  /** 预览地址前缀：平台控制台不在租户域名下，资产要由平台代读 */
+  assetPreviewBase: string
+}
+export const getTenantBrand = (tenantId: number) =>
+  get<TenantBrandResponse>(`/platform/tenants/${tenantId}/brand`)
+
+export const saveTenantBrand = (tenantId: number, patch: Partial<TenantBrandConfig>) =>
+  put<TenantBrandConfig>(`/platform/tenants/${tenantId}/brand`, patch)
+
+export const uploadBrandAsset = (
+  tenantId: number,
+  slot: 'logoLight' | 'logoDark' | 'favicon' | 'appIcon',
+  imageData: string,
+) => post<{ key: string }>(`/platform/tenants/${tenantId}/brand/asset`, { slot, imageData })

@@ -562,22 +562,73 @@ P0-3 留的两段式兜底，观察期结束。未登记域名现在直接 404�
 `sortCategory` 取值，接口层无从过滤。宁可少管一个品类，也不凭空造一个匹配不到
 任何游戏的映射假装管住了。
 
-### P1-9 `/site/config` 扩展为租户 bootstrap · 2d
-一次下发：品牌 + 主题变量 + feature flags + 市场 + 币种 + 语言
+### P1-9 `/site/config` 扩展为租户 bootstrap · 2d ✅ 已完成 2026-09-04
+一次下发：品牌 + 主题变量 + feature flags + 市场 + 币种 + 时区。
+`domain` / `market` 是既有字段，**只增不改** —— 老版前端拿到多余字段会忽略，可灰度。
 
-### P1-10 品牌包 · 3d
-站名、logo（亮/暗）、App 图标、启动图、favicon、主色/强调色/圆角/字体
-落地方式：后台上传 → bootstrap 下发 → 运行时注入 `:root`
-（`apps/web-tma/src/styles/theme.css` 已是 CSS 变量 + Tailwind v4 `@theme inline`，**零构建成本**）
+```
+{ domain, market, tenant:{code,status},
+  brand:{siteName,shortName,logoTextPrimary,logoTextAccent,tagline,
+         logoLightUrl,logoDarkUrl,faviconUrl,appIconUrl},
+  theme:{...}, features:{...}, currency, timezone, markets:[] }
+```
+- 币种取自 `pf_tenant_market`。域名没配市场映射时（租户库 `site_domain` 里没这条），
+  **单市场租户可无歧义推定，多市场租户不猜** —— 下发一个错币种比不下发严重得多，
+  客户端还有自己的兜底逻辑。自营站是双市场，`188facai.com` 仍返回 null，与改动前一致
+- 无租户上下文（strict=false 且平台库同时挂了）时仍下发默认品牌，否则前台会变成空白站
+- **语言未下发**：locale 目前由客户端按市场推导，库里没有对应数据源，
+  服务端下发等于把客户端逻辑复制一遍而没有新的真相源。留到 P1-11 文案包一起做
+
+### P1-10 品牌包 · 3d ✅ 已完成 2026-09-04
+平台库 `005_tenant_brand.sql` + 平台控制台品牌配置卡片 + 前台运行时注入。
+
+- **放平台库不放租户库**：品牌是平台交付给客户的东西，开站时就要能配好；
+  放租户库的话开站流程得先建库再回头写品牌，且租户后台能改自己的品牌名不合适
+- **文字 logo 与图片 logo 并存**，配了图用图、没配用文字。包网客户开站当天
+  往往还没有 logo 图，填个站名和文字 logo 就能先把站挂上自己的名字
+- 🔴 **主题变量是白名单不是任意 CSS**：`primary` / `primaryForeground` / `accent` /
+  `accentForeground` / `radius` / `fontSans` / `fontDisplay`，且按类型校验
+  （颜色须 `#RRGGBB`、长度须 rem/px、字体名挡掉引号分号）。
+  开放任意 CSS 变量等于把后台配置变成注入面，且租户改坏布局后分不清是谁的锅
+- 前台注入：`theme.css` 本就是 CSS 变量 + Tailwind v4 `@theme inline`，
+  覆盖 `:root` 变量即全站换色，**零构建成本**（与 P1 规划时的判断一致）
+- 资产上传走**租户上下文**：存储层按 `currentTenant()` 加 `t{id}/` 前缀，
+  平台控制台没有租户上下文，不用 `runWithTenant` 包住会把客户的 logo 存进自营站目录
+- 资产读取复用 `/api/v1/home/images/*`（白名单加 `brand/`）：那条路由按 Host 认租户、
+  再按租户前缀读文件，各租户资产天然隔离，不需要另起一套服务路径。
+  平台控制台不在租户域名下，另给了一个代读端点做预览
+- 上传与落库分两步：上传只产出 key，写进哪个位置由保存决定，传错了不改配置就不影响线上
+- 自营站在迁移里登记了现有品牌（BETOGO/B/BETO/GO/Bet. Go. Win）。
+  值和代码默认值一样，但「配置为空」与「配置成当前值」在后台看起来完全不同，
+  不登记运营会以为品牌没配
+
+**线上实测（给 demo1 配 LuckyOne 品牌）**
+```
+demo1   siteName=LuckyOne  logo=LUCKY/ONE  theme={primary:#00c853, radius:1.25rem, ...}
+自营站  siteName=BETOGO    logo=BETO/GO    theme={}          ← 零影响
+资产    上传→落 t9/brand/… ；demo1 读自己 200，自营站读 demo1 的 404（隔离成立）
+校验    primary:"red" 400 / CSS 注入 400 / 未知变量 400 / logoKey 路径穿越 400
+审计    tenant.brand 与 tenant.brand.asset 均留痕
+```
 
 ### P1-11 文案覆盖包 · 3d
 租户可覆盖任意 i18n key；服务端下发 patch，客户端 merge 进 i18next
 （`apps/web-tma/src/i18n/index.ts` 现为静态 import，需加 override 层）；后台配 key 搜索编辑器
 
-### P1-12 前端去硬编码 · 2d
-- `apps/web-tma/src/config/market.ts` 编译期域名表退化为兜底，不再是真相源
-- `components/BetogoLogo.tsx` 改为配置驱动
-- 全站硬编码站名/品牌文案清理
+### P1-12 前端去硬编码 · 2d ✅ 已完成 2026-09-04
+- `BetogoLogo.tsx` → **`SiteLogo.tsx`**，配置驱动。组件名里带自家品牌，本身就是要清的硬编码
+- `market.ts` 的 `DEFAULT_DOMAIN_MARKETS` 明确降级为兜底并注释说明：
+  真相是服务端 bootstrap，其次是它上次对该域名的判定，编译期快照只在两者都拿不到时才用。
+  **包网客户的域名永远不会出现在这张表里**，他们必须靠服务端下发
+- 文案里的品牌名改为 i18next 全局插值 `{{brandName}}`（`interpolation.defaultVariables`）：
+  品牌名散落在四个语言包十几条文案里，逐条传参一定会漏
+- ⚠️ **顺序依赖**：`main.tsx` 里 `await initSiteMarketConfig()` 必须在 `import('@/i18n')` 之前，
+  i18n 初始化时品牌才已就位。调换顺序不报错、只是所有文案回落成 BETOGO —— 客户站上就是事故。
+  已在 `i18n/index.ts` 注释里写明
+- 视图层剩余硬编码（安装引导、下载页、版权行）改为 `getSiteName()` / `getBrand()`
+- `betogo_token` 这类 **localStorage 键名刻意不改**：它们是内部标识不是品牌文案，
+  改了会让所有存量用户掉登录态，收益为零
+
 
 ### P1-13 首页装修扩展 · 4d
 在现有 `bg_home_content` / `bg_home_content_image` / `bg_homepage_section_visibility` 基础上

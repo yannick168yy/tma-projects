@@ -1,4 +1,4 @@
-import BetogoLogo from '@/components/BetogoLogo'
+import SiteLogo from '@/components/SiteLogo'
 
 interface Props {
   error?: string | null
@@ -8,7 +8,7 @@ export default function SplashPage({ error }: Props) {
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#040609]">
       <div className="mb-8" style={{ animation: 'splash-pulse 1.6s ease-in-out infinite' }}>
-        <BetogoLogo />
+        <SiteLogo />
       </div>
       <div className="flex items-center gap-2">
         {[0, 1, 2].map((i) => (

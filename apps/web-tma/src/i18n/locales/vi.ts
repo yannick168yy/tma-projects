@@ -297,7 +297,7 @@ export default {
     footNote1: 'Hoàn tiền chỉ tính từ cược hợp lệ đã kết toán.',
     footNote2: 'Ván chưa kết toán hoặc đã hủy không tính vào số tiền nhận.',
     footNote3: 'Tỷ lệ theo loại game và cấp độ căn cứ bảng tỷ lệ phía trên.',
-    footNote4: 'BETOGO giữ quyền giải thích cuối cùng cho chương trình này.',
+    footNote4: '{{brandName}} giữ quyền giải thích cuối cùng cho chương trình này.',
     cashbackGames: 'Game Hoàn Tiền Cao',
     cashbackGamesDesc: 'Tỷ lệ hoàn tiền cao hơn cho game được chọn',
     tierElite: 'Elite',
