@@ -827,11 +827,19 @@ export async function listGames(
     rtpMin?: number
     sortBy?: 'weight' | 'name'
     currency?: string
+    /** 租户未开通的游戏品类（P1-8 功能开关），在分页前剔除，保证 total/pages 与实际可见数一致 */
+    blockedSortCategories?: string[]
   } = {},
 ): Promise<GameListResult> {
-  const { page = 1, limit = 30, search, provider, category, sortCategory, siteCategory, cashbackTier, rtpMin, sortBy = 'weight', currency } = opts
+  const { page = 1, limit = 30, search, provider, category, sortCategory, siteCategory, cashbackTier, rtpMin, sortBy = 'weight', currency, blockedSortCategories } = opts
 
   let games = await getGamesFromCache(env)
+
+  // 品类屏蔽放在所有过滤之前：关掉的品类不该出现在任何列表、任何计数里
+  if (blockedSortCategories && blockedSortCategories.length > 0) {
+    const blocked = new Set(blockedSortCategories)
+    games = games.filter((g) => g.sortCategory === null || !blocked.has(g.sortCategory))
+  }
 
   if (search) {
     const s = search.toLowerCase()

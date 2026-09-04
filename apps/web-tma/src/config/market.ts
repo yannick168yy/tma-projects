@@ -1,3 +1,5 @@
+import { setSiteFeatures } from './features'
+
 export type SiteMarket = 'PH' | 'ID'
 
 const DEFAULT_DOMAIN_MARKETS: Record<string, SiteMarket> = {
@@ -46,9 +48,12 @@ export async function initSiteMarketConfig(): Promise<void> {
   try {
     const res = await fetch(`${window.location.origin}/api/v1/site/config`, { signal: controller.signal, cache: 'no-store' })
     if (!res.ok) return
-    const body = await res.json() as { code?: number; data?: { market?: string } }
+    const body = await res.json() as { code?: number; data?: { market?: string; features?: unknown } }
+    if (body.code !== 0) return
+    // /site/config 已扩为租户 bootstrap（P1-9 最小版）：除市场外还带功能开关
+    setSiteFeatures(body.data?.features)
     const market = body.data?.market?.toUpperCase()
-    if (body.code === 0 && (market === 'PH' || market === 'ID')) {
+    if (market === 'PH' || market === 'ID') {
       runtimeMarket = market
       cacheDomainMarket(window.location.hostname.toLowerCase(), market)
     }

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Gamepad2, Check, Search, Headset } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
 import { NAV_ITEMS } from '@/data/home'
+import { isFeatureEnabled } from '@/config/features'
 import { useAuthStore } from '@/stores/auth'
 import {
   useWalletStore,
@@ -507,7 +508,14 @@ export default function AppShell() {
   function openCs() { closeOverlay(); setWalletOpen(false); setCsOpen(true) }
   function onLogout() { resetToTab('menu'); setWalletOpen(false); setWalletModalOpen(false) }
 
-  const navItems = useMemo(() => NAV_ITEMS.map((item) => ({ ...item, label: t(`nav.${item.id}`) })), [t])
+  // 底部导航按功能开关过滤（P1-8 第二处生效点）。
+  // 只有 team 有对应开关，其余四项（首页/优惠/游戏/菜单）是所有租户共有的骨架。
+  const navItems = useMemo(
+    () => NAV_ITEMS
+      .filter((item) => item.id !== 'team' || isFeatureEnabled('team_commission'))
+      .map((item) => ({ ...item, label: t(`nav.${item.id}`) })),
+    [t],
+  )
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp

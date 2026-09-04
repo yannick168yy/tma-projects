@@ -12,7 +12,7 @@ import {
   AlertOutlined, BarChartOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
-import { adminChangePassword, getAdminBadges, type AdminBadges } from '../api'
+import { adminChangePassword, getAdminBadges, getAdminFeatures, type AdminBadges } from '../api'
 import HistoryTabs from './HistoryTabs'
 import './admin-menu.css'
 
@@ -53,7 +53,7 @@ function buildMenuItems(badges: AdminBadges) {
       children: [
         { key: '/users', label: '用户列表' },
         { key: '/device-lookup', label: '指纹/IP 查询' },
-        { key: '/kyc', label: <MenuBadgeLabel text="实名认证" count={badges.rejectedKyc} /> },
+        { key: '/kyc', label: <MenuBadgeLabel text="实名认证" count={badges.rejectedKyc} />, feature: 'kyc' },
       ],
     },
     // 推广联盟：C端用户分销裂变 + B端渠道代理，同属拉新分成
@@ -63,12 +63,12 @@ function buildMenuItems(badges: AdminBadges) {
       label: '推广联盟',
       children: [
         { key: '/bi/ad-sources', label: '投放渠道(买量)' },
-        { key: '/team-referral/agents', label: '分销网体' },
-        { key: '/team-referral/commissions', label: '佣金流水' },
-        { key: '/team-referral/config', label: '佣金配置' },
-        { key: '/agents', label: '渠道代理' },
-        { key: '/agent-channels', label: '推广渠道' },
-        { key: '/agents/commissions', label: '分成报表' },
+        { key: '/team-referral/agents', label: '分销网体', feature: 'team_commission' },
+        { key: '/team-referral/commissions', label: '佣金流水', feature: 'team_commission' },
+        { key: '/team-referral/config', label: '佣金配置', feature: 'team_commission' },
+        { key: '/agents', label: '渠道代理', feature: 'agent_center' },
+        { key: '/agent-channels', label: '推广渠道', feature: 'agent_center' },
+        { key: '/agents/commissions', label: '分成报表', feature: 'agent_center' },
       ],
     },
     {
@@ -117,8 +117,8 @@ function buildMenuItems(badges: AdminBadges) {
       children: [
         { key: '/promotions', label: '活动配置' },
         { key: '/promotions/claims', label: '参与记录' },
-        { key: '/community', label: '社区营销' },
-        { key: '/tg-broadcast', label: 'TG 群发' },
+        { key: '/community', label: '社区营销', feature: 'community' },
+        { key: '/tg-broadcast', label: 'TG 群发', feature: 'tg_broadcast' },
       ],
     },
     // 会员运营：留存返利（VIP/洗码）+ 活跃激励（任务/签到/转盘），同属用户留存激励
@@ -128,14 +128,14 @@ function buildMenuItems(badges: AdminBadges) {
       label: '会员运营',
       children: [
         { key: '/growth/overview', label: '任务成长总览' },
-        { key: '/growth/vip-benefits', label: 'VIP 权益配置' },
-        { key: '/growth/vip-records', label: 'VIP 礼金记录' },
-        { key: '/growth/rebate-rates', label: '洗码费率' },
-        { key: '/growth/rebate-featured', label: 'Cashback Games' },
-        { key: '/growth/rebate-records', label: '洗码派发记录' },
-        { key: '/tasks/center', label: '任务中心' },
-        { key: '/tasks/checkin', label: '每日签到' },
-        { key: '/tasks/rewards-spin', label: '转盘抽奖' },
+        { key: '/growth/vip-benefits', label: 'VIP 权益配置', feature: 'vip' },
+        { key: '/growth/vip-records', label: 'VIP 礼金记录', feature: 'vip' },
+        { key: '/growth/rebate-rates', label: '洗码费率', feature: 'rebate' },
+        { key: '/growth/rebate-featured', label: 'Cashback Games', feature: 'rebate' },
+        { key: '/growth/rebate-records', label: '洗码派发记录', feature: 'rebate' },
+        { key: '/tasks/center', label: '任务中心', feature: 'task' },
+        { key: '/tasks/checkin', label: '每日签到', feature: 'checkin' },
+        { key: '/tasks/rewards-spin', label: '转盘抽奖', feature: 'spin' },
       ],
     },
     // 风控（防与管，自动化识别拦截「人」）独立于取款审核（查与核，人工复核单笔订单）
@@ -160,6 +160,7 @@ function buildMenuItems(badges: AdminBadges) {
         {
           key: '/customer-service',
           label: '客服工作台',
+          feature: 'cs_ai',
         },
         {
           key: '/cs-tickets',
@@ -184,14 +185,17 @@ function buildMenuItems(badges: AdminBadges) {
   ]
 }
 
-// 菜单项可声明 roles 白名单；未声明即所有已登录管理员可见。
-// 前端过滤只是体验层，真正的权限边界在后端 requireRole 中间件。
-type MenuNode = { key: string; label?: ReactNode; icon?: ReactNode; roles?: string[]; children?: MenuNode[] }
+// 菜单项可声明 roles 白名单与 feature 开关；未声明即所有已登录管理员可见。
+// 前端过滤只是体验层，真正的权限边界在后端 requireRole / requireFeature 中间件。
+type MenuNode = { key: string; label?: ReactNode; icon?: ReactNode; roles?: string[]; feature?: string; children?: MenuNode[] }
 
-function filterMenuByRole(items: MenuNode[], role: string): MenuNode[] {
+// features 为 null 表示还没拉到（或接口失败）：此时不过滤任何项。
+// 拉不到就把菜单清空会让一次接口抖动看起来像「后台功能全没了」。
+function filterMenu(items: MenuNode[], role: string, features: Record<string, boolean> | null): MenuNode[] {
   return items
     .filter((item) => !item.roles || item.roles.includes(role))
-    .map((item) => (item.children ? { ...item, children: filterMenuByRole(item.children, role) } : item))
+    .filter((item) => !item.feature || !features || features[item.feature] !== false)
+    .map((item) => (item.children ? { ...item, children: filterMenu(item.children, role, features) } : item))
     .filter((item) => !item.children || item.children.length > 0)
 }
 
@@ -207,6 +211,20 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (['/customer-service', '/cs-tickets', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
   if (['/audit-log', '/settings', '/system-params', '/site-domains', '/sms-test', '/db-backup'].some((p) => pathname.startsWith(p))) return ['system']
   return []
+}
+
+/**
+ * 本租户的功能开关。失败时保持 null —— 见 filterMenu：null 表示不过滤。
+ * 开关几乎不变，登录后拉一次即可，不做轮询。
+ */
+function useAdminFeatures(): Record<string, boolean> | null {
+  const [features, setFeatures] = useState<Record<string, boolean> | null>(null)
+  useEffect(() => {
+    void (async () => {
+      try { setFeatures(await getAdminFeatures()) } catch { /* 拉不到就不过滤 */ }
+    })()
+  }, [])
+  return features
 }
 
 function useAdminBadges(): AdminBadges {
@@ -257,10 +275,11 @@ export default function AppLayout() {
   const [pwdLoading, setPwdLoading] = useState(false)
   const [form] = Form.useForm<{ current: string; newPwd: string; confirm: string }>()
   const badges = useAdminBadges()
+  const features = useAdminFeatures()
   const defaultOpenKeys = useMemo(() => getDefaultOpenKeys(location.pathname), [])
   const showMarketScope = location.pathname === '/dashboard' || location.pathname.startsWith('/bi/')
 
-  const menuItems = useMemo(() => filterMenuByRole(buildMenuItems(badges) as MenuNode[], role), [badges, role])
+  const menuItems = useMemo(() => filterMenu(buildMenuItems(badges) as MenuNode[], role, features), [badges, role, features])
 
   async function handleChangePwd() {
     const values = form.getFieldsValue()

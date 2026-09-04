@@ -2,9 +2,20 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Card, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd'
 import {
-  addTenantDomain, getTenantDetail, probeDomains, removeTenantDomain,
-  updateTenantPool, updateTenantStatus, type TenantDetail as Detail,
+  addTenantDomain, getTenantDetail, getTenantFeatures, probeDomains, removeTenantDomain,
+  setTenantFeature, updateTenantPool, updateTenantStatus,
+  type TenantDetail as Detail, type TenantFeatures,
 } from '../api'
+
+const FEATURE_LABEL: Record<string, string> = {
+  slots: '电子', live: '真人', sports: '体育', lottery: '彩票', fishing: '捕鱼',
+  task: '任务', checkin: '签到', spin: '转盘', vip: 'VIP',
+  rebate: '洗码返水', loss_rebate: '负盈利返水',
+  team_commission: '团队佣金', agent_center: '代理中心',
+  community: '社区营销', tg_broadcast: 'TG 群发', cs_ai: '客服 AI',
+  kyc: 'KYC', login_telegram: 'TG 登录', login_google: 'Google 登录',
+  app_download: 'APP 下载页',
+}
 
 const STATUS: Record<string, { text: string; color: string }> = {
   trial: { text: '试用', color: 'blue' },
@@ -172,6 +183,8 @@ export default function TenantDetail() {
         </div>
       </Card>
 
+      <FeatureCard tenantId={d.id} />
+
       <Card title="市场" size="small">
         <Table rowKey="market" size="small" pagination={false} dataSource={d.markets}
           columns={[
@@ -284,5 +297,75 @@ export default function TenantDetail() {
           ]} />
       </Card>
     </Space>
+  )
+}
+
+/**
+ * 功能开关矩阵。三态：跟随套餐 / 单独开 / 单独关。
+ *
+ * 必须能看出「这个关是套餐带的还是这家单独关的」—— 只显示生效值的话，
+ * 没法判断清掉覆盖会回到什么，换套餐后更是一笔糊涂账。
+ */
+function FeatureCard({ tenantId }: { tenantId: number }) {
+  const [data, setData] = useState<TenantFeatures | null>(null)
+  const [saving, setSaving] = useState<string | null>(null)
+
+  async function load() {
+    try { setData(await getTenantFeatures(tenantId)) } catch (e) { message.error((e as Error).message) }
+  }
+  useEffect(() => { void load() }, [tenantId])
+
+  async function change(key: string, value: 'inherit' | 'on' | 'off') {
+    setSaving(key)
+    try {
+      await setTenantFeature(tenantId, key, value === 'inherit' ? null : value === 'on')
+      await load()
+      message.success('已保存，前台缓存已刷新')
+    } catch (e) {
+      message.error((e as Error).message)
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  if (!data) return <Card title="功能开关" size="small" loading />
+
+  return (
+    <Card title="功能开关" size="small"
+      extra={<Typography.Text type="secondary">租户覆盖优先于套餐默认值</Typography.Text>}>
+      <Table rowKey="key" size="small" pagination={false}
+        dataSource={data.keys.map((key) => ({ key }))}
+        columns={[
+          { title: '功能', dataIndex: 'key', render: (k: string) => FEATURE_LABEL[k] ?? k },
+          { title: '标识', dataIndex: 'key', render: (k: string) => <Typography.Text code>{k}</Typography.Text> },
+          {
+            title: '套餐默认',
+            dataIndex: 'key',
+            render: (k: string) => data.planDefaults[k] === false ? <Tag>关</Tag> : <Tag color="green">开</Tag>,
+          },
+          {
+            title: '本租户',
+            dataIndex: 'key',
+            render: (k: string) => (
+              <Select<'inherit' | 'on' | 'off'> size="small" style={{ width: 120 }}
+                loading={saving === k} disabled={saving !== null}
+                value={data.overrides[k] === undefined ? 'inherit' : data.overrides[k] ? 'on' : 'off'}
+                onChange={(v) => void change(k, v)}
+                options={[
+                  { value: 'inherit', label: '跟随套餐' },
+                  { value: 'on', label: '单独开' },
+                  { value: 'off', label: '单独关' },
+                ]} />
+            ),
+          },
+          {
+            title: '生效',
+            dataIndex: 'key',
+            render: (k: string) => data.effective[k] === false
+              ? <Tag color="red">关</Tag>
+              : <Tag color="green">开</Tag>,
+          },
+        ]} />
+    </Card>
   )
 }

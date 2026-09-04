@@ -1,5 +1,6 @@
 import type { TaskInitialPath } from '@/hooks/useFullPageOverlay'
 import type { FullPageView } from '@/hooks/useFullPageOverlay'
+import { isFeatureEnabled } from '@/config/features'
 
 export type TabId = 'casino' | 'games' | 'bonuses' | 'menu'
 
@@ -55,6 +56,18 @@ export function legacyLobbyCat(value?: string | null): string {
   return (value && LEGACY_LOBBY_CAT[value]) ?? 'all'
 }
 
+/** 需要功能开关的 overlay。未列出的（搜索/注单/账变等）属所有租户共有，不设开关 */
+const OVERLAY_FEATURE: Partial<Record<FullPageView['type'], string>> = {
+  teamCenter: 'team_commission',
+  agentCenter: 'agent_center',
+  rebate: 'rebate',
+  vipCenter: 'vip',
+  spin: 'spin',
+  kycSetting: 'kyc',
+  download: 'app_download',
+  tasks: 'task',
+}
+
 export function parseAppRoute(pathname: string, search: string): ParsedAppRoute | null {
   if (pathname === '/') return { kind: 'tab', tab: 'casino', promoFilter: null, gamesFilter: null }
 
@@ -77,6 +90,9 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
   }
 
   const overlayType = OVERLAY_PATHS[pathname]
+  // 未开通的模块当作路径不存在：调用方对 null 的处理就是跳回首页（P1-8 第一处生效点）。
+  // 直链、历史记录、外部分享都会走到这里，光隐藏入口挡不住。
+  if (overlayType && OVERLAY_FEATURE[overlayType] && !isFeatureEnabled(OVERLAY_FEATURE[overlayType]!)) return null
   if (overlayType === 'perya') return { kind: 'overlay', overlay: { type: 'perya' } }
   if (overlayType === 'search') return { kind: 'overlay', overlay: { type: 'search' } }
   if (overlayType === 'teamCenter') return { kind: 'overlay', overlay: { type: 'teamCenter' } }

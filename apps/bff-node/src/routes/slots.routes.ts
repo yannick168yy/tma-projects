@@ -15,8 +15,26 @@ import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
 import { getBettingActivity, type BetTab } from '../services/betting-activity.service.js'
 import type { Env } from '../config/env.js'
+import { getTenantFeatures } from '../services/tenant-feature.service.js'
 
 const router = new Router({ prefix: '/slots' })
+
+/**
+ * 游戏品类开关 → 游戏库里的 sortCategory 取值。
+ * 'table'（棋牌）与 'lottery' 目前没有对应的 sortCategory 数据，故不在此表 ——
+ * 宁可少管一个品类，也不要凭空造一个匹配不到任何游戏的映射假装管住了。
+ */
+const CATEGORY_FEATURE: ReadonlyArray<readonly [string, 'slots' | 'live' | 'sports' | 'fishing']> = [
+  ['slots', 'slots'], ['live', 'live'], ['sports', 'sports'], ['fishing', 'fishing'],
+]
+
+/** 该租户关掉的游戏品类。无租户上下文时不屏蔽任何品类 */
+async function blockedCategories(ctx: import('koa').Context): Promise<string[]> {
+  const tenant = ctx.state.tenant
+  if (!tenant) return []
+  const features = await getTenantFeatures(ctx.state.env, tenant.id)
+  return CATEGORY_FEATURE.filter(([, key]) => features[key] === false).map(([cat]) => cat)
+}
 
 async function launchWin568GameUrl(input: {
   env: Env
@@ -83,6 +101,16 @@ router.get('/games', async (ctx) => {
     return
   }
   const q = ctx.query as Record<string, string>
+  const blocked = await blockedCategories(ctx)
+  // 明确点名了被关掉的品类：403 而不是静默返回空列表 ——
+  // 空列表看起来像「暂无游戏」，会让人以为是数据问题而不是没开通
+  if (q.sortCategory && q.sortCategory !== 'all') {
+    const asked = q.sortCategory.split(',').map((v) => v.trim()).filter(Boolean)
+    if (asked.length > 0 && asked.every((v) => blocked.includes(v))) {
+      fail(ctx, 403, '该功能未开通')
+      return
+    }
+  }
   try {
     const result = await listGames(env, {
       page: q.page ? Number(q.page) : 1,
@@ -96,6 +124,7 @@ router.get('/games', async (ctx) => {
       rtpMin: q.rtpMin ? Number(q.rtpMin) : undefined,
       sortBy: (q.sortBy as 'weight' | 'name') || undefined,
       currency: q.currency || undefined,
+      blockedSortCategories: blocked,
     })
     ok(ctx, result)
   } catch (e) {

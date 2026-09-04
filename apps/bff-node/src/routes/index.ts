@@ -28,6 +28,7 @@ import homeContentRoutes from './home-content.routes.js'
 import announcementRoutes from './announcement.routes.js'
 import attributionRoutes from './attribution.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
+import { requireFeature } from '../middleware/require-feature.js'
 import { getDepositChannels, YfPayError } from '../services/yfpay.service.js'
 import { getPromoConfig } from '../services/promo-config.service.js'
 import { getCheckinConfig } from '../services/checkin.service.js'
@@ -40,6 +41,7 @@ import { createHash } from 'node:crypto'
 import { appDomainsForMarket, defaultAppDomainsForMarket, getSiteDomainMappings, marketForHost, type SiteMarket } from '../services/site-domain.service.js'
 import { signRoutes } from '../services/app-route-sign.service.js'
 import { recordRouteProbes } from '../services/route-health.service.js'
+import { getTenantFeatures } from '../services/tenant-feature.service.js'
 
 function requestHost(ctx: import('koa').Context): string {
   for (const raw of [ctx.get('x-viewer-host'), ctx.get('origin'), ctx.get('referer'), ctx.get('host')]) {
@@ -72,11 +74,19 @@ export function createApiRouter(): Router {
   api.use(attributionRoutes.routes(), attributionRoutes.allowedMethods())
 
   // 公开：前台初始化语言、币种和登录市场时读取当前域名配置。
+  // P1-8 起同时下发功能开关：前台靠它决定路由与底部导航显示哪些模块。
+  // domain/market 是既有字段，只增不改 —— 老版前端拿到多余字段会忽略。
   api.get('/site/config', async (ctx) => {
     ctx.set('Cache-Control', 'no-store')
     const host = requestHost(ctx)
     const mappings = await getSiteDomainMappings(ctx.state.redis, ctx.state.env)
-    ok(ctx, { domain: host.toLowerCase().replace(/^www\./, ''), market: marketForHost(mappings, host) })
+    const tenant = ctx.state.tenant
+    ok(ctx, {
+      domain: host.toLowerCase().replace(/^www\./, ''),
+      market: marketForHost(mappings, host),
+      tenant: tenant ? { code: tenant.code, status: tenant.status } : null,
+      features: tenant ? await getTenantFeatures(ctx.state.env, tenant.id) : {},
+    })
   })
 
   // Android 壳启动探活与线路配置。App 只接受 APK 内置白名单中的域名。
@@ -223,18 +233,33 @@ export function createApiRouter(): Router {
   api.use(optMw, slotsRoutes.routes(), slotsRoutes.allowedMethods())
 
   // 客服：游客也可访问，内部自行处理防刷和权限
-  api.use(optMw, csRoutes.routes(), csRoutes.allowedMethods())
+  api.use(optMw, requireFeature('cs_ai'), csRoutes.routes(), csRoutes.allowedMethods())
 
   const protectedMw = authMiddleware()
   // rebate config 公开（无需登录），summary 需登录
-  api.use(optMw, rebateRoutes.routes(), rebateRoutes.allowedMethods())
+  api.use(optMw, requireFeature('rebate'), rebateRoutes.routes(), rebateRoutes.allowedMethods())
 
   // 转盘：/status 游客可见（次数为 0），/draw /records 在 handler 内自查 userId
-  api.use(optMw, spinRoutes.routes(), spinRoutes.allowedMethods())
+  api.use(optMw, requireFeature('spin'), spinRoutes.routes(), spinRoutes.allowedMethods())
+
+  // P1-8：模块与功能开关一一对应的，直接挂在路由前缀上。
+  // 前端隐藏入口不是安全边界 —— 关掉的模块必须在接口层也拒绝。
+  // 钱包/账变/存提/注单不挂开关：它们是所有租户共有的资金链路，不属可关闭的定制化模块。
+  const featureGated: ReadonlyArray<readonly [typeof userRoutes, Parameters<typeof requireFeature>[0]]> = [
+    [kycRoutes, 'kyc'],
+    [checkinRoutes, 'checkin'],
+    [taskRoutes, 'task'],
+    [teamRoutes, 'team_commission'],
+    [agentRoutes, 'agent_center'],
+    [vipRoutes, 'vip'],
+  ]
+  for (const [r, key] of featureGated) {
+    api.use(protectedMw, requireFeature(key), r.routes(), r.allowedMethods())
+  }
 
   for (const r of [
     userRoutes, walletRoutes, depositRoutes, withdrawRoutes,
-    ledgerRoutes, kycRoutes, checkinRoutes, taskRoutes, promotionRoutes, teamRoutes, agentRoutes, yfpayRoutes, paymentUnifiedRoutes, betsRoutes, turnoverRoutes, vipRoutes,
+    ledgerRoutes, promotionRoutes, yfpayRoutes, paymentUnifiedRoutes, betsRoutes, turnoverRoutes,
   ]) {
     api.use(protectedMw, r.routes(), r.allowedMethods())
   }

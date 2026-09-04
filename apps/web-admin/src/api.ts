@@ -1540,6 +1540,9 @@ export interface AdminBadges {
 }
 export const getAdminBadges = () => get<AdminBadges>('/admin/dashboard/badges')
 
+/** 本租户的功能开关。菜单据此过滤（P1-8） */
+export const getAdminFeatures = () => get<Record<string, boolean>>('/admin/features')
+
 // ── 支付渠道管理 ──────────────────────────────────────────────────────────────
 
 export type PaymentTxType = 'deposit' | 'withdraw' | 'both'

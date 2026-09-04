@@ -137,3 +137,20 @@ export const removeTenantDomain = (tenantId: number, domainId: number) =>
 
 export const probeDomains = (domainIds?: number[]) =>
   post<DomainProbe[]>('/platform/domains/probe', { domainIds })
+
+// ── 功能开关（P1-8）──
+export interface TenantFeatures {
+  keys: string[]
+  /** 生效值 = 套餐默认 叠加 租户覆盖 */
+  effective: Record<string, boolean>
+  planDefaults: Record<string, boolean>
+  /** 只含该租户单独设过的项；清掉覆盖即回落套餐默认值 */
+  overrides: Record<string, boolean>
+}
+export const getTenantFeatures = (tenantId: number) =>
+  get<TenantFeatures>(`/platform/tenants/${tenantId}/features`)
+
+/** enabled 传 null = 删除覆盖，回落套餐默认值 */
+export const setTenantFeature = (tenantId: number, key: string, enabled: boolean | null) =>
+  put<{ id: number; key: string; effective: Record<string, boolean> }>(
+    `/platform/tenants/${tenantId}/features/${key}`, { enabled })

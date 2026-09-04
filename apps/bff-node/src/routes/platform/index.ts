@@ -8,6 +8,15 @@ import { invalidateTenantHostCache } from '../../services/tenant.service.js'
 import { dropTenantPool } from '../../clients/mysql.client.js'
 import { platformRootDomain, refreshDomainCertStatus } from '../../services/domain-cert.service.js'
 import { provisionTenant, type ProvisionInput } from '../../services/tenant-provision.service.js'
+import {
+  FEATURE_KEYS,
+  getPlanDefaults,
+  getTenantFeatures,
+  invalidateTenantFeatureCache,
+  isFeatureKey,
+  listTenantOverrides,
+  setTenantOverride,
+} from '../../services/tenant-feature.service.js'
 import { ok, fail } from '../../utils/response.js'
 
 /**
@@ -184,6 +193,46 @@ export function createPlatformRouter(): Router {
       to: { min: poolMin, max: poolMax, queueLimit },
     })
     ok(ctx, { id, poolMin, poolMax, queueLimit, poolRecreated: dropped })
+  })
+
+  // ── 功能开关（P1-8）──
+  // 返回三份：生效值 / 套餐默认 / 租户覆盖。
+  // 只给生效值的话，后台看不出「这个 off 是套餐带的还是这家单独关的」，
+  // 也就无从判断清掉覆盖会回到什么。
+  router.get('/tenants/:id/features', platformAuthMiddleware(), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const [[row]] = await getPlatformPool().query<RowDataPacket[]>(
+      'SELECT id FROM pf_tenant WHERE id = ? LIMIT 1', [id]) as unknown as [RowDataPacket[]]
+    if (!row) return fail(ctx, 404, '租户不存在')
+    const [effective, planDefaults, overrides] = await Promise.all([
+      getTenantFeatures(ctx.state.env, id),
+      getPlanDefaults(id),
+      listTenantOverrides(id),
+    ])
+    ok(ctx, { keys: FEATURE_KEYS, effective, planDefaults, overrides })
+  })
+
+  // enabled = true/false 写覆盖；null 删除覆盖回落套餐默认值。
+  // 没有 null 这个语义就只能靠「写一个和套餐相同的值」假装恢复，换套餐后会留下钉死的错值。
+  router.put('/tenants/:id/features/:key', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const key = String(ctx.params.key)
+    if (!isFeatureKey(key)) return fail(ctx, 400, '未知的功能开关')
+    const raw = (ctx.request.body as { enabled?: unknown }).enabled
+    if (raw !== true && raw !== false && raw !== null) return fail(ctx, 400, 'enabled 需为 true / false / null')
+
+    const [[row]] = await getPlatformPool().query<RowDataPacket[]>(
+      'SELECT id FROM pf_tenant WHERE id = ? LIMIT 1', [id]) as unknown as [RowDataPacket[]]
+    if (!row) return fail(ctx, 404, '租户不存在')
+
+    const before = (await listTenantOverrides(id))[key]
+    await setTenantOverride(id, key, raw)
+    // 开关缓存 300s，不清的话后台改完最长 5 分钟内前台仍是旧值，看起来像没生效
+    await invalidateTenantFeatureCache(ctx.state.env, id)
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.feature', id, {
+      key, from: before === undefined ? null : before, to: raw,
+    })
+    ok(ctx, { id, key, effective: await getTenantFeatures(ctx.state.env, id) })
   })
 
   // ── 域名管理（P1-4）──
