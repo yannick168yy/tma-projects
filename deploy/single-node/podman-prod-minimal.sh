@@ -62,6 +62,9 @@ run() {
   fi
 }
 
+# P1-0d：容器固定 IP（应用容器靠 /etc/hosts 直连，绕开 musl 并行 DNS 的 NXDOMAIN 竞态）
+source "$(dirname "$0")/peer-hosts.sh"
+
 OPTIONAL_CONTAINERS=(tma-nacos tma-rabbitmq tma-core-java tma-core-node tma-nats)
 
 echo "==> [${CTR}] 停用非必需组件（保留 tma-mysql 数据卷）"
@@ -83,7 +86,7 @@ if [ "${SKIP_INFRA:-0}" != "1" ]; then
 echo "==> [${CTR}] MySQL betogo (limit ${MEM_MYSQL}, buffer_pool ${MYSQL_BUFFER_POOL}, :13306)"
 run rm -f tma-mysql 2>/dev/null || true
 run volume create tma-mysql-data 2>/dev/null || true
-run run -d --name tma-mysql --network "$NET" --network-alias mysql --restart=always \
+run run -d --name tma-mysql --network "$NET" --ip "$PEER_IP_MYSQL" --network-alias mysql --restart=always \
   --memory="$MEM_MYSQL" --memory-swap="$MEM_MYSQL" \
   -p 127.0.0.1:13306:3306 \
   -v tma-mysql-data:/var/lib/mysql:Z \
@@ -105,7 +108,7 @@ bash scripts/apply-betogo-schema.sh
 
 echo "==> [${CTR}] Redis (limit ${MEM_REDIS})"
 run rm -f tma-redis 2>/dev/null || true
-run run -d --name tma-redis --network "$NET" --network-alias redis --restart=always \
+run run -d --name tma-redis --network "$NET" --ip "$PEER_IP_REDIS" --network-alias redis --restart=always \
   --memory="$MEM_REDIS" --memory-swap="$MEM_REDIS" \
   -p 127.0.0.1:6379:6379 \
   redis:7.0-alpine \
@@ -113,7 +116,7 @@ run run -d --name tma-redis --network "$NET" --network-alias redis --restart=alw
 
 echo "==> [${CTR}] NATS JetStream (limit ${MEM_NATS})"
 run volume create tma-nats-data 2>/dev/null || true
-run run -d --name tma-nats --network "$NET" --network-alias nats --restart=always \
+run run -d --name tma-nats --network "$NET" --ip "$PEER_IP_NATS" --network-alias nats --restart=always \
   --memory="$MEM_NATS" --memory-swap="$MEM_NATS" \
   -p 127.0.0.1:4222:4222 \
   -v tma-nats-data:/data:Z \
@@ -127,12 +130,14 @@ done
 fi  # end SKIP_INFRA
 
 echo "==> [${CTR}] core-node (Fastify, limit 192m)"
+mapfile -t ADD_HOSTS < <(peer_host_args tma-core-node)
 run rm -f tma-core-node 2>/dev/null || true
 run build -t betogo-core-node:latest -f apps/core-node/Dockerfile apps/core-node
 LOG_OPTS=(--log-driver=json-file --log-opt max-size=50m --log-opt max-file=3)
 
-run run -d --name tma-core-node --network "$NET" --restart=always \
+run run -d --name tma-core-node --network "$NET" --ip "$PEER_IP_CORE_NODE" --restart=always \
   "${LOG_OPTS[@]}" \
+  "${ADD_HOSTS[@]}" \
   --memory="$MEM_CORE" --memory-swap="$MEM_CORE" \
   -p 127.0.0.1:4000:4000 \
   -v "${DIR}/apps/core-node/dist:/app/dist:ro" \
@@ -180,10 +185,13 @@ run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
 BFF_INSTANCES="${BFF_INSTANCES:-1}"
 for BI in $(seq 1 "$BFF_INSTANCES"); do
 BFF_NAME=tma-bff-node; BFF_PORT=3000; BFF_SINGLETON_OFF=false
-if [ "$BI" -gt 1 ]; then BFF_NAME="tma-bff-node-$BI"; BFF_PORT=$((3000 + BI - 1)); BFF_SINGLETON_OFF=true; fi
+BFF_IP_ARGS=(--ip "$PEER_IP_BFF_NODE")
+if [ "$BI" -gt 1 ]; then BFF_NAME="tma-bff-node-$BI"; BFF_PORT=$((3000 + BI - 1)); BFF_SINGLETON_OFF=true; BFF_IP_ARGS=(); fi
+mapfile -t ADD_HOSTS < <(peer_host_args "$BFF_NAME")
 run rm -f "$BFF_NAME" 2>/dev/null || true
-run run -d --name "$BFF_NAME" --network "$NET" --restart=always \
+run run -d --name "$BFF_NAME" --network "$NET" "${BFF_IP_ARGS[@]}" --restart=always \
   "${LOG_OPTS[@]}" \
+  "${ADD_HOSTS[@]}" \
   --memory="$MEM_BFF" --memory-swap="$MEM_BFF" \
   -p 127.0.0.1:${BFF_PORT}:3000 \
   -e BFF_DISABLE_SINGLETON_JOBS="$BFF_SINGLETON_OFF" \

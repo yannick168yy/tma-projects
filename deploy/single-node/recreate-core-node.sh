@@ -25,10 +25,15 @@ REDIS_URL_WIRED="${REDIS_URL:-redis://redis:6379}"
 
 run() { if [[ "$CTR" == podman ]]; then podman "$@"; else docker "$@"; fi; }
 
+# P1-0d：固定 IP + hosts 注入，绕开 musl 并行 DNS 导致的 ENOTFOUND
+source "$DIR/deploy/single-node/peer-hosts.sh"
+mapfile -t ADD_HOSTS < <(peer_host_args tma-core-node)
+
 run build -t betogo-core-node:latest -f apps/core-node/Dockerfile apps/core-node
 run rm -f tma-core-node 2>/dev/null || true
-run run -d --name tma-core-node --network "$NET" --restart=always \
+run run -d --name tma-core-node --network "$NET" --ip "$PEER_IP_CORE_NODE" --restart=always \
   "${LOG_OPTS[@]}" \
+  "${ADD_HOSTS[@]}" \
   --memory=192m --memory-swap=192m \
   -p 127.0.0.1:4000:4000 \
   -v "${DIR}/apps/core-node/dist:/app/dist:ro" \

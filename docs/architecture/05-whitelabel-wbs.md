@@ -429,15 +429,48 @@
 > 删租户时除了删库与平台库记录，还要清 **该租户的 Redis 键 `t<id>:*`** 和
 > **MySQL 授权**。第一次开站尝试留下的 `t8:*` 键被回归脚本抓到了。
 
-### P1-0d 🔴 待处理：容器网络 DNS 抖动（已第 4 次出现）
-容器内解析 `tma-mysql` 偶发 `ENOTFOUND`，租户数增加后更频繁（任务要遍历所有租户）。
-已在租户清单、平台库查询等高价值路径加了重试，但业务查询仍会零星失败。
-**建议修法**：给 MySQL 容器分配静态 IP，应用容器用 `--add-host tma-mysql:<静态IP>`
-绕过 aardvark-dns。需要重建 MySQL 容器，要安排维护窗口。
-在此之前 `p0-regression.sh` 会一直因此报红 —— **红着比假绿好**，它在持续提醒这个问题。
-建库 → 全量迁移 → 种子配置（继承套餐默认值）→ 域名+证书 → win568 `registerAgent`
-（`apps/core-node/src/clients/win568.client.ts:65`）→ 支付通道 → **冒烟自检**（注册/充值/进游戏/提现全链路自动跑）
-目标：审核通过到可访问 < 30 分钟，全自动无人工 SSH
+### P1-0d 容器网络 DNS 抖动 · ✅ 已完成 2026-09-04
+根因与原先记录的假设**不同**，实测定位后已修复。
+
+**真实根因：Alpine（musl）并行 DNS 查询 + 上游 DNS 抢答 NXDOMAIN**
+- 应用镜像是 Alpine，musl 的 resolver 把查询**并行**发给 `resolv.conf` 里的全部
+  nameserver，**谁先回就用谁的应答**（glibc 是顺序 failover，不会这样）
+- 容器内 `resolv.conf` = `[10.89.0.1 podman dnsmasq, 100.100.2.136, 100.100.2.138]`，
+  后两个是阿里云 VPC DNS，对 `tma-mysql` 这种容器名返回 **NXDOMAIN**，
+  且经常比 dnsmasq 先到 → `getaddrinfo ENOTFOUND`
+- **与 aardvark-dns 无关**：这台机器用的是 CNI `dnsname` 插件 + dnsmasq，
+  podman 4.9.4，压根没装 aardvark。原先的「重建 MySQL 容器分配静态 IP + 安排维护窗口」
+  是照着错误根因开的药方
+- 为什么「租户数增加后更频繁」：这是**竞态**，不是抖动。租户多 → 冷池新建连接多 →
+  `getaddrinfo` 调用多 → 撞上抢答的绝对次数线性上升。日志里 147 次 ENOTFOUND
+  **全部属于 `demo1`**（新开的站，池是冷的），自营站因 P1-0 预热有常驻连接几乎不触发
+
+**实测数据（同一容器，300 次并发解析 `tma-mysql`）**
+
+| 条件 | 成功 | 失败 |
+|---|---|---|
+| 现状 | 289 | 11（ENOTFOUND，约 3.7%） |
+| 加 `--add-host` | 300 | **0** |
+
+**修法：把容器间的名字写进 `/etc/hosts`，这条链路彻底不走 DNS**（musl 查 files 先于 dns）
+- 新增 `deploy/single-node/peer-hosts.sh`：集中定义 5 个容器的固定 IP，
+  并生成 `--add-host` 参数。**固定 IP 取的就是各容器当前已持有的地址**，
+  所以不需要停机重建 MySQL —— 原计划的维护窗口直接省掉了
+- `recreate-bff-node.sh` / `recreate-core-node.sh` / `podman-prod-minimal.sh` /
+  `podman-prod-full.sh`：容器启动加 `--ip`（把地址钉住，hosts 条目才不会失效）
+  + `--add-host`（tma-mysql/mysql、tma-redis/redis、tma-nats/nats、tma-core-node、tma-bff-node）
+- 🔴 **IP 与 hosts 必须一起维护**：把错误 IP 钉进 hosts 比 DNS 抖动更糟（100% 失败而非 4%）。
+  因此 `peer_host_args()` **以运行中容器的真实 IP 为准**，只在取不到时才用固定值，
+  发现漂移会打警告 —— 宁可跟着漂，也不钉死一个错的
+- bff 多实例时只有主实例占固定 IP，副实例仍走动态分配（hosts 照常注入）
+- 外网解析不受影响：容器内 `api.telegram.org` 正常解析
+  （`test-api.568win.com` 解析失败是既有问题，宿主机同样解析不了，与本次无关）
+
+**线上验证（阿里云测试环境）**
+- bff-node 并发 2000 次解析（tma-mysql / redis / tma-core-node / nats）：**失败 0**
+- core-node 并发 1500 次：**失败 0**
+- `p0-regression.sh`：**28 项全过、0 失败**（此前因本问题长期报红）
+- 业务链路：`/health`、`site/config` 均 200
 
 ### P1-6 impersonate（以租户身份登录）· 2d
 平台后台签发一次性 token → 跳转租户后台域名 → 全程操作审计留痕

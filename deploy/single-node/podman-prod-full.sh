@@ -26,6 +26,9 @@ if [[ -f .env ]]; then
   sed -i 's/^BFF_DEV_SKIP_TELEGRAM_AUTH=true/BFF_DEV_SKIP_TELEGRAM_AUTH=false/' .env || true
 fi
 
+# P1-0d：容器固定 IP + hosts 注入，绕开 musl 并行 DNS 的 NXDOMAIN 竞态
+source "$(dirname "$0")/peer-hosts.sh"
+
 run() {
   if [[ "$CTR" == podman ]]; then
     podman "$@"
@@ -60,7 +63,7 @@ run run -d --name tma-nacos --network "$NET" --network-alias nacos --restart=alw
 echo "==> [${CTR}] MySQL (limit 384m)"
 run rm -f tma-mysql 2>/dev/null || true
 run volume create tma-mysql-data 2>/dev/null || true
-run run -d --name tma-mysql --network "$NET" --restart=always \
+run run -d --name tma-mysql --network "$NET" --ip "$PEER_IP_MYSQL" --restart=always \
   --memory=384m --memory-swap=384m \
   -p 127.0.0.1:13306:3306 \
   -v tma-mysql-data:/var/lib/mysql:Z \
@@ -81,7 +84,7 @@ run run -d --name tma-mysql --network "$NET" --restart=always \
 
 echo "==> [${CTR}] Redis (limit 96m, maxmemory 64mb)"
 run rm -f tma-redis 2>/dev/null || true
-run run -d --name tma-redis --network "$NET" --network-alias redis --restart=always \
+run run -d --name tma-redis --network "$NET" --ip "$PEER_IP_REDIS" --network-alias redis --restart=always \
   --memory=96m --memory-swap=96m \
   -p 127.0.0.1:6379:6379 \
   redis:7.0-alpine \
@@ -122,7 +125,9 @@ run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
 # 宝塔 MySQL 在宿主机 3306；容器内用 host.containers.internal（勿在 Nacos 写 127.0.0.1）
 MYSQL_HOST_WIRED="${MYSQL_HOST:-host.containers.internal}"
 MYSQL_PORT_WIRED="${MYSQL_PORT:-3306}"
-run run -d --name tma-bff-node --network "$NET" --restart=always \
+mapfile -t ADD_HOSTS < <(peer_host_args tma-bff-node)
+run run -d --name tma-bff-node --network "$NET" --ip "$PEER_IP_BFF_NODE" --restart=always \
+  "${ADD_HOSTS[@]}" \
   --memory=256m --memory-swap=256m \
   --add-host=host.containers.internal:host-gateway \
   -p 127.0.0.1:3000:3000 \
