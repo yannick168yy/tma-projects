@@ -71,6 +71,9 @@ export interface TenantDetail extends PlatformTenant {
 export const getTenantDetail = (id: number) => get<TenantDetail>(`/platform/tenants/${id}`)
 export const updateTenantStatus = (id: number, status: string) =>
   put<{ id: number; status: string }>(`/platform/tenants/${id}/status`, { status })
+export const updateTenantPool = (id: number, poolMin: number, poolMax: number, queueLimit: number) =>
+  put<{ id: number; poolMin: number; poolMax: number; queueLimit: number; poolRecreated: boolean }>(
+    `/platform/tenants/${id}/pool`, { poolMin, poolMax, queueLimit })
 
 // ── 套餐 ──
 export interface PlatformPlan { code: string; name: string; description: string | null }

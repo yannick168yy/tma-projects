@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Alert, Button, Card, Descriptions, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
-import { getTenantDetail, updateTenantStatus, type TenantDetail as Detail } from '../api'
+import { Alert, Button, Card, Descriptions, InputNumber, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd'
+import { getTenantDetail, updateTenantPool, updateTenantStatus, type TenantDetail as Detail } from '../api'
 
 const STATUS: Record<string, { text: string; color: string }> = {
   trial: { text: '试用', color: 'blue' },
@@ -28,10 +28,16 @@ export default function TenantDetail() {
   const [d, setD] = useState<Detail | null>(null)
   const [loading, setLoading] = useState(false)
   const [next, setNext] = useState<string>()
+  const [pool, setPool] = useState({ min: 0, max: 1, queueLimit: 0 })
+  const [savingPool, setSavingPool] = useState(false)
 
   async function load() {
     setLoading(true)
-    try { setD(await getTenantDetail(Number(id))) }
+    try {
+      const detail = await getTenantDetail(Number(id))
+      setD(detail)
+      setPool(detail.pool)
+    }
     catch (e) { message.error(e instanceof Error ? e.message : '加载失败') }
     finally { setLoading(false) }
   }
@@ -45,6 +51,18 @@ export default function TenantDetail() {
       setNext(undefined)
       await load()
     } catch (e) { message.error(e instanceof Error ? e.message : '变更失败') }
+  }
+
+  async function savePool() {
+    if (!d) return
+    if (pool.min > pool.max) { message.error('初始连接数不能大于最大连接数'); return }
+    setSavingPool(true)
+    try {
+      const res = await updateTenantPool(d.id, pool.min, pool.max, pool.queueLimit)
+      message.success(res.poolRecreated ? '已保存，连接池已按新配置重建' : '已保存，下次建池时生效')
+      await load()
+    } catch (e) { message.error(e instanceof Error ? e.message : '保存失败') }
+    finally { setSavingPool(false) }
   }
 
   if (!d) return <Card loading={loading} title="租户详情" />
@@ -65,7 +83,23 @@ export default function TenantDetail() {
           <Descriptions.Item label="状态">
             <Tag color={STATUS[d.status]?.color}>{STATUS[d.status]?.text ?? d.status}</Tag>
           </Descriptions.Item>
-          <Descriptions.Item label="连接池">初始 {d.pool.min} / 最大 {d.pool.max} / 排队 {d.pool.queueLimit}</Descriptions.Item>
+          <Descriptions.Item label="连接池">
+            <Space>
+              <InputNumber size="small" min={0} max={pool.max} value={pool.min} style={{ width: 72 }}
+                onChange={(v) => setPool({ ...pool, min: Number(v ?? 0) })} />
+              <span>/</span>
+              <InputNumber size="small" min={1} max={100} value={pool.max} style={{ width: 72 }}
+                onChange={(v) => setPool({ ...pool, max: Number(v ?? 1) })} />
+              <span>/</span>
+              <InputNumber size="small" min={0} max={10000} value={pool.queueLimit} style={{ width: 88 }}
+                onChange={(v) => setPool({ ...pool, queueLimit: Number(v ?? 0) })} />
+              <Button size="small" type="primary" loading={savingPool} onClick={savePool}
+                disabled={pool.min === d.pool.min && pool.max === d.pool.max && pool.queueLimit === d.pool.queueLimit}>
+                保存
+              </Button>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>初始 / 最大 / 排队上限</Typography.Text>
+            </Space>
+          </Descriptions.Item>
           <Descriptions.Item label="创建时间">{d.createdAt}</Descriptions.Item>
           <Descriptions.Item label="备注" span={3}>{d.remark ?? '-'}</Descriptions.Item>
         </Descriptions>

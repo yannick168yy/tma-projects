@@ -5,6 +5,7 @@ import { getDefaultRedis } from '../../clients/redis.client.js'
 import { platformAuthMiddleware } from '../../middleware/platform-auth.js'
 import { loginPlatformAdmin, logoutPlatformAdmin } from '../../services/platform-auth.service.js'
 import { invalidateTenantHostCache } from '../../services/tenant.service.js'
+import { dropTenantPool } from '../../clients/mysql.client.js'
 import { provisionTenant, type ProvisionInput } from '../../services/tenant-provision.service.js'
 import { ok, fail } from '../../utils/response.js'
 
@@ -140,6 +141,42 @@ export function createPlatformRouter(): Router {
       providers: providers.map((p) => ({ provider: p.provider, agentAccount: p.agent_account, status: p.status })),
       channels: channels.map((c) => ({ channelCode: c.channel_code, owner: c.owner, merchantNo: c.merchant_no, enabled: c.enabled === 1 })),
     })
+  })
+
+  // 连接池配置属于平台层资源分配，从业务后台迁过来：
+  // 留在业务后台意味着任一租户的 super_admin 都能看到并修改别家租户的连接池
+  router.put('/tenants/:id/pool', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const b = ctx.request.body as { poolMin?: unknown; poolMax?: unknown; queueLimit?: unknown }
+    const poolMin = Number(b.poolMin)
+    const poolMax = Number(b.poolMax)
+    const queueLimit = Number(b.queueLimit ?? 0)
+
+    // 上限拍在 100：单租户占满整个 max_connections 会把其他租户全饿死，
+    // 分库隔离的意义就没了
+    if (!Number.isInteger(poolMax) || poolMax < 1 || poolMax > 100) return fail(ctx, 400, 'poolMax 需为 1-100 的整数')
+    if (!Number.isInteger(poolMin) || poolMin < 0 || poolMin > poolMax) return fail(ctx, 400, 'poolMin 需为 0 到 poolMax 之间的整数')
+    if (!Number.isInteger(queueLimit) || queueLimit < 0 || queueLimit > 10000) return fail(ctx, 400, 'queueLimit 需为 0-10000 的整数')
+
+    const pool = getPlatformPool()
+    const [[row]] = await pool.query<RowDataPacket[]>(
+      'SELECT db_name, pool_min, pool_max, queue_limit FROM pf_tenant WHERE id = ? LIMIT 1', [id]) as unknown as [RowDataPacket[]]
+    if (!row) return fail(ctx, 404, '租户不存在')
+
+    await pool.execute(
+      'UPDATE pf_tenant SET pool_min = ?, pool_max = ?, queue_limit = ? WHERE id = ?',
+      [poolMin, poolMax, queueLimit, id],
+    )
+
+    // connectionLimit / maxIdle 在建池时固定，改配置必须丢弃旧池才会生效；
+    // 同时清掉域名→租户缓存，否则最长 5 分钟内还在用旧配置的上下文
+    const dropped = dropTenantPool(row.db_name)
+    await invalidateTenantHostCache(getDefaultRedis(ctx.state.env))
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.pool', id, {
+      from: { min: row.pool_min, max: row.pool_max, queueLimit: row.queue_limit },
+      to: { min: poolMin, max: poolMax, queueLimit },
+    })
+    ok(ctx, { id, poolMin, poolMax, queueLimit, poolRecreated: dropped })
   })
 
   // 状态机：欠费按 正常 → 停提现 → 停充值 → 停站 逐级降级；关站是终态

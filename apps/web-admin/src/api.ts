@@ -648,24 +648,6 @@ export const updateRouteTgChannel = (channel: string) =>
 export const publishRoutesToTg = () =>
   post<{ channel: string; messageId: number }>('/admin/settings/site-domains/tg-publish', {})
 
-// 租户与连接池（平台层配置，仅 super_admin）
-export interface TenantRow {
-  id: number
-  code: string
-  name: string
-  database: string
-  status: string
-  selfOperated: boolean
-  poolMin: number
-  poolMax: number
-  queueLimit: number
-  domainCount: number
-}
-export const getTenants = () => get<TenantRow[]>('/admin/tenants')
-export const updateTenantPool = (id: number, poolMin: number, poolMax: number, queueLimit: number) =>
-  put<{ id: number; poolMin: number; poolMax: number; queueLimit: number; poolRecreated: boolean }>(
-    `/admin/tenants/${id}/pool`, { poolMin, poolMax, queueLimit })
-
 export const getSiteDomainMappings = () => get<SiteDomainMapping[]>('/admin/settings/site-domains')
 export const updateSiteDomainMappings = (mappings: SiteDomainMapping[]) =>
   put<SiteDomainMapping[]>('/admin/settings/site-domains', { mappings })

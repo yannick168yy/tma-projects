@@ -24,7 +24,6 @@ import RiskOverview from './views/risk/Overview'
 import RiskUserProfiles from './views/risk/UserProfiles'
 import RiskBlacklist from './views/risk/Blacklist'
 import RiskPolicies from './views/risk/Policies'
-import Tenants from './views/Tenants'
 import RiskHitLogs from './views/risk/HitLogs'
 import RiskFarmChannels from './views/risk/FarmChannels'
 import ReviewManualQueue from './views/review/ManualQueue'
@@ -120,7 +119,6 @@ export default function App() {
           <Route path="risk/farm-channels" element={<RiskFarmChannels />} />
           <Route path="risk/blacklist" element={<RiskBlacklist />} />
           <Route path="risk/policies" element={<RequireRole role="super_admin"><RiskPolicies /></RequireRole>} />
-          <Route path="tenants" element={<RequireRole role="super_admin"><Tenants /></RequireRole>} />
           <Route path="risk/hits" element={<RiskHitLogs />} />
           <Route path="audit-log" element={<AuditLog />} />
           <Route path="games" element={<Games />} />
