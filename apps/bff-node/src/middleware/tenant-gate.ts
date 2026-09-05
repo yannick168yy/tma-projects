@@ -9,14 +9,26 @@ import { canDeposit, canWithdraw, currentTenantOrNull, isSiteOpen } from '../lib
  *   deposit_suspended  → 停充值（第二级）
  *   suspended / closed → 停站（第三级，前台整站 503）
  *
- * 三处豁免，每一处都有明确理由：
+ * 豁免项各有明确理由：
  * - `/admin`：客户自己的后台要能进去看为什么停了、去结账，否则只能打电话
  * - `/platform`：平台侧接口本身不属于任何租户，impersonate 也走这里
- * - `/webhooks`、支付回调查询：钱已经动了，回调必须能落库。挡回调只会造成掉单，
- *   而掉单的账最后还是要平台来对
+ * - `/webhooks`：TG/Viber 机器人回调，与资金无关，停站期间也不该断
+ *
+ * 只挡「创建」不挡「查询」：已经产生的订单要能查到终态，否则玩家看到的是一笔永远
+ * pending 的单子。支付商回调本身落在 core-node（`/api/v1/callback/:provider`），
+ * 走不到这里，不存在挡掉回调造成掉单的风险。
  */
-const DEPOSIT_PATHS = ['/api/v1/deposit', '/api/v1/payment/deposit/create']
-const WITHDRAW_PATHS = ['/api/v1/withdraw', '/api/v1/payment/withdraw/create', '/api/v1/team/withdraw']
+const DEPOSIT_PATHS = [
+  '/api/v1/deposits',
+  '/api/v1/payment/deposit/create',
+  '/api/v1/deposit/yfpay/create',
+]
+const WITHDRAW_PATHS = [
+  '/api/v1/withdrawals',
+  '/api/v1/payment/withdraw/create',
+  '/api/v1/withdraw/yfpay/create',
+  '/api/v1/promotions/team/withdraw',
+]
 
 export function tenantGateMiddleware(): Middleware {
   return async (ctx, next) => {
@@ -28,7 +40,6 @@ export function tenantGateMiddleware(): Middleware {
       || p.startsWith('/api/v1/admin')
       || p.startsWith('/api/v1/platform')
       || p.startsWith('/api/v1/webhooks')
-      || p.startsWith('/api/v1/yfpay')
     if (exempt) return next()
 
     if (!isSiteOpen(tenant)) {
