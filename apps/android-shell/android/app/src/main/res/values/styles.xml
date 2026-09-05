@@ -20,7 +20,8 @@
         <item name="android:background">@drawable/splash</item>
         <!-- Android 12+ 系统启动屏无法跳过，但把图标设为透明后只剩纯深色底，
              与 WebView 深色空档融为一体，视觉上等于直接进 web 启动图 -->
-        <item name="windowSplashScreenBackground">#080b14</item>
+        <!-- 底色由 build.gradle 的 resValue splashBackground 给，默认仍是 #080b14 -->
+        <item name="windowSplashScreenBackground">@color/splashBackground</item>
         <item name="windowSplashScreenAnimatedIcon">@android:color/transparent</item>
     </style>
 </resources>

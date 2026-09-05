@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
 import {
-  appDomainsForMarket, defaultAppDomainsForMarket, marketForHost,
+  appDomainsForMarket, defaultAppDomainsForMarket, getSiteDomainMappings, marketForHost,
   normalizeSiteDomainMappings, saveSiteDomainMappings,
 } from '../services/site-domain.service.js'
+import { runWithTenant } from '../lib/tenant-context.js'
 
 const redisStub = { get: async () => null, set: async () => 'OK' } as unknown as Redis
-const envStub = {} as Env
+const envStub = { MARKET_DOMAIN_MAP: '{"betogo.games":"PH","betogo.app":"ID"}' } as unknown as Env
 
 describe('站点域名映射', () => {
   it('统一裸域并忽略重复和非法市场', () => {
@@ -54,12 +55,42 @@ describe('站点域名映射', () => {
     await expect(saveSiteDomainMappings(redisStub, envStub, [
       { domain: 'betogo.games', market: 'PH', enabled: false, appMarket: 'PH', appPriority: 10 },
       { domain: 'betogo.app', market: 'ID', enabled: true, appMarket: 'ID', appPriority: 10 },
-    ])).rejects.toThrow('菲律宾 App 至少要保留一个启用的线路域名')
+    ])).rejects.toThrow('PH App 至少要保留一个启用的线路域名')
+  })
+
+  // P1-15：包网租户可能只开一个市场，校验写死 PH/ID 会让它连域名映射都保存不了。
+  // 用例环境没有 MySQL，能走到写库这一步就说明校验放行了
+  it('单市场租户只配一个市场的线路不再被校验挡下', async () => {
+    await expect(saveSiteDomainMappings(redisStub, envStub, [
+      { domain: 'example.com', market: 'PH', enabled: true, appMarket: 'PH', appPriority: 10 },
+    ])).rejects.toThrow(/MySQL is not configured/)
   })
 
   it('兜底线路表按优先级给出非空域名', () => {
     expect(defaultAppDomainsForMarket('PH').map((item) => item.domain))
       .toEqual(['betogo.games', 'betogo666.com', 'betogo777.com'])
     expect(defaultAppDomainsForMarket('ID').every((item) => item.enabled && item.appMarket === 'ID')).toBe(true)
+  })
+})
+
+// P1-15：env 的 MARKET_DOMAIN_MAP 是自营站的域名表。租户库没配映射时回落到它，
+// 等于把客户 App 的线路表填成自营站域名 —— 线上实测过这条路径，所以补一条用例钉住
+describe('租户不吃自营站的 env 域名兜底', () => {
+  it('自营站：库里没配时回落 env', async () => {
+    const redis = { get: async () => null, set: async () => 'OK' } as unknown as Redis
+    const mappings = await runWithTenant(
+      { id: 1, code: 'betogo', database: 'betogo', status: 'active', selfOperated: true },
+      () => getSiteDomainMappings(redis, envStub),
+    )
+    expect(mappings.length).toBeGreaterThan(0)
+  })
+
+  it('租户：库里没配时也不回落，宁可给空表', async () => {
+    const redis = { get: async () => null, set: async () => 'OK' } as unknown as Redis
+    const mappings = await runWithTenant(
+      { id: 9, code: 'demo1', database: 'betogo_demo1', status: 'active', selfOperated: false },
+      () => getSiteDomainMappings(redis, envStub),
+    )
+    expect(mappings).toEqual([])
   })
 })

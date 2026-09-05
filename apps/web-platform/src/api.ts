@@ -74,6 +74,9 @@ export interface TenantDomain {
   certCheckedAt: string | null
   certDetail: string | null
   dnsResolvedIp: string | null
+  acmeEnabled: boolean
+  certIssuedAt: string | null
+  certLastError: string | null
 }
 
 export interface TenantDetail extends PlatformTenant {
@@ -82,9 +85,55 @@ export interface TenantDetail extends PlatformTenant {
   pool: { min: number; max: number; queueLimit: number }
   markets: Array<{ market: string; currency: string; timezone: string; enabled: boolean }>
   domains: TenantDomain[]
-  providers: Array<{ provider: string; agentAccount: string; status: string }>
-  channels: Array<{ channelCode: string; owner: string; merchantNo: string | null; enabled: boolean }>
+  providers: TenantProvider[]
+  channels: TenantChannel[]
+  // 平台主密钥没配时后台不该假装能存密钥
+  credentialKeyReady: boolean
 }
+
+// ── 外部对接（P1-5）：子代理与支付通道 ──
+// 密钥明文永不出平台库，后台只拿掩码
+export interface TenantProvider {
+  provider: string
+  agentAccount: string
+  status: 'pending' | 'active' | 'disabled'
+  companyKeyMask: string | null
+  serverId: string | null
+  remark: string | null
+}
+export interface TenantChannel {
+  channelCode: string
+  owner: 'platform' | 'tenant'
+  merchantNo: string | null
+  credentialMask: string | null
+  enabled: boolean
+  sortOrder: number
+  /** 平台代收通道的手续费率（%），进 GGR 扣减项（P2-7） */
+  feeRatePct: number
+  /** 每笔固定手续费 */
+  feeFixed: number
+}
+
+export const saveTenantProvider = (tenantId: number, body: {
+  provider: string; agentAccount: string; companyKey?: string; serverId?: string
+  status: string; remark?: string
+}) => put<{ providers: TenantProvider[] }>(`/platform/tenants/${tenantId}/provider`, body)
+
+export const syncTenantProvider = (tenantId: number, provider: string) =>
+  post<{ companyKey: boolean; serverId: boolean; providers: TenantProvider[] }>(
+    `/platform/tenants/${tenantId}/provider/${provider}/sync`, {})
+
+export const saveTenantChannel = (tenantId: number, code: string, body: {
+  owner: string; merchantNo?: string; credential?: string; enabled: boolean; sortOrder?: number
+  feeRatePct?: number; feeFixed?: number
+}) => put<{ channels: TenantChannel[] }>(`/platform/tenants/${tenantId}/channels/${code}`, body)
+
+export const deleteTenantChannel = (tenantId: number, code: string) =>
+  del<{ channels: TenantChannel[] }>(`/platform/tenants/${tenantId}/channels/${code}`)
+
+export const syncTenantChannels = (tenantId: number) =>
+  post<{ enabled: string[]; copied: number; disabled: number }>(
+    `/platform/tenants/${tenantId}/channels/sync`, {})
 export const getTenantDetail = (id: number) => get<TenantDetail>(`/platform/tenants/${id}`)
 export const updateTenantStatus = (id: number, status: string) =>
   put<{ id: number; status: string }>(`/platform/tenants/${id}/status`, { status })
@@ -146,6 +195,10 @@ export const addTenantDomain = (
   tenantId: number,
   body: { domain?: string; market: string; purpose: string; type: 'platform_subdomain' | 'custom' },
 ) => post<{ id: number; domain: string; certStatus: string }>(`/platform/tenants/${tenantId}/domains`, body)
+
+// 自动签发开关：签发本身在宿主机跑（betogo-cert.timer），这里只是让不让它去签
+export const setDomainAcme = (tenantId: number, domainId: number, enabled: boolean) =>
+  put<{ ok: boolean; enabled: boolean }>(`/platform/tenants/${tenantId}/domains/${domainId}/acme`, { enabled })
 
 export const removeTenantDomain = (tenantId: number, domainId: number) =>
   del<{ id: number }>(`/platform/tenants/${tenantId}/domains/${domainId}`)
@@ -488,25 +541,28 @@ export const getReconcile = (from: string, to: string, tenantId?: number) => {
   return get<{ period: { from: string; to: string }; rows: ReconcileRow[] }>(
     `/platform/billing/reconcile?${p.toString()}`)
 }
-
-// ── 租户支付通道登记（P2-7 / P2-8）──
-export interface TenantChannelRow {
-  id: number
-  channelCode: string
-  owner: 'platform' | 'tenant'
-  feeRatePct: number
-  feeFixed: number
-  merchantNo: string | null
-  credentialMasked: string | null
-  enabled: boolean
-  sortOrder: number
+// ── App 出包参数（P1-15）──
+// 出包本身在出包机上跑（scripts/build-tenant-apk.sh）：签名密钥不进平台库，
+// 服务器上也没有 Android SDK。这里只维护参数。
+export interface TenantAppBuild {
+  appMarket: string
+  packageName: string
+  appLabel: string
+  routeDomains: string[]
+  tgRecoveryChannel: string
+  splashBackground: string
+  keystoreRef: string
+  versionCode: number
+  versionName: string
+  updatedAt: string | null
 }
-export const listTenantChannels = (tenantId: number) =>
-  get<{ credentialKeyReady: boolean; channels: TenantChannelRow[] }>(
-    `/platform/billing/tenants/${tenantId}/channels`)
-export const saveTenantChannel = (tenantId: number, code: string, body: {
-  owner: string; feeRatePct: number; feeFixed: number; merchantNo?: string | null
-  credential?: string; enabled: boolean; sortOrder?: number
-}) => put<{ channelCode: string }>(`/platform/billing/tenants/${tenantId}/channels/${code}`, body)
-export const deleteTenantChannel = (tenantId: number, code: string) =>
-  del<{ code: string }>(`/platform/billing/tenants/${tenantId}/channels/${code}`)
+
+export const getTenantApps = (tenantId: number) =>
+  get<{ items: TenantAppBuild[]; markets: string[]; domainCandidates: string[]; buildCommand: string }>(
+    `/platform/tenants/${tenantId}/app`)
+
+export const saveTenantApp = (tenantId: number, input: TenantAppBuild) =>
+  put<{ items: TenantAppBuild[] }>(`/platform/tenants/${tenantId}/app`, input)
+
+export const deleteTenantApp = (tenantId: number, market: string) =>
+  del<{ items: TenantAppBuild[] }>(`/platform/tenants/${tenantId}/app/${encodeURIComponent(market)}`)

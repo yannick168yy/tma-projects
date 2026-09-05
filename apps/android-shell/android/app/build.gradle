@@ -16,6 +16,15 @@ if (idKeystorePropsFile.exists()) {
     idKeystorePropsFile.withReader('UTF-8') { idKeystoreProps.load(it) }
 }
 
+// 包网租户包（P1-15）：密钥按 -PtenantKeystore=<ref> 找 keystore-<ref>.properties。
+// 平台库 pf_tenant_app 里只存这个 ref，密钥文件与密码始终只在出包机上。
+def tenantKeystoreRef = (project.findProperty('tenantKeystore') ?: '').toString().trim()
+def tenantKeystorePropsFile = tenantKeystoreRef ? rootProject.file("keystore-${tenantKeystoreRef}.properties") : null
+def tenantKeystoreProps = new Properties()
+if (tenantKeystorePropsFile?.exists()) {
+    tenantKeystorePropsFile.withReader('UTF-8') { tenantKeystoreProps.load(it) }
+}
+
 android {
     namespace "games.betogo.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -25,14 +34,22 @@ android {
     defaultConfig {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 11
-        versionName "1.0.10"
+        // 版本号可被出包脚本按租户覆盖；不传时仍是自营包当前的版本，ph/id 产物不变。
+        // 先算成局部变量再赋值：写成 versionCode (...).toInteger() 会被 Groovy 解析成
+        // 「先用 String 调 versionCode，再对返回值取 toInteger」，配置阶段直接报 Value is null
+        def appVersionCode = (project.findProperty('appVersionCode') ?: '11').toString().toInteger()
+        def appVersionName = (project.findProperty('appVersionName') ?: '1.0.10').toString()
+        versionCode appVersionCode
+        versionName appVersionName
         // 桌面显示名按构建参数切，测试包与生产包同机肉眼可辨：
         //   ./gradlew assembleRelease -PappLabel="BETOGO Test"
         // 不传默认 BETOGO。注意包名相同，同一台设备两个包互相覆盖、不能共存
         def appLabel = (project.findProperty('appLabel') ?: 'BETOGO')
         resValue "string", "app_name", appLabel
         resValue "string", "title_activity_main", appLabel
+        // 原生启动屏底色。默认值与改造前 styles.xml 里写死的一致，ph/id 产物不变；
+        // 租户包用 -PsplashBackground=#RRGGBB 换成自己的品牌底色
+        resValue "color", "splashBackground", (project.findProperty('splashBackground') ?: '#080b14')
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -57,6 +74,14 @@ android {
                 keyPassword idKeystoreProps['keyPassword']
             }
         }
+        tenantRelease {
+            if (tenantKeystorePropsFile?.exists()) {
+                storeFile file(tenantKeystoreProps['storeFile'])
+                storePassword tenantKeystoreProps['storePassword']
+                keyAlias tenantKeystoreProps['keyAlias']
+                keyPassword tenantKeystoreProps['keyPassword']
+            }
+        }
     }
     // 线路表验签公钥。空值 = 不校验（仅本地调试）；出包前必须用 gradle.properties 或
     // -PappRoutePublicKey=... 传入，与服务端 APP_ROUTE_SIGNING_KEY 配对。
@@ -69,6 +94,15 @@ android {
         if (!appRoutePublicKey && graph.allTasks.any { it.name.toLowerCase().contains('release') }) {
             throw new GradleException(
                 'release 构建缺少 -PappRoutePublicKey=<公钥>，用 node scripts/gen-app-route-key.mjs 生成')
+        }
+        // 未签名的租户包装不上也更不了，与其交付出去不如构建期就失败
+        def tenantRelease = graph.allTasks.any { it.name.contains('TenantRelease') }
+        if (tenantRelease && !tenantKeystorePropsFile?.exists()) {
+            throw new GradleException(
+                "租户 release 构建缺少签名密钥：需要 android/keystore-${tenantKeystoreRef ?: '<ref>'}.properties")
+        }
+        if (tenantRelease && !project.findProperty('tenantDomains')) {
+            throw new GradleException('租户 release 构建缺少 -PtenantDomains=<线路域名,逗号分隔>，内置线路表为空的包起不来')
         }
     }
 
@@ -85,6 +119,20 @@ android {
             buildConfigField "String", "TG_RECOVERY_CHANNEL", "\"${tgRecoveryChannel}\""
             if (keystorePropsFile.exists()) signingConfig signingConfigs.phRelease
         }
+        // 包网租户包：所有参数走 -P，接新客户不用再往这里加 flavor。
+        // 参数由 scripts/build-tenant-apk.sh 从平台库 pf_tenant_app 读出后传入。
+        tenant {
+            dimension "market"
+            def tenantPackage = (project.findProperty('tenantPackage') ?: 'games.betogo.tenant').toString()
+            applicationId tenantPackage
+            resValue "string", "package_name", tenantPackage
+            resValue "string", "custom_url_scheme", tenantPackage
+            buildConfigField "String", "APP_MARKET", "\"${project.findProperty('tenantMarket') ?: 'PH'}\""
+            buildConfigField "String", "APP_DOMAINS", "\"${project.findProperty('tenantDomains') ?: ''}\""
+            buildConfigField "String", "APP_ROUTE_PUBLIC_KEY", "\"${appRoutePublicKey}\""
+            buildConfigField "String", "TG_RECOVERY_CHANNEL", "\"${tgRecoveryChannel}\""
+            if (tenantKeystorePropsFile?.exists()) signingConfig signingConfigs.tenantRelease
+        }
         id {
             dimension "market"
             applicationId "games.betogo.id"
@@ -95,6 +143,14 @@ android {
             buildConfigField "String", "APP_ROUTE_PUBLIC_KEY", "\"${appRoutePublicKey}\""
             buildConfigField "String", "TG_RECOVERY_CHANNEL", "\"${tgRecoveryChannel}\""
             if (idKeystorePropsFile.exists()) signingConfig signingConfigs.idRelease
+        }
+    }
+    // 租户图标：脚本把生成好的 mipmap-* 放到一个临时目录再传进来，
+    // 没传就沿用 main 里的默认图标（本地跑通流程时不必先准备图）
+    sourceSets {
+        tenant {
+            def tenantResDir = project.findProperty('tenantResDir')
+            if (tenantResDir) res.srcDirs += file(tenantResDir)
         }
     }
     buildTypes {

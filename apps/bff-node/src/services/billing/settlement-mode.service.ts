@@ -3,6 +3,7 @@ import { getPlatformPool } from '../../clients/platform-mysql.client.js'
 import { getDefaultRedis } from '../../clients/redis.client.js'
 import type { Env } from '../../config/env.js'
 import { childLogger } from '../../lib/logger.js'
+import { providerFromChannel } from '../../utils/payment-provider.js'
 
 const log = childLogger('settlement-mode')
 
@@ -68,12 +69,29 @@ export async function invalidateChannelOwnershipCache(env: Env, tenantId: number
     .catch((err: unknown) => log.warn({ err, tenantId }, '通道归属缓存失效失败'))
 }
 
+/**
+ * 取一个订单通道对应的登记项。
+ *
+ * 🔴 两种粒度都要试：`pf_tenant_channel.channel_code` 登记的是**支付商**（unispay / yfpay），
+ * 因为商户号与密钥是按支付商发的；而订单里的 `channel` 是「支付商_收款方式」（unispay_dana）。
+ * 只按订单原值查会一条都匹配不上 —— 归属、费率、凭据全部落空，而账单照样出得来。
+ * 精确到方式的登记优先（个别支付商同一商户下不同方式费率不同），其次回落支付商级。
+ */
+export function channelMetaFor(
+  map: Map<string, ChannelOwnership>, channelCode: string,
+): ChannelOwnership | undefined {
+  const exact = map.get(channelCode)
+  if (exact) return exact
+  const provider = providerFromChannel(channelCode)
+  return provider ? map.get(provider) : undefined
+}
+
 /** 单个通道的资金模式。未登记 → platform（见上方说明） */
 export async function resolveSettlementMode(
   env: Env, tenantId: number, channelCode: string,
 ): Promise<SettlementMode> {
   const map = await channelOwnership(env, tenantId)
-  return map.get(channelCode)?.owner ?? 'platform'
+  return channelMetaFor(map, channelCode)?.owner ?? 'platform'
 }
 
 /**
@@ -85,7 +103,7 @@ export async function resolveSettlementMode(
 export async function assertChannelUsable(
   env: Env, tenantId: number, channelCode: string,
 ): Promise<{ ok: true; mode: SettlementMode } | { ok: false; reason: string }> {
-  const meta = (await channelOwnership(env, tenantId)).get(channelCode)
+  const meta = channelMetaFor(await channelOwnership(env, tenantId), channelCode)
   if (!meta) return { ok: true, mode: 'platform' }
   if (!meta.enabled) return { ok: false, reason: `通道 ${channelCode} 已被平台停用` }
   if (meta.owner === 'tenant' && !meta.hasCredential) {

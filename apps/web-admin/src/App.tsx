@@ -65,6 +65,7 @@ import HomeContentConfig from './views/HomeContentConfig'
 import CommunityMarketing from './views/CommunityMarketing'
 import TgBroadcast from './views/TgBroadcast'
 import HomepageSections from './views/games/HomepageSections'
+import HomepageLayout from './views/games/HomepageLayout'
 import CategorySort from './views/games/CategorySort'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -161,6 +162,7 @@ export default function App() {
           <Route path="promotions/claims" element={<PromotionClaims />} />
           <Route path="home-content" element={<HomeContentConfig />} />
           <Route path="homepage-sections" element={<HomepageSections />} />
+          <Route path="homepage-layout" element={<HomepageLayout />} />
           <Route path="category-sort" element={<CategorySort />} />
           <Route path="tasks" element={<Navigate to="/tasks/center" replace />} />
           <Route path="tasks/center" element={<Tasks />} />

@@ -5,7 +5,7 @@ import type { Env } from '../../config/env.js'
 import { childLogger } from '../../lib/logger.js'
 import { currentTenant } from '../../lib/tenant-context.js'
 import { forEachTenant } from '../tenant-jobs.js'
-import { channelOwnership, type ChannelOwnership, type SettlementMode } from './settlement-mode.service.js'
+import { channelMetaFor, channelOwnership, type ChannelOwnership, type SettlementMode } from './settlement-mode.service.js'
 
 const log = childLogger('billing-daily')
 
@@ -113,7 +113,7 @@ export async function computeTenantDaily(env: Env, date: string): Promise<DailyR
       const code = String(r.channel)
       const amt = Number(r.amt)
       const cnt = Number(r.cnt)
-      const meta = channels.get(code)
+      const meta = channelMetaFor(channels, code)
       const mode = modeOf(r.settlement_mode, meta)
       const fee = mode === 'platform'
         ? Math.round((amt * (meta?.feeRatePct ?? 0) / 100 + (meta?.feeFixed ?? 0) * cnt) * 10000) / 10000
@@ -132,7 +132,7 @@ export async function computeTenantDaily(env: Env, date: string): Promise<DailyR
     let withdrawTenant = 0
     for (const r of wdByChannel) {
       const code = String(r.channel)
-      const mode = modeOf(r.settlement_mode, channels.get(code))
+      const mode = modeOf(r.settlement_mode, channelMetaFor(channels, code))
       if (mode === 'platform') withdrawPlatform += Number(r.amt)
       else withdrawTenant += Number(r.amt)
     }

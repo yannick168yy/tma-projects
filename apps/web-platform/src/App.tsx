@@ -17,6 +17,7 @@ import I18nOverrides from './views/tenant/I18nOverrides'
 import Domains from './views/tenant/Domains'
 import Channels from './views/tenant/Channels'
 import Billing from './views/tenant/Billing'
+import AppBuild from './views/tenant/AppBuild'
 import { useAuthStore } from './stores/auth'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="domains" element={<Domains />} />
           <Route path="channels" element={<Channels />} />
           <Route path="billing" element={<Billing />} />
+          <Route path="app" element={<AppBuild />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/overview" replace />} />

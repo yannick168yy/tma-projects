@@ -64,3 +64,22 @@ describe('欠费降级拦截（P2-10）', () => {
     }
   })
 })
+
+/**
+ * 通道登记的粒度：`pf_tenant_channel.channel_code` 存支付商（unispay），
+ * 订单里的 channel 是「支付商_方式」（unispay_dana）。两种粒度都要能命中，
+ * 否则登记了归属与费率却一条都匹配不上，账单还照样出得来。
+ */
+describe('通道登记粒度（P2-7）', () => {
+  it('订单的 provider_method 能回落到支付商级登记，方式级登记优先', async () => {
+    const { channelMetaFor } = await import('../services/billing/settlement-mode.service.js')
+    const map = new Map([
+      ['unispay', { channelCode: 'unispay', owner: 'platform' as const, merchantNo: null, feeRatePct: 1.5, feeFixed: 2, hasCredential: false, enabled: true }],
+      ['unispay_dana', { channelCode: 'unispay_dana', owner: 'tenant' as const, merchantNo: null, feeRatePct: 0, feeFixed: 0, hasCredential: true, enabled: true }],
+    ])
+    expect(channelMetaFor(map, 'unispay_ovo')?.owner).toBe('platform')
+    expect(channelMetaFor(map, 'unispay_ovo')?.feeRatePct).toBe(1.5)
+    expect(channelMetaFor(map, 'unispay_dana')?.owner).toBe('tenant')
+    expect(channelMetaFor(map, 'matrix')).toBeUndefined()
+  })
+})

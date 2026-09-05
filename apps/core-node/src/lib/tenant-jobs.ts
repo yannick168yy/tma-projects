@@ -78,24 +78,55 @@ export async function forEachTenant(
 }
 
 /**
- * 以自营站身份执行平台级任务。
- * 聚合商 CompanyKey 目前是全平台共用的一把：密钥轮换、报表拉取这类任务
- * 按租户跑会把同一把密钥轮换 N 次、把同一份报表拉 N 遍。
- * 等 P1 的 pf_tenant_provider 给每个租户建独立子代理后，再改成按租户执行。
+ * win568 这类「按子代理」的任务用它（P1-5）：
+ * 自营站 + 每个有 active 独立子代理的租户各跑一次。
+ *
+ * 共用平台子代理的租户**不单独跑**：它们与自营站是同一把 CompanyKey、同一个 ServerId，
+ * 再跑一遍就是把同一份报表重复拉、把同一把密钥重复轮换。
  */
-export async function runAsSelfOperated(
+export async function runForProviderTenants(
   app: FastifyInstance,
   job: string,
-  fn: () => Promise<unknown>,
+  provider: string,
+  fn: (tenant: TenantContext) => Promise<unknown>,
 ): Promise<void> {
+  if (inFlight.has(job)) {
+    app.log.warn({ job }, '上一轮尚未结束，跳过本轮')
+    return
+  }
+  inFlight.add(job)
   try {
-    const tenant = await selfOperatedTenant()
-    if (!tenant) {
-      app.log.error({ job }, '读不到自营站租户，平台级任务跳过本轮')
-      return
+    const self = await selfOperatedTenant()
+    const targets: TenantContext[] = self ? [self] : []
+    if (!self) app.log.error({ job }, '读不到自营站租户')
+
+    try {
+      const [rows] = await withRetry(() => getPlatformPool().query<TenantRow[]>(
+        `SELECT t.id, t.code, t.db_name, t.status, t.self_operated, t.pool_min, t.pool_max, t.queue_limit
+           FROM pf_tenant t
+           JOIN pf_tenant_provider p ON p.tenant_id = t.id
+          WHERE p.provider = ? AND p.status = 'active'
+                AND t.self_operated = 0 AND t.status <> 'closed'
+          ORDER BY t.id`, [provider]))
+      for (const row of rows) {
+        targets.push({
+          id: row.id, code: row.code, database: row.db_name,
+          status: row.status, selfOperated: row.self_operated === 1,
+        })
+      }
+    } catch (err) {
+      // 取不到独立子代理清单时仍要把自营站跑完：那是今天在产的那份收入
+      app.log.error({ err, job }, '取独立子代理租户清单失败，本轮只跑自营站')
     }
-    await runWithTenant(tenant, fn)
-  } catch (err) {
-    app.log.error({ err, job }, '平台级任务执行失败')
+
+    for (const tenant of targets) {
+      try {
+        await runWithTenant(tenant, () => fn(tenant))
+      } catch (err) {
+        app.log.error({ err, job, tenant: tenant.code }, '子代理任务执行失败')
+      }
+    }
+  } finally {
+    inFlight.delete(job)
   }
 }

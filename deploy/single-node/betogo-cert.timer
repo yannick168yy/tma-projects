@@ -1,0 +1,12 @@
+[Unit]
+Description=BetoGo tenant cert issuance every hour
+
+[Timer]
+# 客户配好 DNS 后最多一小时自动拿到证书。续期由 certbot 自带的 timer 负责，
+# 这里只管「新域名首签」与「vhost 掉了要补回来」
+OnBootSec=10min
+OnUnitActiveSec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

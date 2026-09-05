@@ -937,6 +937,23 @@ export const freezeHomepageSection = (sectionKey: string, currency: string) =>
   post<{ ok: boolean; count: number }>(`/admin/games/homepage-sections/${sectionKey}/freeze`, { currency })
 export const unfreezeHomepageSection = (sectionKey: string, currency: string) =>
   del<{ ok: boolean }>(`/admin/games/homepage-sections/${sectionKey}/freeze?currency=${currency}`)
+// 首页装修：区块顺序 / 显示隐藏 / 每块参数（含 banner、公告、活动横条等运营块）
+export interface HomeSectionParams { limit?: number; layout?: 'big' | 'small' }
+export interface HomeLayoutRow {
+  sectionKey: string
+  label: string
+  kind: 'game' | 'ops'
+  hidden: boolean
+  sortOrder: number
+  params: HomeSectionParams | null
+}
+export const getHomeLayout = (currency: string) =>
+  get<{ items: HomeLayoutRow[] }>('/admin/games/homepage-layout', { currency })
+export const putHomeLayout = (
+  currency: string,
+  items: { sectionKey: string; hidden: boolean; params: HomeSectionParams | null }[],
+) => put<{ ok: boolean }>('/admin/games/homepage-layout', { currency, items })
+
 // 当前实际推荐结果（各板块生效列表，pin 已合并/exclude 已剔除），做后台编辑基线
 export interface PublicHomepageGame { uuid: string; name: string; provider: string; imageUrl: string | null; supportsActiveCurrency?: boolean }
 export const getPublicHomepage = (currency: string) =>

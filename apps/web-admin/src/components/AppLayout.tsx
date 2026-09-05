@@ -107,6 +107,7 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/bet-orders', label: '投注记录' },
         { key: '/home-content', label: '首页装修' },
         { key: '/homepage-sections', label: '首页板块配置' },
+        { key: '/homepage-layout', label: '首页布局' },
         { key: '/category-sort', label: '分类列表排序' },
       ],
     },
@@ -205,7 +206,7 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (pathname.startsWith('/review') || pathname.startsWith('/withdrawals')) return ['review']
   if (['/users', '/device-lookup', '/kyc'].some((p) => pathname.startsWith(p))) return ['user-center']
   if (['/deposits', '/payment', '/wallet-ledger', '/exchange-rates'].some((p) => pathname.startsWith(p))) return ['finance']
-  if (['/games', '/bet-orders', '/home-content', '/homepage-sections', '/category-sort'].some((p) => pathname.startsWith(p))) return ['game']
+  if (['/games', '/bet-orders', '/home-content', '/homepage-sections', '/homepage-layout', '/category-sort'].some((p) => pathname.startsWith(p))) return ['game']
   if (['/growth', '/vip', '/rebate', '/tasks', '/checkin', '/rewards-spin'].some((p) => pathname.startsWith(p))) return ['member-ops']
   if (['/promotions', '/community', '/tg-broadcast'].some((p) => pathname.startsWith(p))) return ['marketing']
   if (pathname.startsWith('/team-referral') || pathname.startsWith('/agents') || pathname.startsWith('/agent-') || pathname === '/bi/ad-sources') return ['promotion-alliance']

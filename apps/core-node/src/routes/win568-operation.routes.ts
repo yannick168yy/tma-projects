@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import type { RowDataPacket } from 'mysql2/promise'
 import { env } from '../config/env.js'
 import { Win568Client } from '../clients/win568.client.js'
-import { getWin568OperationCompanyKey } from '../services/win568-key-settings.service.js'
+import { getWin568OperationCompanyKey, getWin568ServerId } from '../services/win568-key-settings.service.js'
 import { probePendingGameIcons } from '../services/game-icon-probe.service.js'
 import { normalizeWin568Provider } from '../services/win568-provider-canon.js'
 
@@ -312,7 +312,7 @@ async function resolveWin568Player(app: FastifyInstance, userId: string, currenc
   )
   if (!agent) throw new Error(`568Win ${agentCcy} agent not found`)
 
-  const result = await (new Win568Client(await getWin568OperationCompanyKey(app))).registerPlayer({
+  const result = await (new Win568Client(await getWin568OperationCompanyKey(app), await getWin568ServerId(app))).registerPlayer({
     Username: username,
     Agent: String(agent.agent_username),
     UserGroup: 'a',
@@ -336,7 +336,7 @@ async function resolveWin568Player(app: FastifyInstance, userId: string, currenc
 }
 
 export async function win568OperationRoutes(app: FastifyInstance) {
-  const client = async () => new Win568Client(await getWin568OperationCompanyKey(app))
+  const client = async () => new Win568Client(await getWin568OperationCompanyKey(app), await getWin568ServerId(app))
 
   app.addHook('onRequest', async (req, reply) => {
     const token = req.headers['x-internal-token']

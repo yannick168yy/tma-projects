@@ -1,0 +1,14 @@
+[Unit]
+Description=BetoGo tenant domain ACME issuance (custom domains)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# 邮箱与本机公网 IP 必须给：前者是 Let's Encrypt 的到期提醒收件人，
+# 后者用于判断客户 DNS 是否已经指过来（不判就会去撞 LE 的失败限流）
+Environment=ACME_EMAIL=ops@betogo.games
+# Environment=SERVER_PUBLIC_IP=47.84.34.139
+ExecStart=/opt/tma-projects/deploy/single-node/issue-tenant-certs.sh
+StandardOutput=journal
+StandardError=journal

@@ -20,8 +20,6 @@ import {
   postLedger, resolveManual, setCreditLimit,
 } from '../../services/billing/tenant-account.service.js'
 import { policyFromEnv, runDunning } from '../../services/billing/dunning.service.js'
-import { invalidateChannelOwnershipCache } from '../../services/billing/settlement-mode.service.js'
-import { hasCredentialKey, maskSecret, openSecret, sealSecret } from '../../lib/secret-box.js'
 import { platformTrend, reconcileByMode, runPlatformBi, tenantOverview } from '../../services/billing/platform-bi.service.js'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -363,92 +361,6 @@ export function createBillingRouter(): Router {
   router.post('/overview/refresh', write, async (ctx) => {
     await runPlatformBi(ctx.state.env)
     ok(ctx, { ok: true })
-  })
-
-  // ── 租户支付通道（P2-7 / P2-8）──
-  //
-  // channel_code 必须与订单表里的 channel 值完全一致（如 unispay_dana），
-  // 对不上等于这条登记不生效：归属、费率、凭据全部落空，而账单照样出得来。
-  router.get('/tenants/:id/channels', read, async (ctx) => {
-    const id = Number(ctx.params.id)
-    const [rows] = await getPlatformPool().query<RowDataPacket[]>(
-      `SELECT id, channel_code, owner, fee_rate_pct, fee_fixed, merchant_no,
-              credential_cipher, credential_iv, enabled, sort_order
-         FROM pf_tenant_channel WHERE tenant_id = ? ORDER BY sort_order, channel_code`, [id])
-    ok(ctx, {
-      credentialKeyReady: hasCredentialKey(),
-      channels: rows.map((r) => {
-        let masked: string | null = null
-        if (r.credential_cipher && r.credential_iv) {
-          // 解不开就显式说「解不开」：静默显示未配置会让人以为要重新填，
-          // 而真正的原因是换过密钥
-          try { masked = maskSecret(openSecret(String(r.credential_cipher), String(r.credential_iv))) }
-          catch { masked = '（无法解密，可能换过密钥）' }
-        }
-        return {
-          id: r.id,
-          channelCode: r.channel_code,
-          owner: r.owner,
-          feeRatePct: Number(r.fee_rate_pct),
-          feeFixed: Number(r.fee_fixed),
-          merchantNo: r.merchant_no,
-          credentialMasked: masked,
-          enabled: r.enabled === 1,
-          sortOrder: Number(r.sort_order),
-        }
-      }),
-    })
-  })
-
-  router.put('/tenants/:id/channels/:code', write, async (ctx) => {
-    const id = Number(ctx.params.id)
-    const code = String(ctx.params.code).trim()
-    if (!/^[a-z0-9_]{2,32}$/.test(code)) return fail(ctx, 400, '通道代号只允许小写字母、数字与下划线')
-    const b = ctx.request.body as Record<string, unknown>
-    const owner = b.owner === 'tenant' ? 'tenant' : 'platform'
-    const feeRate = Number(b.feeRatePct ?? 0)
-    const feeFixed = Number(b.feeFixed ?? 0)
-    if (!Number.isFinite(feeRate) || feeRate < 0 || feeRate > 100) return fail(ctx, 400, '通道费率需在 0~100 之间')
-    if (!Number.isFinite(feeFixed) || feeFixed < 0) return fail(ctx, 400, '每笔固定手续费不能为负')
-
-    let cipher: string | null = null
-    let iv: string | null = null
-    const secret = typeof b.credential === 'string' ? b.credential.trim() : ''
-    if (secret) {
-      if (!hasCredentialKey()) return fail(ctx, 400, '服务端未配置 TENANT_CREDENTIAL_KEY，拒绝存储凭据')
-      const sealed = sealSecret(secret)
-      cipher = sealed.cipher
-      iv = sealed.iv
-    }
-
-    await getPlatformPool().execute(
-      `INSERT INTO pf_tenant_channel
-         (tenant_id, channel_code, owner, fee_rate_pct, fee_fixed, merchant_no,
-          credential_cipher, credential_iv, enabled, sort_order)
-       VALUES (?,?,?,?,?,?,?,?,?,?)
-       ON DUPLICATE KEY UPDATE
-         owner = VALUES(owner), fee_rate_pct = VALUES(fee_rate_pct), fee_fixed = VALUES(fee_fixed),
-         merchant_no = VALUES(merchant_no), enabled = VALUES(enabled), sort_order = VALUES(sort_order),
-         -- 凭据留空表示不改：编辑费率时不该被迫重新粘一遍密钥
-         credential_cipher = COALESCE(VALUES(credential_cipher), credential_cipher),
-         credential_iv = COALESCE(VALUES(credential_iv), credential_iv)`,
-      [id, code, owner, feeRate, feeFixed, b.merchantNo ? String(b.merchantNo) : null,
-       cipher, iv, b.enabled === false ? 0 : 1, Number(b.sortOrder ?? 100)])
-
-    await invalidateChannelOwnershipCache(ctx.state.env, id)
-    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'billing.channel.upsert', id,
-      { code, owner, feeRate, feeFixed, credentialChanged: Boolean(secret) })
-    ok(ctx, { tenantId: id, channelCode: code })
-  })
-
-  router.delete('/tenants/:id/channels/:code', write, async (ctx) => {
-    const id = Number(ctx.params.id)
-    const code = String(ctx.params.code)
-    await getPlatformPool().execute(
-      'DELETE FROM pf_tenant_channel WHERE tenant_id = ? AND channel_code = ?', [id, code])
-    await invalidateChannelOwnershipCache(ctx.state.env, id)
-    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'billing.channel.delete', id, { code })
-    ok(ctx, { code })
   })
 
   // ── 混用模式对账（P2-9）──

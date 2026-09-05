@@ -35,6 +35,35 @@ APK 3.9 MB，首次构建 2 分 30 秒。全站在 Android WebView 里**完整�
 `shouldOverrideUrlLoading` 里必须判 `isForMainFrame` —— 游戏是跨域 iframe 加载的，
 不判会把整个游戏踢到浏览器。
 
+### 包网租户出包（P1-15，2026-09-05）
+
+自营的 `ph` / `id` 两个 flavor 原样保留（已发布，不能动）。新增一个 `tenant` flavor，
+包名、桌面名、线路组、TG 旁路频道、启动屏底色、版本号、图标、签名全部走 `-P` 参数，
+**接一个客户不需要再改 build.gradle**。
+
+```bash
+# 参数从平台库 pf_tenant_app 读，出包在本机跑
+DEPLOY_HOST=root@47.84.34.139 \
+SSH_IDENTITY_FILE=/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/aliyun.pem \
+bash scripts/build-tenant-apk.sh <租户代号> --market PH --icon ~/acme-1024.png
+```
+
+- 参数在平台控制台「租户详情 → App 出包」维护
+- **签名密钥不进平台库**：库里只有一个引用名，密钥文件放出包机的
+  `android/keystore-<引用名>.properties`（已 gitignore）。密钥丢了就再也无法更新已发布的 App
+- 图标传一张 1024×1024 PNG，脚本用 `sips` 生成五档 mipmap，放进临时目录后以
+  `-PtenantResDir` 传给 gradle（不覆盖仓库里的默认图标）
+- 启动图仍在 web 层（`App.tsx` BootSplash），换图免发包；这里只有原生那一瞬的底色
+- UA 标记 `BetogoApp/<ver>` **所有租户共用**：它是站点判定"是否装了 App"的协议约定，
+  不是品牌文案，每租户换一个只会让前端多一张对照表
+- 构建期护栏：租户 release 缺签名密钥、缺线路组、缺线路验签公钥都直接失败 ——
+  这三种包发出去都是废包
+
+实测（2026-09-05）：`assembleTenantDebug` 出包成功，`aapt dump badging` 显示
+`games.demo1.app / versionCode 3 / versionName 1.0.2 / label DEMO1`，BuildConfig 里
+`APP_MARKET=PH`、`APP_DOMAINS=demo1.example.com`；回归 `assemblePhDebug` 仍是
+`games.betogo.app / 11 / 1.0.10 / BETOGO`，自营包零变化。
+
 ### 签名与 App Link（2026-07-24 已完成）
 
 - **正式签名密钥**：`TMA_FILES/亚马逊云-阿里云/betogo-release.jks`，alias `betogo`，

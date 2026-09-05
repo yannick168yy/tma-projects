@@ -27,30 +27,39 @@ async function post(path: string, payload: Record<string, unknown>): Promise<Win
   return await res.json() as Win568Response
 }
 
-function withAuth(payload: Record<string, unknown>, companyKey = env.WIN568_COMPANY_KEY): Record<string, unknown> {
+function withAuth(
+  payload: Record<string, unknown>,
+  companyKey = env.WIN568_COMPANY_KEY,
+  serverId = env.WIN568_SERVER_ID,
+): Record<string, unknown> {
   return {
     ...payload,
     CompanyKey: companyKey,
-    ServerId: env.WIN568_SERVER_ID,
+    ServerId: serverId,
   }
 }
 
 export class Win568Client {
-  constructor(private operationCompanyKey = env.WIN568_COMPANY_KEY) {}
+  // serverId 也按租户传：有独立子代理的租户，子代理挂在自己的 ServerId 下（P1-5）。
+  // 不传就回落平台 env —— 共用平台子代理的租户行为与改造前完全一致
+  constructor(
+    private operationCompanyKey = env.WIN568_COMPANY_KEY,
+    private serverId = env.WIN568_SERVER_ID,
+  ) {}
 
   regenerateCompanyKey(apiType: 'Operation' | 'SeamlessWallet') {
     return post('/web-root/restricted/system/regenerate-key', {
       apiType,
       scope: 'All',
       companyKey: this.operationCompanyKey,
-      serverId: env.WIN568_SERVER_ID,
+      serverId: this.serverId,
     })
   }
 
   getCurrentCompanyKeyInfo() {
     return post('/web-root/restricted/system/get-current-key-info', {
       companyKey: this.operationCompanyKey,
-      serverId: env.WIN568_SERVER_ID,
+      serverId: this.serverId,
     })
   }
 
@@ -58,7 +67,7 @@ export class Win568Client {
     return post('/web-root/restricted/seamless-wallet/resend-order', {
       ...payload,
       companyKey: this.operationCompanyKey,
-      serverId: env.WIN568_SERVER_ID,
+      serverId: this.serverId,
     })
   }
 
@@ -72,15 +81,15 @@ export class Win568Client {
     CasinoTableLimit: number
     IsTwoFAEnabled?: boolean
   }) {
-    return post('/web-root/restricted/agent/register-agent.aspx', withAuth(payload, this.operationCompanyKey))
+    return post('/web-root/restricted/agent/register-agent.aspx', withAuth(payload, this.operationCompanyKey, this.serverId))
   }
 
   registerPlayer(payload: { Username: string; Agent: string; UserGroup?: string }) {
-    return post('/web-root/restricted/player/register-player.aspx', withAuth(payload, this.operationCompanyKey))
+    return post('/web-root/restricted/player/register-player.aspx', withAuth(payload, this.operationCompanyKey, this.serverId))
   }
 
   async login(payload: Record<string, unknown>) {
-    const result = await post('/web-root/restricted/player/v2/login.aspx', withAuth(payload, this.operationCompanyKey))
+    const result = await post('/web-root/restricted/player/v2/login.aspx', withAuth(payload, this.operationCompanyKey, this.serverId))
     if (result.error.id === 0 && result.url?.startsWith('//')) {
       result.url = `https:${result.url}`
     }
@@ -97,7 +106,7 @@ export class Win568Client {
     return post('/web-root/restricted/report/v2/get-bet-list-by-modify-date.aspx', {
       ...payload,
       companyKey: this.operationCompanyKey,
-      serverId: env.WIN568_SERVER_ID,
+      serverId: this.serverId,
     })
   }
 
@@ -114,7 +123,7 @@ export class Win568Client {
     return post('/web-root/restricted/report/get-bet-list-by-modify-date-with-pagination.aspx', {
       ...payload,
       companyKey: this.operationCompanyKey,
-      serverId: env.WIN568_SERVER_ID,
+      serverId: this.serverId,
     })
   }
 
@@ -122,15 +131,15 @@ export class Win568Client {
     return post('/web-root/restricted/report/get-bet-list-by-refnos.aspx', {
       ...payload,
       companyKey: this.operationCompanyKey,
-      serverId: env.WIN568_SERVER_ID,
+      serverId: this.serverId,
     })
   }
 
   getBetPayload(payload: { Portfolio: string; Refno: string; Language?: string }) {
-    return post('/web-root/restricted/report/get-bet-payload.aspx', withAuth(payload, this.operationCompanyKey))
+    return post('/web-root/restricted/report/get-bet-payload.aspx', withAuth(payload, this.operationCompanyKey, this.serverId))
   }
 
   getGameList(payload: { GpId: number; IsGetAll: boolean }) {
-    return post('/web-root/restricted/information/get-game-list.aspx', withAuth(payload, this.operationCompanyKey))
+    return post('/web-root/restricted/information/get-game-list.aspx', withAuth(payload, this.operationCompanyKey, this.serverId))
   }
 }

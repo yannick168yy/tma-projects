@@ -11,6 +11,7 @@ const TABS = [
   { key: 'i18n', label: '文案' },
   { key: 'domains', label: '域名' },
   { key: 'channels', label: '通道与聚合商' },
+  { key: 'app', label: 'App 出包' },
   { key: 'billing', label: '计费与账单' },
 ]
 

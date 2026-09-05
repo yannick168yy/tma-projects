@@ -4,11 +4,12 @@ import {
   WIN568_OPERATION_COMPANY_KEY_SETTING,
   WIN568_SW_COMPANY_KEY_SETTING,
   getWin568OperationCompanyKey,
+  getWin568ServerId,
   getWin568SwCompanyKey,
   isWin568AutoRotationEnabled,
   setAdminSetting,
 } from '../services/win568-key-settings.service.js'
-import { runAsSelfOperated } from '../lib/tenant-jobs.js'
+import { runForProviderTenants } from '../lib/tenant-jobs.js'
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
 const ROTATE_BEFORE_MS = 14 * 24 * 60 * 60 * 1000
@@ -23,7 +24,7 @@ interface KeyInfo {
 
 export function startWin568KeyRotationCron(app: FastifyInstance): void {
   // 平台级：按租户跑会把同一把 CompanyKey 轮换 N 次
-  const run = () => void runAsSelfOperated(app, 'win568-key-rotation', () => checkWin568KeyRotation(app))
+  const run = () => void runForProviderTenants(app, 'win568-key-rotation', 'win568', () => checkWin568KeyRotation(app))
   const interval = setInterval(run, CHECK_INTERVAL_MS)
   app.addHook('onClose', async () => clearInterval(interval))
   run()
@@ -38,7 +39,7 @@ async function checkWin568KeyRotation(app: FastifyInstance): Promise<void> {
     const swKey = await getWin568SwCompanyKey(app)
     if (!operationKey) return
 
-    const client = new Win568Client(operationKey)
+    const client = new Win568Client(operationKey, await getWin568ServerId(app))
     const current = await client.getCurrentCompanyKeyInfo()
     if (current.error.id !== 0) {
       app.log.error({ error: current.error }, '[568win-key-rotation] get current key failed')
@@ -90,7 +91,7 @@ async function rotateOrSwitch(
   const current = keys.find((key) => key.companyKey === configuredKey)
   if (!current || Date.parse(current.expirationDate) - Date.now() > ROTATE_BEFORE_MS) return configuredKey
 
-  const rotated = await new Win568Client(operationKey).regenerateCompanyKey(apiType)
+  const rotated = await new Win568Client(operationKey, await getWin568ServerId(app)).regenerateCompanyKey(apiType)
   if (rotated.error.id !== 0 || !rotated.companyKey) {
     app.log.error({ apiType, error: rotated.error }, '[568win-key-rotation] regenerate key failed')
     return configuredKey
