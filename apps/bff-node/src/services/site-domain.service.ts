@@ -1,6 +1,7 @@
 import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
 import { getAdminSetting, setAdminSetting } from './admin-store.js'
+import { currentTenantOrNull } from '../lib/tenant-context.js'
 
 export type SiteMarket = 'PH' | 'ID'
 export type SiteDomainTarget = SiteMarket | 'PUBLIC'
@@ -94,7 +95,12 @@ export async function getSiteDomainMappings(redis: Redis, env: Env): Promise<Sit
     mappings = []
   }
   const fromDb = mappings.length > 0
-  if (!fromDb) mappings = envMappings(env)
+  // env 里的 MARKET_DOMAIN_MAP 是**自营站**的域名表。租户库还没配域名映射时回落到它，
+  // 等于把客户 App 的线路表填成自营站的域名，把人家的用户送去别家站点。
+  // 线上实测过这条路径（demo1 的 /app/bootstrap 返回 betogo.games），所以只有自营站
+  // 与无租户上下文（平台库挂了的降级态）才允许吃这个兜底。
+  const tenant = currentTenantOrNull()
+  if (!fromDb && (!tenant || tenant.selfOperated)) mappings = envMappings(env)
   await redis.set(CACHE_KEY, JSON.stringify(mappings), 'EX', fromDb ? CACHE_TTL_SECONDS : FALLBACK_CACHE_TTL_SECONDS)
   return mappings
 }

@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
 import {
-  appDomainsForMarket, defaultAppDomainsForMarket, marketForHost,
+  appDomainsForMarket, defaultAppDomainsForMarket, getSiteDomainMappings, marketForHost,
   normalizeSiteDomainMappings, saveSiteDomainMappings,
 } from '../services/site-domain.service.js'
+import { runWithTenant } from '../lib/tenant-context.js'
 
 const redisStub = { get: async () => null, set: async () => 'OK' } as unknown as Redis
-const envStub = {} as Env
+const envStub = { MARKET_DOMAIN_MAP: '{"betogo.games":"PH","betogo.app":"ID"}' } as unknown as Env
 
 describe('站点域名映射', () => {
   it('统一裸域并忽略重复和非法市场', () => {
@@ -69,5 +70,27 @@ describe('站点域名映射', () => {
     expect(defaultAppDomainsForMarket('PH').map((item) => item.domain))
       .toEqual(['betogo.games', 'betogo666.com', 'betogo777.com'])
     expect(defaultAppDomainsForMarket('ID').every((item) => item.enabled && item.appMarket === 'ID')).toBe(true)
+  })
+})
+
+// P1-15：env 的 MARKET_DOMAIN_MAP 是自营站的域名表。租户库没配映射时回落到它，
+// 等于把客户 App 的线路表填成自营站域名 —— 线上实测过这条路径，所以补一条用例钉住
+describe('租户不吃自营站的 env 域名兜底', () => {
+  it('自营站：库里没配时回落 env', async () => {
+    const redis = { get: async () => null, set: async () => 'OK' } as unknown as Redis
+    const mappings = await runWithTenant(
+      { id: 1, code: 'betogo', database: 'betogo', status: 'active', selfOperated: true },
+      () => getSiteDomainMappings(redis, envStub),
+    )
+    expect(mappings.length).toBeGreaterThan(0)
+  })
+
+  it('租户：库里没配时也不回落，宁可给空表', async () => {
+    const redis = { get: async () => null, set: async () => 'OK' } as unknown as Redis
+    const mappings = await runWithTenant(
+      { id: 9, code: 'demo1', database: 'betogo_demo1', status: 'active', selfOperated: false },
+      () => getSiteDomainMappings(redis, envStub),
+    )
+    expect(mappings).toEqual([])
   })
 })
