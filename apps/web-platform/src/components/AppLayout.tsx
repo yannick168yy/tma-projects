@@ -1,6 +1,6 @@
 import { Layout, Menu, Button, Typography, Space, Tag } from 'antd'
 import {
-  AppstoreOutlined, ClusterOutlined, DollarOutlined, FileTextOutlined,
+  AppstoreOutlined, ClusterOutlined, DashboardOutlined, DollarOutlined, FileTextOutlined,
   LogoutOutlined, PlusCircleOutlined, WalletOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -17,7 +17,8 @@ export default function AppLayout() {
   const { pathname } = useLocation()
   const { username, role, signOut } = useAuthStore()
   // /tenants/new 单独高亮；/tenants/:id/* 的各个页签都归到「租户总览」
-  const selectedKey = pathname === '/tenants/new' ? '/tenants/new'
+  const selectedKey = pathname.startsWith('/overview') ? '/overview'
+    : pathname === '/tenants/new' ? '/tenants/new'
     : pathname.startsWith('/plans') ? '/plans'
     : pathname.startsWith('/billing/') ? pathname
     : '/tenants'
@@ -32,7 +33,8 @@ export default function AppLayout() {
           selectedKeys={[selectedKey]}
           onClick={({ key }) => nav(key)}
           items={[
-            { key: '/tenants', icon: <ClusterOutlined />, label: '租户总览' },
+            { key: '/overview', icon: <DashboardOutlined />, label: '平台总览' },
+            { key: '/tenants', icon: <ClusterOutlined />, label: '租户列表' },
             // 开站会建库+建管理员账号，与后端 platformAuthMiddleware('platform_super') 的限制一致
             ...(role === 'platform_super' ? [{ key: '/tenants/new', icon: <PlusCircleOutlined />, label: '一键开站' }] : []),
             { key: '/plans', icon: <AppstoreOutlined />, label: '套餐管理' },

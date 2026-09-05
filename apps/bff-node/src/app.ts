@@ -11,6 +11,7 @@ import { tenantMiddleware } from './middleware/tenant.js'
 import { tenantGateMiddleware } from './middleware/tenant-gate.js'
 import { runBillingSnapshot } from './services/billing/billing-daily.service.js'
 import { runDunning } from './services/billing/dunning.service.js'
+import { runPlatformBi } from './services/billing/platform-bi.service.js'
 import { childLogger } from './lib/logger.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
@@ -196,6 +197,7 @@ export function createApp(env: Env): Koa {
     const run = async () => {
       try {
         await runBillingSnapshot(env)
+        await runPlatformBi(env)
         const actions = await runDunning(env)
         if (actions.length > 0) billingLog.warn({ actions }, '欠费降级已执行')
       } catch (err) {
@@ -213,6 +215,15 @@ export function createApp(env: Env): Koa {
       void run()
       setInterval(() => void run(), 24 * 60 * 60 * 1000)
     }, msUntil())
+
+    // 平台总览要能看到「今天到现在为止」，每 30 分钟只刷当天与昨天。
+    // 回填前三天留给上面那轮日切 —— 高频轮次里做回填等于每半小时把所有租户库扫一遍
+    setTimeout(() => {
+      const light = () => runPlatformBi(env, [0, -1])
+        .catch((err) => billingLog.error({ err }, 'platform bi refresh failed'))
+      void light()
+      setInterval(() => void light(), 30 * 60 * 1000)
+    }, 60_000)
   }
 
   // 社区营销自动发帖:每 30s tick(setInterval 长期漂移可能跳过整分,30s 步长+槽位 Redis 去重保证不漏不重)

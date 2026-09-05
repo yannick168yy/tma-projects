@@ -429,3 +429,41 @@ export const getDunningPolicy = () =>
 export const runDunning = () =>
   post<{ actions: Array<{ tenantCode: string; from: string; to: string; reason: string }> }>(
     '/platform/billing/dunning/run', {})
+
+// ── 平台总览 BI（P2-11）──
+export interface OverviewTenant {
+  tenantId: number
+  code: string
+  name: string
+  status: string
+  planName: string | null
+  depositUsdt: number
+  withdrawUsdt: number
+  turnoverUsdt: number
+  ggrUsdt: number
+  bonusUsdt: number
+  commissionUsdt: number
+  netGgrUsdt: number
+  depositUsers: number
+  firstDepUsers: number
+  dau: number
+  newUsers: number
+  skippedRows: number
+}
+export interface OverviewTrend {
+  statDate: string
+  depositUsdt: number
+  turnoverUsdt: number
+  ggrUsdt: number
+  dau: number
+  tenants: number
+}
+export const getPlatformOverview = (from?: string, to?: string) => {
+  const p = new URLSearchParams()
+  if (from) p.set('from', from)
+  if (to) p.set('to', to)
+  const qs = p.toString()
+  return get<{ period: { from: string; to: string }; tenants: OverviewTenant[]; trend: OverviewTrend[] }>(
+    `/platform/billing/overview${qs ? `?${qs}` : ''}`)
+}
+export const refreshPlatformOverview = () => post<{ ok: boolean }>('/platform/billing/overview/refresh', {})

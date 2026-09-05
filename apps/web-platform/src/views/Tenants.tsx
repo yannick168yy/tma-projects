@@ -30,7 +30,7 @@ export default function Tenants() {
 
   return (
     <Card
-      title="租户总览"
+      title="租户列表"
       extra={role === 'platform_super' && <Button type="primary" onClick={() => nav('/tenants/new')}>一键开站</Button>}
     >
       <Table

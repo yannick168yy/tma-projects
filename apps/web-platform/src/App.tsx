@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import Login from './views/Login'
 import Tenants from './views/Tenants'
+import PlatformOverview from './views/Overview'
 import CreateTenant from './views/CreateTenant'
 import Plans from './views/Plans'
 import BillingPlans from './views/BillingPlans'
@@ -33,7 +34,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<RequireAuth><AppLayout /></RequireAuth>}>
-        <Route index element={<Navigate to="/tenants" replace />} />
+        <Route index element={<Navigate to="/overview" replace />} />
+        <Route path="overview" element={<PlatformOverview />} />
         <Route path="tenants" element={<Tenants />} />
         <Route path="tenants/new" element={<RequireSuper><CreateTenant /></RequireSuper>} />
         <Route path="plans" element={<Plans />} />
@@ -51,7 +53,7 @@ export default function App() {
           <Route path="billing" element={<Billing />} />
         </Route>
       </Route>
-      <Route path="*" element={<Navigate to="/tenants" replace />} />
+      <Route path="*" element={<Navigate to="/overview" replace />} />
     </Routes>
   )
 }
