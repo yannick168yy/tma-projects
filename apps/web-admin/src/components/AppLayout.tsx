@@ -178,6 +178,7 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/settings', label: '管理员与权限' },
         { key: '/system-params', label: '系统参数' },
         { key: '/site-domains', label: '站点域名映射' },
+        { key: '/bottom-nav', label: '底部导航' },
         { key: '/platform-billing', label: '平台账单', roles: ['super_admin', 'finance'] },
         { key: '/audit-log', label: '操作日志' },
         { key: '/sms-test', label: '短信测试' },
@@ -211,7 +212,7 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (['/promotions', '/community', '/tg-broadcast'].some((p) => pathname.startsWith(p))) return ['marketing']
   if (pathname.startsWith('/team-referral') || pathname.startsWith('/agents') || pathname.startsWith('/agent-') || pathname === '/bi/ad-sources') return ['promotion-alliance']
   if (['/customer-service', '/cs-tickets', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
-  if (['/audit-log', '/settings', '/system-params', '/site-domains', '/platform-billing', '/sms-test', '/db-backup'].some((p) => pathname.startsWith(p))) return ['system']
+  if (['/audit-log', '/settings', '/system-params', '/site-domains', '/bottom-nav', '/platform-billing', '/sms-test', '/db-backup'].some((p) => pathname.startsWith(p))) return ['system']
   return []
 }
 

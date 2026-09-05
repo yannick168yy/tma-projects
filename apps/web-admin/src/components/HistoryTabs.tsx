@@ -63,6 +63,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/system-params': '系统参数',
   '/site-domains': '站点域名映射',
   '/platform-billing': '平台账单',
+  '/bottom-nav': '底部导航',
   '/audit-log': '操作日志',
   '/sms-test': '短信测试',
   '/db-backup': '数据库备份',

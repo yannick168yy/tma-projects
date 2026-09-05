@@ -36,6 +36,7 @@ import Settings from './views/Settings'
 import SystemParams from './views/SystemParams'
 import SiteDomains from './views/SiteDomains'
 import PlatformBilling from './views/PlatformBilling'
+import BottomNavLayout from './views/BottomNavLayout'
 import SmsTest from './views/SmsTest'
 import DbBackup from './views/DbBackup'
 import ExchangeRates from './views/ExchangeRates'
@@ -144,6 +145,7 @@ export default function App() {
           <Route path="system-params" element={<SystemParams />} />
           <Route path="site-domains" element={<SiteDomains />} />
           <Route path="platform-billing" element={<PlatformBilling />} />
+          <Route path="bottom-nav" element={<BottomNavLayout />} />
           <Route path="sms-test" element={<SmsTest />} />
           <Route path="db-backup" element={<RequireRole role="super_admin"><DbBackup /></RequireRole>} />
           <Route path="exchange-rates" element={<ExchangeRates />} />

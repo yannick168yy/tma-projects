@@ -1,4 +1,5 @@
 import { setSiteFeatures } from './features'
+import { setBottomNav } from '@/config/bottom-nav'
 import { applySiteIdentity, applySiteTheme, setSiteBrand } from './brand'
 import { setI18nOverrides } from './i18n-overrides'
 
@@ -62,6 +63,7 @@ export async function initSiteMarketConfig(): Promise<void> {
         brand?: unknown
         theme?: unknown
         i18nOverrides?: unknown
+        bottomNav?: unknown
       }
     }
     if (body.code !== 0) return
@@ -69,6 +71,7 @@ export async function initSiteMarketConfig(): Promise<void> {
     setSiteFeatures(body.data?.features)
     setSiteBrand(body.data?.brand)
     setI18nOverrides(body.data?.i18nOverrides)
+    setBottomNav(body.data?.bottomNav)
     applySiteTheme(body.data?.theme)
     applySiteIdentity()
     const market = body.data?.market?.toUpperCase()

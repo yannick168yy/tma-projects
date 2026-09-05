@@ -5,6 +5,7 @@ import {
   HOME_LAYOUT_KEYS,
   type HomeSectionLayoutRow,
 } from '../services/sg-game.service.js'
+import { NAV_SLOTS, validateBottomNav } from '../services/bottom-nav.service.js'
 
 const row = (o: Partial<HomeSectionLayoutRow> & { sectionKey: string }): HomeSectionLayoutRow => ({
   currency: 'PHP', hidden: false, sortOrder: 0, params: null, ...o,
@@ -57,5 +58,36 @@ describe('首页布局：参数清洗', () => {
 
   it('数量封顶 60，挡住后台误填导致首页一次渲染上千张卡', () => {
     expect(sanitizeSectionParams({ limit: 9999 })).toEqual({ limit: 60 })
+  })
+})
+
+describe('底部导航配置（P3-2）', () => {
+  it('必需槽位不能隐藏：隐藏首页等于让用户回不了家', () => {
+    const items = NAV_SLOTS.map((s) => ({ navId: s.id, hidden: s.id === 'casino', icon: null, targetPath: null }))
+    expect(validateBottomNav(items)).toMatch(/不能隐藏/)
+  })
+
+  it('至少保留两个入口', () => {
+    const items = NAV_SLOTS.map((s) => ({ navId: s.id, hidden: s.id !== 'casino', icon: null, targetPath: null }))
+    expect(validateBottomNav(items)).toMatch(/两个/)
+  })
+
+  it('图标与跳转目标必须在白名单内', () => {
+    expect(validateBottomNav([{ navId: 'games', hidden: false, icon: 'skull', targetPath: null }]))
+      .toMatch(/图标/)
+    expect(validateBottomNav([{ navId: 'games', hidden: false, icon: null, targetPath: '/admin' }]))
+      .toMatch(/跳转目标/)
+  })
+
+  it('未知槽位直接拒绝：id 是页面组件的名字，凭空加一个不会有页面长出来', () => {
+    expect(validateBottomNav([{ navId: 'wallet', hidden: false, icon: null, targetPath: null }]))
+      .toMatch(/未知的导航槽位/)
+  })
+
+  it('合法配置放行', () => {
+    const items = NAV_SLOTS.map((s) => ({
+      navId: s.id, hidden: s.id === 'team', icon: 'star', targetPath: '/vip',
+    }))
+    expect(validateBottomNav(items)).toBeNull()
   })
 })

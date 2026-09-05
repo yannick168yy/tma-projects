@@ -1,4 +1,5 @@
 import { checkPlanLimits } from '../../services/plan-limit.service.js'
+import { bottomNavCatalog, saveBottomNav, validateBottomNav } from '../../services/bottom-nav.service.js'
 import Router from '@koa/router'
 import type { Redis } from 'ioredis'
 import { getOpPasswordHash, setOpPassword, getSmsTestMode, setSmsTestMode, getMaintenanceMode, setMaintenanceMode, getAdminSetting, setAdminSetting, writeAuditLog } from '../../services/admin-store.js'
@@ -490,6 +491,29 @@ router.delete('/exchange-rates/manual/:from/:to', requireRole(['super_admin', 'f
   const redis = ctx.state.redis as Redis
   await clearManualRate(redis, from, to)
   ok(ctx, null)
+})
+
+
+// ── 底部导航（P3-2）──────────────────────────────────────────────────────────
+// 顺序/显示/图标/跳转目标按租户配。槽位不可增删：每个槽位背后是一个已存在的页面，
+// 凭空多一个 id 不会有页面跟着长出来 —— 想换内容改 targetPath 指向另一个已有页面。
+router.get('/bottom-nav', requireRole(['super_admin', 'ops']), async (ctx) => {
+  ok(ctx, await bottomNavCatalog(ctx.state.env))
+})
+
+router.put('/bottom-nav', requireRole(['super_admin', 'ops']), async (ctx) => {
+  const body = ctx.request.body as { items?: unknown }
+  if (!Array.isArray(body.items)) return fail(ctx, 400, 'items 必须是数组')
+  const items = (body.items as Array<Record<string, unknown>>).map((r) => ({
+    navId: String(r.navId ?? ''),
+    hidden: r.hidden === true,
+    icon: r.icon ? String(r.icon) : null,
+    targetPath: r.targetPath ? String(r.targetPath) : null,
+  }))
+  const err = validateBottomNav(items)
+  if (err) return fail(ctx, 400, err)
+  await saveBottomNav(ctx.state.env, items)
+  ok(ctx, await bottomNavCatalog(ctx.state.env))
 })
 
 export default router

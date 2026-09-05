@@ -1,9 +1,12 @@
 import { Suspense, useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { lazyWithReload } from '@/utils/lazyWithReload'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Gamepad2, Check, Search, Headset } from 'lucide-react'
+import {
+  ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Gamepad2, Check, Search, Headset,
+  Users, Crown, Percent, Trophy, Sparkles, Ticket, Star,
+} from 'lucide-react'
 import SiteLogo from '@/components/SiteLogo'
-import { NAV_ITEMS } from '@/data/home'
+import { getBottomNav } from '@/config/bottom-nav'
 import { isFeatureEnabled } from '@/config/features'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -16,7 +19,7 @@ import {
 } from '@/stores/wallet'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
-import { legacyLobbyCat } from '@/navigation/appRoutes'
+import { legacyLobbyCat, parseAppRoute } from '@/navigation/appRoutes'
 import { shouldShowDownloadBar, dismissDownloadBar, isIos, isInstalledApp, installSource } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { usePromotionStore } from '@/stores/promotion'
@@ -69,10 +72,21 @@ const AUTO_POPUP_DELAY_MS = 3000
 // 这些落地页不弹进站弹窗(除游戏中外)。值为 FullPageView['type']
 const POPUP_BLOCKED_VIEWS = new Set<string>(['download'])
 
-type NavId = (typeof NAV_ITEMS)[number]['id']
 
-function navIcon(id: string) {
-  switch (id) { case 'games': return Gamepad2; case 'bonuses': return Gift; case 'casino': return Home; default: return Menu }
+/**
+ * 底栏图标白名单（P3-2）：后台只能从这些名字里选。
+ * 认不出的名字回落到 Menu —— 底栏少一个图标比整块崩掉好，但白名单校验在服务端已经拦过一次。
+ */
+// 角标：目前只有优惠页有个固定 3，等真有动态未读数再接接口
+const NAV_BADGE: Record<string, number | undefined> = { bonuses: 3 }
+
+const NAV_ICON_MAP: Record<string, typeof Home> = {
+  home: Home, gamepad: Gamepad2, gift: Gift, menu: Menu, users: Users, crown: Crown,
+  percent: Percent, trophy: Trophy, sparkles: Sparkles, ticket: Ticket, wallet: Wallet, star: Star,
+}
+
+function navIcon(name: string) {
+  return NAV_ICON_MAP[name] ?? Menu
 }
 
 export default function AppShell() {
@@ -420,13 +434,19 @@ export default function AppShell() {
 
   async function onGameTap() { await auth.ensureLoggedIn(t('auth.signInPlay')) }
 
-  function setNav(id: NavId) {
+  /**
+   * 底栏点击（P3-2）：槽位可以指向任意白名单页面，所以按 targetPath 走而不是按槽位 id。
+   * 浮层类目标用 pushOverlay 压栈打开（关闭时精确回退），tab 类走 navigateTab 保留原有滚动到顶。
+   */
+  function onNavTap(item: { id: string; targetPath: string }) {
     setWalletOpen(false)
-    if (id === 'team') {
-      openTeamCenter()
+    const target = parseAppRoute(item.targetPath, '')
+    if (target?.kind === 'tab') {
+      navigateTab(target.tab)
       return
     }
-    navigateTab(id)
+    // 浮层与「配了个已下线路径」都交给路由层：解析为 null 时它会 replace 回首页
+    navigatePath(item.targetPath)
   }
 
   function onOpenSearch() {
@@ -508,12 +528,17 @@ export default function AppShell() {
   function openCs() { closeOverlay(); setWalletOpen(false); setCsOpen(true) }
   function onLogout() { resetToTab('menu'); setWalletOpen(false); setWalletModalOpen(false) }
 
-  // 底部导航按功能开关过滤（P1-8 第二处生效点）。
-  // 只有 team 有对应开关，其余四项（首页/优惠/游戏/菜单）是所有租户共有的骨架。
+  // 底栏由服务端配置驱动（P3-2）：顺序、显示、图标、跳转目标按租户配，
+  // 拉不到配置时 getBottomNav() 回落内置默认。
+  // 功能开关仍是第二道过滤（P1-8 第二处生效点）：team 关掉时整槽消失。
   const navItems = useMemo(
-    () => NAV_ITEMS
+    () => getBottomNav()
       .filter((item) => item.id !== 'team' || isFeatureEnabled('team_commission'))
-      .map((item) => ({ ...item, label: t(`nav.${item.id}`) })),
+      .map((item) => ({
+        ...item,
+        label: t(`nav.${item.id}`),
+        badge: NAV_BADGE[item.id],
+      })),
     [t],
   )
 
@@ -771,10 +796,16 @@ export default function AppShell() {
         {!isImmersive && (
         <nav ref={navRef} className="app-fixed-bottom app-safe-nav flex items-center justify-around border-t border-border bg-background px-2 pt-1" style={walletOpen ? { zIndex: 50 } : undefined}>
           {navItems.map((item) => {
-            const Icon = navIcon(item.id)
-            const itemActive = item.id === 'team' ? view.type === 'teamCenter' : view.type === 'none' && activeNav === item.id
+            const Icon = navIcon(item.icon)
+            // 槽位可以指向别的页面（P3-2），高亮与跳转都按 targetPath 走：
+            // tab 路径 → 底层 tab 高亮；浮层路径 → 该浮层打开时高亮，与 team 原来的特判同一套逻辑
+            const target = parseAppRoute(item.targetPath, '')
+            const itemActive = target?.kind === 'overlay'
+              ? view.type === target.overlay.type
+              : view.type === 'none' && activeNav === (target?.kind === 'tab' ? target.tab : item.id)
             return (
-              <button key={item.id} type="button" className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-0.5 transition-colors ${itemActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setNav(item.id)} aria-label={item.label}>
+              <button key={item.id} type="button" className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-0.5 transition-colors ${itemActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => onNavTap(item)} aria-label={item.label}>
+                {/* 三圈是设计上的中央凸起按钮，不走通用图标位 */}
                 {item.id === 'team' ? (
                   <>
                     <span className="block h-[34px] w-12" />
@@ -789,9 +820,9 @@ export default function AppShell() {
                   <>
                     {itemActive && <span className="absolute -top-1 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-primary" />}
                     <div className={itemActive ? 'rounded-xl bg-primary/10 p-1' : 'p-1'}><Icon size={20} /></div>
-                    {'badge' in item && item.badge && (
+                    {item.badge ? (
                       <span className="absolute right-1 top-0 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[9px] font-black text-white">{item.badge}</span>
-                    )}
+                    ) : null}
                     <span className="text-[10px] font-bold leading-none">{item.label}</span>
                   </>
                 )}

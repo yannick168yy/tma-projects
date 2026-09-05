@@ -2033,3 +2033,29 @@ export async function downloadPlatformInvoice(id: number, invoiceNo: string): Pr
   a.remove()
   URL.revokeObjectURL(url)
 }
+
+// ── 底部导航（P3-2）──
+export interface BottomNavSlot {
+  id: string
+  label: string
+  defaultIcon: string
+  defaultPath: string
+  feature?: string
+  required?: boolean
+}
+export interface BottomNavItem {
+  id: string
+  hidden: boolean
+  sortOrder: number
+  icon: string
+  targetPath: string
+}
+export interface BottomNavCatalog {
+  slots: BottomNavSlot[]
+  items: BottomNavItem[]
+  icons: string[]
+  targets: string[]
+}
+export const getBottomNav = () => get<BottomNavCatalog>('/admin/settings/bottom-nav')
+export const putBottomNav = (items: Array<{ navId: string; hidden: boolean; icon: string | null; targetPath: string | null }>) =>
+  put<BottomNavCatalog>('/admin/settings/bottom-nav', { items })
