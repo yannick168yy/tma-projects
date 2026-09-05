@@ -1,5 +1,5 @@
 import { Layout, Menu, Button, Typography, Space, Tag } from 'antd'
-import { ClusterOutlined, LogoutOutlined, PlusCircleOutlined } from '@ant-design/icons'
+import { AppstoreOutlined, ClusterOutlined, LogoutOutlined, PlusCircleOutlined } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 
@@ -13,8 +13,10 @@ export default function AppLayout() {
   const nav = useNavigate()
   const { pathname } = useLocation()
   const { username, role, signOut } = useAuthStore()
-  // /tenants/new 与 /tenants/:id 都要落在各自菜单项高亮，其余归到「租户总览」
-  const selectedKey = pathname === '/tenants/new' ? '/tenants/new' : '/tenants'
+  // /tenants/new 单独高亮；/tenants/:id/* 的各个页签都归到「租户总览」
+  const selectedKey = pathname === '/tenants/new' ? '/tenants/new'
+    : pathname.startsWith('/plans') ? '/plans'
+    : '/tenants'
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -29,6 +31,7 @@ export default function AppLayout() {
             { key: '/tenants', icon: <ClusterOutlined />, label: '租户总览' },
             // 开站会建库+建管理员账号，与后端 platformAuthMiddleware('platform_super') 的限制一致
             ...(role === 'platform_super' ? [{ key: '/tenants/new', icon: <PlusCircleOutlined />, label: '一键开站' }] : []),
+            { key: '/plans', icon: <AppstoreOutlined />, label: '套餐管理' },
           ]}
         />
       </Layout.Sider>

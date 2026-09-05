@@ -51,7 +51,7 @@ export default function Tenants() {
           { title: '域名', dataIndex: 'domainCount', width: 70 },
           { title: '创建时间', dataIndex: 'createdAt', width: 170 },
           { title: '操作', width: 90,
-            render: (_, r) => <Button size="small" onClick={() => nav(`/tenants/${r.id}`)}>详情</Button> },
+            render: (_, r) => <Button size="small" onClick={() => nav(`/tenants/${r.id}/overview`)}>详情</Button> },
         ]}
       />
     </Card>

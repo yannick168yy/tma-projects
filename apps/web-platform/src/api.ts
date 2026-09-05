@@ -93,8 +93,23 @@ export const updateTenantPool = (id: number, poolMin: number, poolMax: number, q
     `/platform/tenants/${id}/pool`, { poolMin, poolMax, queueLimit })
 
 // ── 套餐 ──
-export interface PlatformPlan { code: string; name: string; description: string | null }
+export interface PlatformPlan { id: number; code: string; name: string; description: string | null }
 export const listPlatformPlans = () => get<PlatformPlan[]>('/platform/plans')
+
+// ── 套餐可覆盖范围（P1-14）──
+export interface PlanLimitRange { min: number | null; max: number | null }
+export interface PlanOverrides {
+  plan: { id: number; code: string; name: string }
+  keys: Array<{ key: string; label: string }>
+  overrides: Record<string, PlanLimitRange>
+}
+export const getPlanOverrides = (planId: number) =>
+  get<PlanOverrides>(`/platform/plans/${planId}/overrides`)
+
+/** min 与 max 同时留空 = 删除该项限制，回到「平台不管」 */
+export const setPlanOverride = (planId: number, key: string, min: number | null, max: number | null) =>
+  put<{ planId: number; key: string; min: number | null; max: number | null }>(
+    `/platform/plans/${planId}/overrides/${key}`, { min, max })
 
 // ── 一键开站 ──
 export interface ProvisionRequest {
