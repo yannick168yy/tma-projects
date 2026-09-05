@@ -173,10 +173,21 @@ export async function computeTenantDaily(env: Env, date: string): Promise<DailyR
  * 写快照。已锁定（locked_at 非空）的行拒绝覆盖 —— 账单已经按它出过账，
  * 事后改数就是改客户已确认的账，只能走人工重开账单流程。
  */
-export async function saveTenantDaily(tenantId: number, date: string, rows: DailyRow[]): Promise<number> {
+export async function saveTenantDaily(tenantId: number, date: string, rows: DailyRow[]): Promise<{
+  written: number
+  skippedLocked: number
+}> {
   const pool = getPlatformPool()
+  // 先查锁定状态：ON DUPLICATE KEY UPDATE 在「值没变」时也返回 affectedRows=1，
+  // 拿它当写入数会把「因锁定没改」报成「已重算」，运营看不出重算其实没生效
+  const [lockedRows] = await pool.query<RowDataPacket[]>(
+    'SELECT currency FROM pf_billing_daily WHERE tenant_id = ? AND stat_date = ? AND locked_at IS NOT NULL',
+    [tenantId, date])
+  const locked = new Set(lockedRows.map((r) => String(r.currency)))
+
   let written = 0
   for (const r of rows) {
+    if (locked.has(r.currency)) continue
     const [res] = await pool.execute(
       `INSERT INTO pf_billing_daily
          (tenant_id, stat_date, currency, fx_rate_usdt, deposit_amount, deposit_platform, deposit_tenant,
@@ -208,14 +219,14 @@ export async function saveTenantDaily(tenantId: number, date: string, rows: Dail
     )
     written += (res as { affectedRows: number }).affectedRows > 0 ? 1 : 0
   }
-  return written
+  return { written, skippedLocked: rows.filter((r) => locked.has(r.currency)).length }
 }
 
 /** 单租户重算一天。平台控制台的「重算」按钮与定时任务共用这一条路径 */
-export async function snapshotTenantDay(env: Env, date: string): Promise<number> {
+export async function snapshotTenantDay(env: Env, date: string): Promise<{ written: number; skippedLocked: number }> {
   const tenant = currentTenant()
   const rows = await computeTenantDaily(env, date)
-  if (rows.length === 0) return 0
+  if (rows.length === 0) return { written: 0, skippedLocked: 0 }
   return saveTenantDaily(tenant.id, date, rows)
 }
 
@@ -229,8 +240,10 @@ export async function runBillingSnapshot(env: Env): Promise<void> {
   for (const offset of [-1, -2, -3]) {
     const date = statDate(offset)
     await forEachTenant(`billing-snapshot${offset}`, async (tenant) => {
-      const n = await snapshotTenantDay(env, date)
-      if (n > 0) log.info({ tenant: tenant.code, date, rows: n }, '计费快照已更新')
+      const { written, skippedLocked } = await snapshotTenantDay(env, date)
+      if (written > 0 || skippedLocked > 0) {
+        log.info({ tenant: tenant.code, date, written, skippedLocked }, '计费快照已更新')
+      }
     })
   }
 }

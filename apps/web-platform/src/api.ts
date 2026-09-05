@@ -488,3 +488,25 @@ export const getReconcile = (from: string, to: string, tenantId?: number) => {
   return get<{ period: { from: string; to: string }; rows: ReconcileRow[] }>(
     `/platform/billing/reconcile?${p.toString()}`)
 }
+
+// ── 租户支付通道登记（P2-7 / P2-8）──
+export interface TenantChannelRow {
+  id: number
+  channelCode: string
+  owner: 'platform' | 'tenant'
+  feeRatePct: number
+  feeFixed: number
+  merchantNo: string | null
+  credentialMasked: string | null
+  enabled: boolean
+  sortOrder: number
+}
+export const listTenantChannels = (tenantId: number) =>
+  get<{ credentialKeyReady: boolean; channels: TenantChannelRow[] }>(
+    `/platform/billing/tenants/${tenantId}/channels`)
+export const saveTenantChannel = (tenantId: number, code: string, body: {
+  owner: string; feeRatePct: number; feeFixed: number; merchantNo?: string | null
+  credential?: string; enabled: boolean; sortOrder?: number
+}) => put<{ channelCode: string }>(`/platform/billing/tenants/${tenantId}/channels/${code}`, body)
+export const deleteTenantChannel = (tenantId: number, code: string) =>
+  del<{ code: string }>(`/platform/billing/tenants/${tenantId}/channels/${code}`)
