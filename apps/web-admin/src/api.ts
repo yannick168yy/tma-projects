@@ -1915,3 +1915,104 @@ export async function downloadDbBackup(name: string): Promise<void> {
   a.remove()
   URL.revokeObjectURL(url)
 }
+
+// ── 平台账单（P2-12）：本站与包网平台之间的结算，不是玩家资金 ──
+export interface PlatformInvoiceItem {
+  ruleType: string
+  label: string
+  basisAmount: number
+  ratePct: number | null
+  amount: number
+  detail: Record<string, unknown>
+}
+export interface PlatformInvoice {
+  id: number
+  invoiceNo: string
+  periodStart: string
+  periodEnd: string
+  currency: string
+  carryIn: number
+  carryOut: number
+  grossAmount: number
+  adjustAmount: number
+  totalAmount: number
+  status: 'draft' | 'issued' | 'confirmed' | 'disputed' | 'settled' | 'void'
+  disputeReason: string | null
+  note: string | null
+  issuedAt: string | null
+  confirmedAt: string | null
+  settledAt: string | null
+}
+export interface PlatformBillingRule {
+  ruleType: string
+  label: string
+  ratePct: number | null
+  fixedAmount: number | null
+  tiers: Array<{ upTo: number | null; ratePct: number }> | null
+  tierMode: string
+  scope: string
+  deductBonus: boolean
+  deductCommission: boolean
+  deductChannelFee: boolean
+  carryOver: boolean
+}
+export interface PlatformBillingSummary {
+  plan: { name: string; settleCurrency: string; settleMode: string; rules: PlatformBillingRule[] } | null
+  account: { balance: number; creditLimit: number; depositAmount: number; available: number; currency: string }
+  pendingCount: number
+  invoices: PlatformInvoice[]
+}
+export interface PlatformBillingDaily {
+  statDate: string
+  currency: string
+  fxRateUsdt: number
+  depositAmount: number
+  depositPlatform: number
+  depositTenant: number
+  withdrawAmount: number
+  turnover: number
+  payout: number
+  ggr: number
+  bonusCost: number
+  commissionCost: number
+  channelFee: number
+  locked: boolean
+}
+export interface PlatformLedgerRow {
+  id: number
+  currency: string
+  bizType: string
+  amount: number
+  balanceAfter: number
+  remark: string | null
+  createdAt: string
+}
+
+export const getPlatformBillingSummary = () => get<PlatformBillingSummary>('/admin/billing/summary')
+export const getPlatformInvoice = (id: number) =>
+  get<{ invoice: PlatformInvoice; items: PlatformInvoiceItem[] }>(`/admin/billing/invoices/${id}`)
+export const listPlatformBillingDaily = (from: string, to: string) =>
+  get<PlatformBillingDaily[]>(`/admin/billing/daily?from=${from}&to=${to}`)
+export const listPlatformBillingLedger = () => get<PlatformLedgerRow[]>('/admin/billing/account/ledger')
+export const confirmPlatformInvoice = (id: number) =>
+  put<PlatformInvoice>(`/admin/billing/invoices/${id}/confirm`, {})
+export const disputePlatformInvoice = (id: number, reason: string) =>
+  put<PlatformInvoice>(`/admin/billing/invoices/${id}/dispute`, { reason })
+
+export async function downloadPlatformInvoice(id: number, invoiceNo: string): Promise<void> {
+  const token = localStorage.getItem('admin_token')
+  const base = import.meta.env.VITE_ADMIN_API_BASE_URL || '/api/v1'
+  const res = await fetch(`${base}/admin/billing/invoices/${id}/export`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) throw new Error('下载失败')
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${invoiceNo}.csv`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}

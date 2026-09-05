@@ -33,6 +33,7 @@ import biRoutes from './bi.routes.js'
 import marketingRoutes from './marketing.routes.js'
 import dbBackupRoutes from './db-backup.routes.js'
 import growthRoutes from './growth.routes.js'
+import platformBillingRoutes from './platform-billing.routes.js'
 
 import { getTenantFeatures } from '../../services/tenant-feature.service.js'
 import { ok } from '../../utils/response.js'
@@ -62,7 +63,7 @@ export function createAdminRouter(): Router {
       features: tenant ? await getTenantFeatures(ctx.state.env, tenant.id) : {},
     })
   })
-  for (const r of [dashboardRoutes, usersRoutes, depositsRoutes, withdrawalsRoutes, auditRoutes, gamesRoutes, settingsRoutes, securityRoutes, csRoutes, betOrdersRoutes, teamRoutes, agentRoutes, promotionsRoutes, rebateRoutes, vipRoutes, spinRoutes, homeContentRoutes, announcementRoutes, reviewRoutes, kycRoutes, paymentRoutes, ledgerRoutes, deviceLookupRoutes, checkinRoutes, taskRoutes, riskRoutes, communityRoutes, broadcastRoutes, biRoutes, marketingRoutes, dbBackupRoutes, growthRoutes]) {
+  for (const r of [dashboardRoutes, usersRoutes, depositsRoutes, withdrawalsRoutes, auditRoutes, gamesRoutes, settingsRoutes, securityRoutes, csRoutes, betOrdersRoutes, teamRoutes, agentRoutes, promotionsRoutes, rebateRoutes, vipRoutes, spinRoutes, homeContentRoutes, announcementRoutes, reviewRoutes, kycRoutes, paymentRoutes, ledgerRoutes, deviceLookupRoutes, checkinRoutes, taskRoutes, riskRoutes, communityRoutes, broadcastRoutes, biRoutes, marketingRoutes, dbBackupRoutes, growthRoutes, platformBillingRoutes]) {
     admin.use(guard, r.routes(), r.allowedMethods())
   }
 
