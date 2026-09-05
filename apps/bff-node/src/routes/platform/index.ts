@@ -53,6 +53,7 @@ import {
   setTenantOverride,
 } from '../../services/tenant-feature.service.js'
 import { ok, fail } from '../../utils/response.js'
+import { writeAudit } from '../../services/platform-audit.service.js'
 
 /**
  * 平台控制台 API。与 /admin（租户后台）完全分离：
@@ -635,18 +636,4 @@ export function createPlatformRouter(): Router {
   })
 
   return router
-}
-
-/** 平台侧所有写操作都要留痕：包网运营出纠纷时这是唯一的事实依据 */
-async function writeAudit(
-  adminId: number | null,
-  ip: string,
-  action: string,
-  tenantId: number | null,
-  detail: unknown,
-): Promise<void> {
-  await getPlatformPool().execute(
-    'INSERT INTO pf_audit_log (admin_id, tenant_id, action, detail, ip) VALUES (?, ?, ?, ?, ?)',
-    [adminId, tenantId, action, JSON.stringify(detail), ip],
-  ).catch(() => { /* 审计写失败不阻断业务；失败本身会进服务日志 */ })
 }

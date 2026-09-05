@@ -8,6 +8,9 @@ import { injectDeps, requestIdMiddleware } from './middleware/requestId.js'
 import { accessLogMiddleware } from './middleware/accessLog.js'
 import { rateLimitMiddleware } from './middleware/rateLimit.js'
 import { tenantMiddleware } from './middleware/tenant.js'
+import { tenantGateMiddleware } from './middleware/tenant-gate.js'
+import { runBillingSnapshot } from './services/billing/billing-daily.service.js'
+import { runDunning } from './services/billing/dunning.service.js'
 import { childLogger } from './lib/logger.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
@@ -185,6 +188,33 @@ export function createApp(env: Env): Koa {
     }, msUntilVipDaily())
   }
 
+  // 计费日切 + 催收：每天 UTC 21:00（马尼拉 05:00）。
+  // 必须晚于 core-node 的 BI 日聚合（马尼拉 04:00 补算前两天）—— 快照读的就是那份 bi_daily_*，
+  // 抢在它前面跑会把还没补算完的数字锁进账单。
+  if (singletonJobs && isMysqlEnabled(env)) {
+    const billingLog = childLogger('billing-cron')
+    const run = async () => {
+      try {
+        await runBillingSnapshot(env)
+        const actions = await runDunning(env)
+        if (actions.length > 0) billingLog.warn({ actions }, '欠费降级已执行')
+      } catch (err) {
+        billingLog.error({ err }, 'billing snapshot / dunning failed')
+      }
+    }
+    const msUntil = () => {
+      const now = new Date()
+      const next = new Date()
+      next.setUTCHours(21, 0, 0, 0)
+      if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
+      return next.getTime() - now.getTime()
+    }
+    setTimeout(() => {
+      void run()
+      setInterval(() => void run(), 24 * 60 * 60 * 1000)
+    }, msUntil())
+  }
+
   // 社区营销自动发帖:每 30s tick(setInterval 长期漂移可能跳过整分,30s 步长+槽位 Redis 去重保证不漏不重)
   if (singletonJobs && isMysqlEnabled(env)) {
     const communityLog = childLogger('community-tick')
@@ -315,6 +345,9 @@ export function createApp(env: Env): Koa {
     }
     await next()
   })
+
+  // 欠费降级：停提现/停充值/停站的真正生效点（P2-10）
+  app.use(tenantGateMiddleware())
 
   const api = createApiRouter()
   app.use(api.routes())

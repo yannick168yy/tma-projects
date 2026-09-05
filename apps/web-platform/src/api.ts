@@ -233,3 +233,199 @@ export const deleteTenantI18n = (tenantId: number, locale: string, keyPath: stri
 // ── impersonate（P1-6）──
 export const impersonateTenant = (tenantId: number) =>
   post<{ url: string; expiresIn: number }>(`/platform/tenants/${tenantId}/impersonate`, {})
+
+// ── P2 商务闭环：分成方案 ──
+export type BillingRuleType = 'deposit_commission' | 'ggr_share' | 'turnover_rebate' | 'monthly_fee'
+
+export interface BillingTier { upTo: number | null; ratePct: number }
+
+export interface BillingRule {
+  id: number
+  ruleType: BillingRuleType
+  label: string
+  ratePct: number | null
+  fixedAmount: number | null
+  tiers: BillingTier[] | null
+  tierMode: 'flat' | 'progressive'
+  scope: 'all' | 'platform' | 'tenant'
+  deductBonus: boolean
+  deductCommission: boolean
+  deductChannelFee: boolean
+  carryOver: boolean
+  venueRates: Record<string, number> | null
+  sortOrder: number
+}
+
+export interface BillingPlan {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  settleMode: 'sum' | 'max_of_fee'
+  settleCurrency: string
+  period: string
+  enabled: boolean
+  tenantCount: number
+  rules: BillingRule[]
+}
+
+export const listBillingPlans = () => get<BillingPlan[]>('/platform/billing/plans')
+export const createBillingPlan = (body: { code: string; name: string; description?: string; settleMode: string }) =>
+  post<{ id: number }>('/platform/billing/plans', body)
+export const updateBillingPlan = (id: number, body: Partial<{ name: string; description: string; settleMode: string; enabled: boolean }>) =>
+  put<{ id: number }>(`/platform/billing/plans/${id}`, body)
+export const createBillingRule = (planId: number, body: Partial<BillingRule>) =>
+  post<{ id: number }>(`/platform/billing/plans/${planId}/rules`, body)
+export const updateBillingRule = (ruleId: number, body: Partial<BillingRule>) =>
+  put<{ id: number }>(`/platform/billing/rules/${ruleId}`, body)
+export const deleteBillingRule = (ruleId: number) =>
+  del<{ id: number }>(`/platform/billing/rules/${ruleId}`)
+
+// ── 租户额度账户 ──
+export interface TenantAccount {
+  tenantId: number
+  currency: string
+  balance: number
+  depositAmount: number
+  creditLimit: number
+  available: number
+  updatedAt: string | null
+}
+export interface LedgerRow {
+  id: number
+  currency: string
+  bizType: string
+  amount: number
+  balanceAfter: number
+  refType: string | null
+  refId: string | null
+  remark: string | null
+  createdAt: string
+}
+export const getTenantBillingPlan = (tenantId: number) =>
+  get<{ bound: { plan: { id: number; name: string; settleMode: string; settleCurrency: string; period: string }; rules: BillingRule[] } | null; account: TenantAccount }>(
+    `/platform/billing/tenants/${tenantId}/plan`)
+export const assignBillingPlan = (tenantId: number, billingPlanId: number) =>
+  put<{ tenantId: number }>(`/platform/billing/tenants/${tenantId}/plan`, { billingPlanId })
+
+export const getTenantAccount = (tenantId: number) =>
+  get<{ account: TenantAccount; ledger: LedgerRow[] }>(`/platform/billing/tenants/${tenantId}/account`)
+export const postTenantLedger = (tenantId: number, body: { bizType: string; amount: number; remark: string }) =>
+  post<{ duplicated: boolean; balanceAfter: number }>(`/platform/billing/tenants/${tenantId}/account/ledger`, body)
+export const setTenantCredit = (tenantId: number, creditLimit: number) =>
+  put<TenantAccount>(`/platform/billing/tenants/${tenantId}/account/credit`, { creditLimit })
+export const listAccounts = () =>
+  get<Array<TenantAccount & { code: string; name: string; status: string }>>('/platform/billing/accounts')
+
+// ── 日切快照 ──
+export interface BillingDailyRow {
+  statDate: string
+  currency: string
+  fxRateUsdt: number
+  depositAmount: number
+  depositPlatform: number
+  depositTenant: number
+  withdrawAmount: number
+  turnover: number
+  payout: number
+  ggr: number
+  bonusCost: number
+  commissionCost: number
+  channelFee: number
+  locked: boolean
+  channelDetail: Record<string, { owner: string; amount: number; fee: number; count: number }>
+}
+export const listBillingDaily = (tenantId: number, from?: string, to?: string) => {
+  const p = new URLSearchParams()
+  if (from) p.set('from', from)
+  if (to) p.set('to', to)
+  const qs = p.toString()
+  return get<BillingDailyRow[]>(`/platform/billing/tenants/${tenantId}/daily${qs ? `?${qs}` : ''}`)
+}
+export const recomputeBillingDaily = (tenantId: number, date: string) =>
+  post<{ date: string; rows: number }>(`/platform/billing/tenants/${tenantId}/daily/recompute`, { date })
+
+// ── 账单 ──
+export type InvoiceStatus = 'draft' | 'issued' | 'confirmed' | 'disputed' | 'settled' | 'void'
+export interface Invoice {
+  id: number
+  invoiceNo: string
+  tenantId: number
+  tenantCode?: string
+  periodStart: string
+  periodEnd: string
+  currency: string
+  carryIn: number
+  carryOut: number
+  grossAmount: number
+  adjustAmount: number
+  totalAmount: number
+  status: InvoiceStatus
+  disputeReason: string | null
+  note: string | null
+  issuedAt: string | null
+  confirmedAt: string | null
+  settledAt: string | null
+  createdAt: string
+}
+export interface InvoiceItem {
+  ruleType: string
+  label: string
+  basisAmount: number
+  ratePct: number | null
+  amount: number
+  detail: Record<string, unknown>
+}
+export const listInvoices = (params: { tenantId?: number; status?: string } = {}) => {
+  const p = new URLSearchParams()
+  if (params.tenantId) p.set('tenantId', String(params.tenantId))
+  if (params.status) p.set('status', params.status)
+  const qs = p.toString()
+  return get<Invoice[]>(`/platform/billing/invoices${qs ? `?${qs}` : ''}`)
+}
+export const getInvoice = (id: number) =>
+  get<{ invoice: Invoice; items: InvoiceItem[] }>(`/platform/billing/invoices/${id}`)
+export const previewInvoice = (tenantId: number, month?: string) =>
+  get<{
+    period: { start: string; end: string }
+    planName: string | null
+    days: number
+    missingFx: string[]
+    carryIn: number
+    carryOut: number
+    gross: number
+    items: InvoiceItem[]
+    basis: Record<string, unknown>
+  }>(`/platform/billing/tenants/${tenantId}/invoices/preview${month ? `?month=${month}` : ''}`)
+export const generateInvoice = (tenantId: number, month?: string) =>
+  post<{ id: number; invoiceNo: string; total: number; itemCount: number }>(
+    `/platform/billing/tenants/${tenantId}/invoices`, month ? { month } : {})
+export const setInvoiceStatus = (id: number, status: InvoiceStatus, reason?: string) =>
+  put<Invoice>(`/platform/billing/invoices/${id}/status`, { status, reason })
+export const adjustInvoice = (id: number, adjust: number, note: string) =>
+  put<Invoice>(`/platform/billing/invoices/${id}/adjust`, { adjust, note })
+
+// ── 人工队列与催收 ──
+export interface ManualQueueRow {
+  id: number
+  tenantId: number
+  code: string
+  kind: string
+  refType: string | null
+  refId: string | null
+  currency: string
+  amount: number
+  reason: string
+  status: string
+  createdAt: string
+}
+export const listManualQueue = (status = 'pending') =>
+  get<ManualQueueRow[]>(`/platform/billing/manual-queue?status=${status}`)
+export const resolveManualQueue = (id: number, status: 'resolved' | 'rejected', note?: string) =>
+  put<{ id: number }>(`/platform/billing/manual-queue/${id}`, { status, note })
+export const getDunningPolicy = () =>
+  get<{ warnDays: number; suspendWithdrawDays: number; suspendDepositDays: number; suspendSiteDays: number }>(
+    '/platform/billing/dunning/policy')
+export const runDunning = () =>
+  post<{ actions: Array<{ tenantCode: string; from: string; to: string; reason: string }> }>(
+    '/platform/billing/dunning/run', {})

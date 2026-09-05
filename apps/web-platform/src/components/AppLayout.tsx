@@ -1,5 +1,8 @@
 import { Layout, Menu, Button, Typography, Space, Tag } from 'antd'
-import { AppstoreOutlined, ClusterOutlined, LogoutOutlined, PlusCircleOutlined } from '@ant-design/icons'
+import {
+  AppstoreOutlined, ClusterOutlined, DollarOutlined, FileTextOutlined,
+  LogoutOutlined, PlusCircleOutlined, WalletOutlined,
+} from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 
@@ -16,6 +19,7 @@ export default function AppLayout() {
   // /tenants/new 单独高亮；/tenants/:id/* 的各个页签都归到「租户总览」
   const selectedKey = pathname === '/tenants/new' ? '/tenants/new'
     : pathname.startsWith('/plans') ? '/plans'
+    : pathname.startsWith('/billing/') ? pathname
     : '/tenants'
 
   return (
@@ -32,6 +36,9 @@ export default function AppLayout() {
             // 开站会建库+建管理员账号，与后端 platformAuthMiddleware('platform_super') 的限制一致
             ...(role === 'platform_super' ? [{ key: '/tenants/new', icon: <PlusCircleOutlined />, label: '一键开站' }] : []),
             { key: '/plans', icon: <AppstoreOutlined />, label: '套餐管理' },
+            { key: '/billing/plans', icon: <DollarOutlined />, label: '分成方案' },
+            { key: '/billing/invoices', icon: <FileTextOutlined />, label: '账单' },
+            { key: '/billing/accounts', icon: <WalletOutlined />, label: '额度与队列' },
           ]}
         />
       </Layout.Sider>
