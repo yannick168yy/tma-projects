@@ -566,3 +566,43 @@ export const saveTenantApp = (tenantId: number, input: TenantAppBuild) =>
 
 export const deleteTenantApp = (tenantId: number, market: string) =>
   del<{ items: TenantAppBuild[] }>(`/platform/tenants/${tenantId}/app/${encodeURIComponent(market)}`)
+
+// ── 跨租户风控联防（P3-6）──
+export type RiskIdType = 'device' | 'phone' | 'bank_card' | 'ip' | 'id_no'
+export type RiskSeverity = 'watch' | 'escalate' | 'deny'
+export interface RiskBlacklistRow {
+  id: number
+  idType: string
+  valueHint: string | null
+  severity: string
+  reason: string
+  sourceTenantCode: string | null
+  hitCount: number
+  lastHitAt: string | null
+  expiresAt: string | null
+  createdAt: string
+}
+export interface CrossTenantRow {
+  idType: string
+  valueHash: string
+  valueHint: string | null
+  tenantCount: number
+  userTotal: number
+  tenants: string[]
+  blacklisted: boolean
+  lastSeen: string
+}
+export const getRiskBlacklist = () =>
+  get<{ enabled: boolean; items: RiskBlacklistRow[] }>('/platform/risk/blacklist')
+export const addRiskBlacklist = (body: {
+  idType: RiskIdType; rawValue?: string; valueHash?: string; valueHint?: string | null
+  severity: RiskSeverity; reason: string; sourceTenantId?: number | null; expiresAt?: string | null
+}) => post<{ items: RiskBlacklistRow[] }>('/platform/risk/blacklist', body)
+export const removeRiskBlacklist = (id: number) =>
+  del<{ items: RiskBlacklistRow[] }>(`/platform/risk/blacklist/${id}`)
+export const getCrossTenantRisk = (minTenants = 2, idType?: string) => {
+  const p = new URLSearchParams({ minTenants: String(minTenants) })
+  if (idType) p.set('idType', idType)
+  return get<{ enabled: boolean; rows: CrossTenantRow[] }>(`/platform/risk/cross-tenant?${p.toString()}`)
+}
+export const collectRiskIdentities = () => post<{ ok: boolean }>('/platform/risk/collect', {})

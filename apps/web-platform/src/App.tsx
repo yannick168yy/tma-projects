@@ -9,6 +9,7 @@ import BillingPlans from './views/BillingPlans'
 import Invoices from './views/Invoices'
 import Accounts from './views/Accounts'
 import Reconcile from './views/Reconcile'
+import RiskFederation from './views/RiskFederation'
 import TenantLayout from './views/tenant/TenantLayout'
 import Overview from './views/tenant/Overview'
 import Plan from './views/tenant/Plan'
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="billing/invoices" element={<Invoices />} />
         <Route path="billing/accounts" element={<Accounts />} />
         <Route path="billing/reconcile" element={<Reconcile />} />
+        <Route path="risk" element={<RiskFederation />} />
         <Route path="tenants/:id" element={<TenantLayout />}>
           <Route index element={<Navigate to="overview" replace />} />
           <Route path="overview" element={<Overview />} />

@@ -78,8 +78,9 @@ router.post('/', async (ctx) => {
     cryptoAmount?: string
   }
 
-  // 风控前置：deny 直接拒；escalate 只落日志放行，由审核引擎的 risk_hit 规则读日志转人工
-  if (!(await riskAllowed(ctx, 'withdraw'))) return
+  // 风控前置：deny 直接拒；escalate 只落日志放行，由审核引擎的 risk_hit 规则读日志转人工。
+  // 收款账号带进去做跨租户联防比对（P3-6）：链上地址与银行账号都算「收款人」
+  if (!(await riskAllowed(ctx, 'withdraw', { payoutAccount: body.toAddress }))) return
 
   // ── Matrix 提现 ─────────────────────────────────────────────────────────────
   if (body.channelId === 'matrix') {

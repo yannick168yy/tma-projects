@@ -2,6 +2,8 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { notifyRiskHit } from './admin-notify.js'
+import { currentTenantOrNull } from '../lib/tenant-context.js'
+import { matchFederation, recordFederationHit, type FederationSeverity } from './risk-federation.service.js'
 
 // 风控管控层：识别「人」的风险并在关键时刻自动干预。
 // 与 withdraw-review（审核）的分工：审核判定单笔订单是否需要人工复核，风控判定这个人能不能做这件事。
@@ -25,6 +27,9 @@ export interface RiskContext {
   /** FingerprintJS 硬件指纹：清缓存 deviceId 会重置，指纹不变，设备名单按两者任一匹配 */
   fpVisitor?: string
   region?: string
+  /** 以下两项只用于跨租户联防比对（P3-6），不进租户库的名单匹配 */
+  phone?: string
+  payoutAccount?: string
 }
 
 interface PolicyRow extends RowDataPacket {
@@ -141,6 +146,7 @@ export async function evaluateCheckpoint(env: Env, ctx: RiskContext): Promise<Ri
     return { action: 'pass' }
   }
   const decision = await evaluateWithPool(pool, ctx)
+  const federated = await applyFederation(env, ctx, decision)
   // 仅高危动作(拦截/升级)告警;tag_only/limit 噪音大不推
   if ((decision.action === 'deny' || decision.action === 'escalate') && decision.ruleCode) {
     notifyRiskHit(env, {
@@ -151,7 +157,50 @@ export async function evaluateCheckpoint(env: Env, ctx: RiskContext): Promise<Ri
       ip: ctx.ip,
     }).catch(() => {})
   }
-  return decision
+  return federated
+}
+
+const SEVERITY_ACTION: Record<FederationSeverity, RiskAction> = {
+  watch: 'tag_only', escalate: 'escalate', deny: 'deny',
+}
+
+/**
+ * 叠加跨租户联防（P3-6）。
+ *
+ * 取「租户自己的判定」与「平台联防」中更严格的那个：平台名单是别家客户报上来的
+ * 团伙证据，本站还没吃过亏不代表这个人是好人；反过来本站已经判 deny 的，
+ * 平台只说 watch 也不该放行。
+ *
+ * 联防任何异常都不影响原判定 —— 平台库抖动不该让所有客户站的登录一起变严或变松。
+ */
+async function applyFederation(env: Env, ctx: RiskContext, own: RiskDecision): Promise<RiskDecision> {
+  const tenant = currentTenantOrNull()
+  if (!tenant) return own
+  try {
+    const hit = await matchFederation(env, {
+      device: ctx.deviceId || ctx.fpVisitor,
+      ip: ctx.ip,
+      phone: ctx.phone,
+      bank_card: ctx.payoutAccount,
+    })
+    if (!hit) return own
+    const action = SEVERITY_ACTION[hit.severity]
+    const ownRank = own.action === 'pass' ? -1 : ACTION_SEVERITY[own.action]
+    void recordFederationHit(tenant.id, hit, ctx.checkpoint, action)
+    // 也写一条租户自己的命中日志：客户在自己后台看不到命中原因的话，
+    // 只会看到「这个玩家莫名被转人工」，然后来问平台
+    void logHit(getMysqlPool(env), ctx, `pf_blacklist_${hit.idType}`, action, hit.hint,
+      { federation: true, severity: hit.severity, reason: hit.reason }).catch(() => {})
+    if (ACTION_SEVERITY[action] <= ownRank) return own
+    return {
+      action,
+      ruleCode: `pf_blacklist_${hit.idType}`,
+      message: `跨租户风控名单：${hit.reason}`,
+    }
+  } catch (err) {
+    void err
+    return own
+  }
 }
 
 /**

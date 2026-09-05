@@ -3,6 +3,7 @@
  * 前端面向此接口，后端透明路由到 yfpay / unispay
  */
 import Router from '@koa/router'
+import { riskAllowed } from '../utils/risk-guard.js'
 import { randomBytes } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
@@ -259,6 +260,11 @@ router.post('/payment/withdraw/create', async (ctx) => {
   if (isMysqlEnabled(ctx.state.env) && !(await hasRealDepositForWithdraw(getMysqlPool(ctx.state.env), userId))) {
     fail(ctx, 403, 'errors.depositRequiredBeforeWithdraw', 403); return
   }
+
+  // 风控闸门（P3-6 接线）：这条法币提现路径此前完全没走风控，
+  // 于是 bg_risk_policy 的 withdraw 规则与跨租户联防在最常用的提现方式上都是空转。
+  // 收款账号一并带上，才比得中别家报的收款人名单
+  if (!(await riskAllowed(ctx, 'withdraw', { payoutAccount: targetAccount }))) return
 
   // 手机钱包（GCash/Maya）收款号必须归属本人：拦截取到他人手机号，首次取款绑定并锁定
   if (PHONE_WALLET_WITHDRAW_CHANNELS.has(channelName)) {

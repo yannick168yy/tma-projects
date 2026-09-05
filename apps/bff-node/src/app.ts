@@ -13,6 +13,7 @@ import { runBillingSnapshot } from './services/billing/billing-daily.service.js'
 import { runDunning } from './services/billing/dunning.service.js'
 import { runPlatformBi } from './services/billing/platform-bi.service.js'
 import { reverseFailedPayouts } from './services/billing/payout-quota.service.js'
+import { runIdentityCollection } from './services/risk-federation.service.js'
 import { childLogger } from './lib/logger.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
@@ -199,6 +200,8 @@ export function createApp(env: Env): Koa {
       try {
         await runBillingSnapshot(env)
         await runPlatformBi(env)
+        // 跨租户身份抽数（P3-6）：日频足够，摘要变化慢且抽的是窄窗口
+        await runIdentityCollection(env)
         // 失败代付占用的额度要还回去，否则客户会被一笔没发生的代付卡住提现
         await forEachTenant('payout-reversal', async (tenant) => {
           const n = await reverseFailedPayouts(env)

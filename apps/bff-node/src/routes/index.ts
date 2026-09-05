@@ -2,6 +2,7 @@ import Router from '@koa/router'
 import { createAdminRouter } from './admin/index.js'
 import { createPlatformRouter } from './platform/index.js'
 import { createBillingRouter } from './platform/billing.js'
+import { createPlatformRiskRouter } from './platform/risk.js'
 import adminSseRoutes from './admin/sse.routes.js'
 import authRoutes from './auth.routes.js'
 import csRoutes from './cs.routes.js'
@@ -68,6 +69,9 @@ export function createApiRouter(): Router {
   // 计费 / 账单 / 额度（P2）：写操作限财务与超管，见 billing.ts
   const billingRouter = createBillingRouter()
   api.use(billingRouter.routes(), billingRouter.allowedMethods())
+  // 跨租户风控联防（P3-6）
+  const platformRiskRouter = createPlatformRiskRouter()
+  api.use(platformRiskRouter.routes(), platformRiskRouter.allowedMethods())
 
   // SSE 推送端点：自行在 handler 内验 token，不经过 adminAuthMiddleware
   api.use(adminSseRoutes.routes(), adminSseRoutes.allowedMethods())
