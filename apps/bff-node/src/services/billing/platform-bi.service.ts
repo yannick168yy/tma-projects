@@ -136,7 +136,7 @@ export async function tenantOverview(from: string, to: string): Promise<Overview
        LEFT JOIN pf_tenant_billing_plan tbp ON tbp.tenant_id = t.id AND tbp.ended_at IS NULL
        LEFT JOIN pf_billing_plan bp ON bp.id = tbp.billing_plan_id
       WHERE t.status <> 'closed'
-      GROUP BY t.id
+      GROUP BY t.id, t.code, t.name, t.status, bp.name
       ORDER BY ggr_usdt DESC`, [from, to])
   return rows.map((r) => ({
     tenantId: r.tenant_id,
@@ -176,4 +176,83 @@ export async function platformTrend(from: string, to: string): Promise<Array<{
     dau: Number(r.dau),
     tenants: Number(r.tenants),
   }))
+}
+
+export interface ReconcileRow {
+  tenantId: number
+  code: string
+  currency: string
+  fxRateUsdt: number
+  depositPlatform: number
+  depositTenant: number
+  withdrawPlatform: number
+  withdrawTenant: number
+  channelFee: number
+  /** 同期两种模式都有流水 —— 账单口径要按模式分别套费率，最容易算错的就是这些租户 */
+  mixed: boolean
+  channels: Array<{ channel: string; owner: string; amount: number; fee: number; count: number }>
+}
+
+/**
+ * 混用模式对账（P2-9）。
+ *
+ * 按 settlement_mode 把充提拆开：同一租户内两种模式并存时，账单要分别套费率
+ * （平台代收抽水高、自带通道低），拆错一边就是直接的钱的差异。
+ *
+ * 数据来自已锁定的计费快照，不重新扫订单表：对账要对的就是「出账用的那份数」，
+ * 重新算一遍反而会因为晚到的数据对不上。
+ */
+export async function reconcileByMode(from: string, to: string, tenantId?: number): Promise<ReconcileRow[]> {
+  const params: unknown[] = [from, to]
+  let where = 'd.stat_date BETWEEN ? AND ?'
+  if (tenantId) { where += ' AND d.tenant_id = ?'; params.push(tenantId) }
+
+  const [rows] = await getPlatformPool().query<RowDataPacket[]>(
+    `SELECT d.tenant_id, t.code, d.currency, d.fx_rate_usdt, d.deposit_platform, d.deposit_tenant,
+            d.withdraw_platform, d.withdraw_tenant, d.channel_fee, d.channel_detail
+       FROM pf_billing_daily d JOIN pf_tenant t ON t.id = d.tenant_id
+      WHERE ${where}
+      ORDER BY d.tenant_id, d.currency, d.stat_date`, params)
+
+  const acc = new Map<string, ReconcileRow>()
+  for (const r of rows) {
+    const key = `${r.tenant_id}:${r.currency}`
+    const row = acc.get(key) ?? {
+      tenantId: r.tenant_id,
+      code: r.code,
+      currency: r.currency,
+      fxRateUsdt: Number(r.fx_rate_usdt),
+      depositPlatform: 0, depositTenant: 0, withdrawPlatform: 0, withdrawTenant: 0,
+      channelFee: 0, mixed: false, channels: [] as ReconcileRow['channels'],
+    }
+    row.depositPlatform = round4(row.depositPlatform + Number(r.deposit_platform))
+    row.depositTenant = round4(row.depositTenant + Number(r.deposit_tenant))
+    row.withdrawPlatform = round4(row.withdrawPlatform + Number(r.withdraw_platform))
+    row.withdrawTenant = round4(row.withdrawTenant + Number(r.withdraw_tenant))
+    row.channelFee = round4(row.channelFee + Number(r.channel_fee))
+
+    const detail = (typeof r.channel_detail === 'object' && r.channel_detail !== null
+      ? r.channel_detail
+      : JSON.parse(String(r.channel_detail ?? '{}'))) as Record<string, { owner: string; amount: number; fee: number; count: number }>
+    for (const [k, v] of Object.entries(detail)) {
+      // key 形如 `unispay:platform`，同一通道两种模式各占一行
+      const channel = k.includes(':') ? k.slice(0, k.lastIndexOf(':')) : k
+      const found = row.channels.find((c) => c.channel === channel && c.owner === v.owner)
+      if (found) {
+        found.amount = round4(found.amount + v.amount)
+        found.fee = round4(found.fee + v.fee)
+        found.count += v.count
+      } else {
+        row.channels.push({ channel, owner: v.owner, amount: round4(v.amount), fee: round4(v.fee), count: v.count })
+      }
+    }
+    acc.set(key, row)
+  }
+
+  for (const row of acc.values()) {
+    row.mixed = (row.depositPlatform > 0 || row.withdrawPlatform > 0)
+      && (row.depositTenant > 0 || row.withdrawTenant > 0)
+    row.channels.sort((a, b) => b.amount - a.amount)
+  }
+  return [...acc.values()]
 }

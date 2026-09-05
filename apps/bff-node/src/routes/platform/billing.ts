@@ -20,7 +20,7 @@ import {
   postLedger, resolveManual, setCreditLimit,
 } from '../../services/billing/tenant-account.service.js'
 import { policyFromEnv, runDunning } from '../../services/billing/dunning.service.js'
-import { platformTrend, runPlatformBi, tenantOverview } from '../../services/billing/platform-bi.service.js'
+import { platformTrend, reconcileByMode, runPlatformBi, tenantOverview } from '../../services/billing/platform-bi.service.js'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -361,6 +361,15 @@ export function createBillingRouter(): Router {
   router.post('/overview/refresh', write, async (ctx) => {
     await runPlatformBi(ctx.state.env)
     ok(ctx, { ok: true })
+  })
+
+  // ── 混用模式对账（P2-9）──
+  router.get('/reconcile', read, async (ctx) => {
+    const to = String(ctx.query.to ?? statDate(-1))
+    const from = String(ctx.query.from ?? statDate(-30))
+    if (!DATE_RE.test(from) || !DATE_RE.test(to)) return fail(ctx, 400, '日期格式需为 YYYY-MM-DD')
+    const tenantId = ctx.query.tenantId ? Number(ctx.query.tenantId) : undefined
+    ok(ctx, { period: { from, to }, rows: await reconcileByMode(from, to, tenantId) })
   })
 
   router.get('/dunning/policy', read, async (ctx) => {

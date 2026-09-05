@@ -16,6 +16,8 @@ import { generateInviteCode } from '../../utils/id.js'
 import { nowIso } from '../../utils/format.js'
 import { providerFromChannel } from '../../utils/payment-provider.js'
 import { flagRegistrationBurst } from '../promo-device-guard.service.js'
+import { currentTenantOrNull } from '../../lib/tenant-context.js'
+import { resolveSettlementMode } from '../billing/settlement-mode.service.js'
 
 function pool(env: Env): Pool {
   return getMysqlPool(env)
@@ -737,17 +739,37 @@ function mapOrderDeposit(r: RowDataPacket): OrderDeposit {
   }
 }
 
+/**
+ * 建单时记下资金模式（P2-7/P2-8）。
+ * 没有租户上下文（启动期脚本）时留空，对账会按当前通道归属兜底。
+ * 归属解析本身有 300s 缓存，不会给建单加一次查库。
+ */
+async function settlementModeFor(env: Env, channelId: string): Promise<'platform' | 'tenant' | null> {
+  const tenant = currentTenantOrNull()
+  if (!tenant) return null
+  try {
+    return await resolveSettlementMode(env, tenant.id, channelId)
+  } catch {
+    // 平台库抖动不能挡住玩家充值：留空比建单失败好，对账时按通道归属兜底
+    return null
+  }
+}
+
 export async function saveOrderDeposit(env: Env, order: OrderDeposit): Promise<void> {
   const extra: Record<string, unknown> = { ...(order.extraData ?? {}) }
   if (order.tgWalletParams) extra['tgWalletParams'] = order.tgWalletParams
   const extraJson = Object.keys(extra).length ? JSON.stringify(extra) : null
 
   await pool(env).execute(
-    `INSERT INTO bg_deposit_order (order_id, user_id, channel, currency, amount, status, credited, extra)
-     VALUES (?,?,?,?,?,?,?,?)
-     ON DUPLICATE KEY UPDATE status=VALUES(status), credited=VALUES(credited), extra=VALUES(extra)`,
+    `INSERT INTO bg_deposit_order (order_id, user_id, channel, settlement_mode, currency, amount, status, credited, extra)
+     VALUES (?,?,?,?,?,?,?,?,?)
+     ON DUPLICATE KEY UPDATE status=VALUES(status), credited=VALUES(credited), extra=VALUES(extra),
+       -- 只在建单时定资金模式：后来改通道归属不能改写历史单，否则已确认的账单会被重算出另一个数
+       settlement_mode=COALESCE(bg_deposit_order.settlement_mode, VALUES(settlement_mode))`,
     [
-      order.orderId, order.userId, order.channelId, order.currency,
+      order.orderId, order.userId, order.channelId,
+      await settlementModeFor(env, order.channelId),
+      order.currency,
       order.amount, order.status, order.creditedCents ? 1 : 0, extraJson,
     ],
   )
@@ -814,11 +836,14 @@ function mapOrderWithdraw(r: RowDataPacket): OrderWithdraw {
 
 export async function saveOrderWithdraw(env: Env, order: OrderWithdraw): Promise<void> {
   await pool(env).execute(
-    `INSERT INTO bg_withdraw_order (order_id, user_id, channel, currency, amount, status, to_address, chain, reject_reason, reject_reason_user, extra)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?)
-     ON DUPLICATE KEY UPDATE status=VALUES(status), reject_reason=VALUES(reject_reason), reject_reason_user=VALUES(reject_reason_user), extra=VALUES(extra)`,
+    `INSERT INTO bg_withdraw_order (order_id, user_id, channel, settlement_mode, currency, amount, status, to_address, chain, reject_reason, reject_reason_user, extra)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+     ON DUPLICATE KEY UPDATE status=VALUES(status), reject_reason=VALUES(reject_reason), reject_reason_user=VALUES(reject_reason_user), extra=VALUES(extra),
+       settlement_mode=COALESCE(bg_withdraw_order.settlement_mode, VALUES(settlement_mode))`,
     [
-      order.orderId, order.userId, order.channelId, order.currency,
+      order.orderId, order.userId, order.channelId,
+      await settlementModeFor(env, order.channelId),
+      order.currency,
       order.amount, order.status,
       null, null,
       order.rejectReason ?? null,

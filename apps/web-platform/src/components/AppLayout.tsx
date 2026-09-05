@@ -1,7 +1,7 @@
 import { Layout, Menu, Button, Typography, Space, Tag } from 'antd'
 import {
   AppstoreOutlined, ClusterOutlined, DashboardOutlined, DollarOutlined, FileTextOutlined,
-  LogoutOutlined, PlusCircleOutlined, WalletOutlined,
+  LogoutOutlined, PlusCircleOutlined, SwapOutlined, WalletOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
@@ -41,6 +41,7 @@ export default function AppLayout() {
             { key: '/billing/plans', icon: <DollarOutlined />, label: '分成方案' },
             { key: '/billing/invoices', icon: <FileTextOutlined />, label: '账单' },
             { key: '/billing/accounts', icon: <WalletOutlined />, label: '额度与队列' },
+            { key: '/billing/reconcile', icon: <SwapOutlined />, label: '资金模式对账' },
           ]}
         />
       </Layout.Sider>

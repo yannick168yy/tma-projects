@@ -467,3 +467,24 @@ export const getPlatformOverview = (from?: string, to?: string) => {
     `/platform/billing/overview${qs ? `?${qs}` : ''}`)
 }
 export const refreshPlatformOverview = () => post<{ ok: boolean }>('/platform/billing/overview/refresh', {})
+
+// ── 混用模式对账（P2-9）──
+export interface ReconcileRow {
+  tenantId: number
+  code: string
+  currency: string
+  fxRateUsdt: number
+  depositPlatform: number
+  depositTenant: number
+  withdrawPlatform: number
+  withdrawTenant: number
+  channelFee: number
+  mixed: boolean
+  channels: Array<{ channel: string; owner: string; amount: number; fee: number; count: number }>
+}
+export const getReconcile = (from: string, to: string, tenantId?: number) => {
+  const p = new URLSearchParams({ from, to })
+  if (tenantId) p.set('tenantId', String(tenantId))
+  return get<{ period: { from: string; to: string }; rows: ReconcileRow[] }>(
+    `/platform/billing/reconcile?${p.toString()}`)
+}

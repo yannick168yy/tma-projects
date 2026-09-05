@@ -5,6 +5,7 @@ import type { Env } from '../../config/env.js'
 import { childLogger } from '../../lib/logger.js'
 import { currentTenant } from '../../lib/tenant-context.js'
 import { forEachTenant } from '../tenant-jobs.js'
+import { channelOwnership, type ChannelOwnership, type SettlementMode } from './settlement-mode.service.js'
 
 const log = childLogger('billing-daily')
 
@@ -24,20 +25,10 @@ export function statDate(offsetDays = 0): string {
   return new Date(Date.now() + 8 * 3600 * 1000 + offsetDays * DAY_MS).toISOString().slice(0, 10)
 }
 
-interface ChannelMeta { owner: 'platform' | 'tenant'; feeRatePct: number; feeFixed: number }
-
-async function channelMeta(tenantId: number): Promise<Map<string, ChannelMeta>> {
-  const [rows] = await getPlatformPool().query<RowDataPacket[]>(
-    'SELECT channel_code, owner, fee_rate_pct, fee_fixed FROM pf_tenant_channel WHERE tenant_id = ?', [tenantId])
-  const map = new Map<string, ChannelMeta>()
-  for (const r of rows) {
-    map.set(String(r.channel_code), {
-      owner: r.owner === 'platform' ? 'platform' : 'tenant',
-      feeRatePct: Number(r.fee_rate_pct ?? 0),
-      feeFixed: Number(r.fee_fixed ?? 0),
-    })
-  }
-  return map
+/** 订单上记的模式优先；为空（字段上线前的历史单）才按当前通道归属兜底 */
+function modeOf(raw: unknown, meta: ChannelOwnership | undefined): SettlementMode {
+  if (raw === 'platform' || raw === 'tenant') return raw
+  return meta?.owner ?? 'platform'
 }
 
 interface DailyRow {
@@ -91,26 +82,28 @@ export async function computeTenantDaily(env: Env, date: string): Promise<DailyR
        FROM bg_team_commission WHERE period = ? AND status <> 'voided' GROUP BY currency`, [date])
   const commissions = new Map(commissionRows.map((r) => [String(r.currency), Number(r.amt)]))
 
-  const channels = await channelMeta(tenant.id)
+  const channels = await channelOwnership(env, tenant.id)
   const rows: DailyRow[] = []
 
   for (const p of platformRows) {
     const currency = String(p.currency)
     const win = businessWindow(date, currency === 'IDR' ? 7 : 8)
 
+    // 按通道 + 订单上记录的资金模式分组。settlement_mode 为空的是字段上线前的历史单，
+    // 用当前通道归属兜底 —— 只有这批单会受「归属后来改了」的影响，新单不会
     const [depByChannel] = await db.query<RowDataPacket[]>(
-      `SELECT channel, COUNT(*) cnt, COALESCE(SUM(amount),0) amt
+      `SELECT channel, settlement_mode, COUNT(*) cnt, COALESCE(SUM(amount),0) amt
          FROM bg_deposit_order
         WHERE status = 'paid' AND channel <> 'admin' AND currency = ?
           AND created_at >= ? AND created_at < ?
-        GROUP BY channel`, [currency, win.start, win.end])
+        GROUP BY channel, settlement_mode`, [currency, win.start, win.end])
 
     const [wdByChannel] = await db.query<RowDataPacket[]>(
-      `SELECT channel, COALESCE(SUM(amount),0) amt
+      `SELECT channel, settlement_mode, COALESCE(SUM(amount),0) amt
          FROM bg_withdraw_order
         WHERE status IN ('completed','processing') AND channel <> 'admin' AND currency = ?
           AND created_at >= ? AND created_at < ?
-        GROUP BY channel`, [currency, win.start, win.end])
+        GROUP BY channel, settlement_mode`, [currency, win.start, win.end])
 
     let depositPlatform = 0
     let depositTenant = 0
@@ -120,20 +113,27 @@ export async function computeTenantDaily(env: Env, date: string): Promise<DailyR
       const code = String(r.channel)
       const amt = Number(r.amt)
       const cnt = Number(r.cnt)
-      // 平台库没登记的通道按「租户自带」处理：平台没经手这笔钱，就不能拿它算代收手续费
-      const meta = channels.get(code) ?? { owner: 'tenant' as const, feeRatePct: 0, feeFixed: 0 }
-      const fee = meta.owner === 'platform'
-        ? Math.round((amt * meta.feeRatePct / 100 + meta.feeFixed * cnt) * 10000) / 10000
+      const meta = channels.get(code)
+      const mode = modeOf(r.settlement_mode, meta)
+      const fee = mode === 'platform'
+        ? Math.round((amt * (meta?.feeRatePct ?? 0) / 100 + (meta?.feeFixed ?? 0) * cnt) * 10000) / 10000
         : 0
-      if (meta.owner === 'platform') { depositPlatform += amt; channelFee += fee } else depositTenant += amt
-      channelDetail[code] = { owner: meta.owner, amount: amt, fee, count: cnt }
+      if (mode === 'platform') { depositPlatform += amt; channelFee += fee } else depositTenant += amt
+      const prev = channelDetail[`${code}:${mode}`]
+      channelDetail[`${code}:${mode}`] = {
+        owner: mode,
+        amount: Math.round(((prev?.amount ?? 0) + amt) * 10000) / 10000,
+        fee: Math.round(((prev?.fee ?? 0) + fee) * 10000) / 10000,
+        count: (prev?.count ?? 0) + cnt,
+      }
     }
 
     let withdrawPlatform = 0
     let withdrawTenant = 0
     for (const r of wdByChannel) {
-      const meta = channels.get(String(r.channel)) ?? { owner: 'tenant' as const, feeRatePct: 0, feeFixed: 0 }
-      if (meta.owner === 'platform') withdrawPlatform += Number(r.amt)
+      const code = String(r.channel)
+      const mode = modeOf(r.settlement_mode, channels.get(code))
+      if (mode === 'platform') withdrawPlatform += Number(r.amt)
       else withdrawTenant += Number(r.amt)
     }
 
