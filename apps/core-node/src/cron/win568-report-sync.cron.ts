@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 import { Win568Client } from '../clients/win568.client.js'
 import { saveReportBets } from '../routes/win568-operation.routes.js'
-import { getAdminSetting, setAdminSetting, getWin568OperationCompanyKey } from '../services/win568-key-settings.service.js'
-import { runAsSelfOperated } from '../lib/tenant-jobs.js'
+import { getAdminSetting, setAdminSetting, getWin568OperationCompanyKey, getWin568ServerId } from '../services/win568-key-settings.service.js'
+import { runForProviderTenants } from '../lib/tenant-jobs.js'
 
 // 568Win 官方建议 10 分钟轮询一次 modify-date 增量
 const SYNC_INTERVAL_MS = 10 * 60 * 1000
@@ -54,7 +54,7 @@ async function aggregateSetting(
 
 export function startWin568ReportSyncCron(app: FastifyInstance): void {
   // 平台级：按租户跑会把同一份聚合商报表重复拉 N 遍
-  const run = () => void runAsSelfOperated(app, 'win568-report-sync', () => syncWin568ReportBets(app))
+  const run = () => void runForProviderTenants(app, 'win568-report-sync', 'win568', () => syncWin568ReportBets(app))
   const interval = setInterval(run, SYNC_INTERVAL_MS)
   app.addHook('onClose', async () => clearInterval(interval))
   run()
@@ -65,7 +65,7 @@ async function syncWin568ReportBets(app: FastifyInstance): Promise<void> {
   try {
     const companyKey = await getWin568OperationCompanyKey(app)
     if (!companyKey) return
-    const client = new Win568Client(companyKey)
+    const client = new Win568Client(companyKey, await getWin568ServerId(app))
     const now = Date.now()
 
     for (const portfolio of PORTFOLIOS) {

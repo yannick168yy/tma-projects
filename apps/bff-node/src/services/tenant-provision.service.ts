@@ -47,6 +47,25 @@ const SEED_TABLES = [
 ] as const
 
 /**
+ * bg_admin_settings 是整表复制的（全站配置不复制新站起不来），但里面混着几类
+ * **绝不能带给客户**的值。种子之后逐条删掉，让它们回落到 env / 平台默认：
+ *
+ * 这不是洁癖 —— site_domain_mappings 带过去，新租户的 App 线路表下发的就是自营站的域名，
+ * 等于把客户的用户送去别家站点；op_password 带过去，两家的余额调整用同一个操作密码。
+ */
+const SEED_PURGED_SETTINGS: Record<string, string> = {
+  op_password: '余额调整操作密码，两家共用一个等于没有',
+  win568_operation_company_key: '聚合商密钥，客户后台能看到平台的 key',
+  win568_sw_company_key: '同上（单一钱包那把）',
+  site_domain_mappings: '自营站域名与 App 线路组，带过去会把客户的用户导去自营站',
+  app_route_tg_channel: '自营站的线路旁路频道',
+  win568_report_sync_watermark: '自营站的拉单水位，新站带着它会漏拉水位之前的注单',
+  win568_report_sync_coverage_start: '同上',
+  user_risk_signal_last_refresh: '自营站的刷新水位，新站应从零开始',
+  user_segment_last_refresh: '同上',
+}
+
+/**
  * 明确不复制的表，写在这里是为了让「为什么没复制」有据可查，
  * 避免后来者以为是漏了而顺手加进白名单。
  */
@@ -181,6 +200,13 @@ export async function provisionTenant(input: ProvisionInput): Promise<ProvisionR
 
     await conn.query('SET FOREIGN_KEY_CHECKS = 1')
 
+    // 清掉随 bg_admin_settings 一起复制过来的自营站专属值（见 SEED_PURGED_SETTINGS 的理由）
+    const purgeKeys = Object.keys(SEED_PURGED_SETTINGS)
+    await at('清理自营站专属配置', () => conn.query(
+      `DELETE FROM \`${database}\`.bg_admin_settings WHERE \`key\` IN (${purgeKeys.map(() => '?').join(',')})`,
+      purgeKeys,
+    ))
+
     // 用户 ID 序列必须初始化，否则新站第一个注册用户拿不到 id
     await conn.query(
       `INSERT IGNORE INTO \`${database}\`.bg_user_id_seq SELECT * FROM \`${src}\`.bg_user_id_seq`).catch(() => {})
@@ -268,6 +294,10 @@ async function smokeCheck(conn: Connection, database: string, tenantId: number):
   await one('后台管理员', `SELECT COUNT(*) FROM \`${database}\`.admin_accounts`, 1)
   await one('用户表为空', `SELECT 1 - LEAST(COUNT(*),1) FROM \`${database}\`.bg_user`, 1)
   await one('注单表为空', `SELECT 1 - LEAST(COUNT(*),1) FROM \`${database}\`.bg_bet_order`, 1)
+  // 自检里必须有这条：清理漏了不会让开站失败，但客户库里就躺着自营站的操作密码与聚合商密钥
+  await one('自营站专属配置已清理',
+    `SELECT 1 - LEAST(COUNT(*),1) FROM \`${database}\`.bg_admin_settings WHERE \`key\` IN (${
+      Object.keys(SEED_PURGED_SETTINGS).map((k) => `'${k}'`).join(',')})`, 1)
   const [dom] = await getPlatformPool().query<RowDataPacket[]>(
     'SELECT COUNT(*) AS n FROM pf_tenant_domain WHERE tenant_id = ?', [tenantId])
   checks.push({ name: '域名登记', ok: Number(dom[0].n) > 0, detail: `${dom[0].n} 条` })

@@ -53,6 +53,16 @@ import {
   setTenantOverride,
 } from '../../services/tenant-feature.service.js'
 import {
+  listTenantProviders,
+  saveTenantProvider,
+  syncProviderToTenantDb,
+  listTenantChannels,
+  saveTenantChannel,
+  deleteTenantChannel,
+  syncChannelsToTenantDb,
+} from '../../services/tenant-integration.service.js'
+import { credentialKeyConfigured } from '../../services/platform-credential.service.js'
+import {
   listTenantApps,
   saveTenantApp,
   deleteTenantApp,
@@ -188,10 +198,10 @@ export function createPlatformRouter(): Router {
               domain_type, cert_status, cert_expires_at, cert_checked_at, cert_detail, dns_resolved_ip,
               acme_enabled, cert_issued_at, cert_last_error
          FROM pf_tenant_domain WHERE tenant_id = ? ORDER BY purpose, app_priority, domain`, [id])
-    const [providers] = await pool.query<RowDataPacket[]>(
-      'SELECT provider, agent_account, status FROM pf_tenant_provider WHERE tenant_id = ?', [id])
-    const [channels] = await pool.query<RowDataPacket[]>(
-      'SELECT channel_code, owner, merchant_no, enabled FROM pf_tenant_channel WHERE tenant_id = ? ORDER BY sort_order', [id])
+    const [providers, channels] = await Promise.all([
+      listTenantProviders(id),
+      listTenantChannels(id),
+    ])
 
     ok(ctx, {
       id: tenant.id,
@@ -217,8 +227,10 @@ export function createPlatformRouter(): Router {
         certIssuedAt: d.cert_issued_at ? String(d.cert_issued_at) : null,
         certLastError: d.cert_last_error,
       })),
-      providers: providers.map((p) => ({ provider: p.provider, agentAccount: p.agent_account, status: p.status })),
-      channels: channels.map((c) => ({ channelCode: c.channel_code, owner: c.owner, merchantNo: c.merchant_no, enabled: c.enabled === 1 })),
+      providers,
+      channels,
+      // 没配主密钥就不让后台以为能存密钥：表单里据此禁用密钥输入并给出提示
+      credentialKeyReady: credentialKeyConfigured(),
     })
   })
 
@@ -511,6 +523,107 @@ export function createPlatformRouter(): Router {
   // 返回三份：生效值 / 套餐默认 / 租户覆盖。
   // 只给生效值的话，后台看不出「这个 off 是套餐带的还是这家单独关的」，
   // 也就无从判断清掉覆盖会回到什么。
+  // ── 外部对接：聚合商子代理 / 支付通道（P1-5 收尾）────────────────────────
+  // 在 568win 开子代理、在支付商开商户号都是线下签约动作，没有开户 API，"自动注册"
+  // 做不到也不该做。能自动化的是登记之后的一切：平台后台录一次 → 下发到租户库 →
+  // 开站自动带上，人肉改配置那一步没有了。
+
+  router.put('/tenants/:id/provider', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+    const b = ctx.request.body as Record<string, unknown>
+    const provider = String(b.provider ?? 'win568').trim()
+    if (provider !== 'win568') return fail(ctx, 400, '当前只支持 win568')
+    const agentAccount = String(b.agentAccount ?? '').trim()
+    if (!agentAccount) return fail(ctx, 400, '子代理账号不能为空')
+    const status = String(b.status ?? 'pending')
+    if (!['pending', 'active', 'disabled'].includes(status)) return fail(ctx, 400, 'status 不合法')
+    try {
+      await saveTenantProvider(id, {
+        provider,
+        agentAccount,
+        companyKey: String(b.companyKey ?? '').trim(),
+        serverId: String(b.serverId ?? '').trim(),
+        status: status as 'pending' | 'active' | 'disabled',
+        remark: String(b.remark ?? '').trim(),
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '保存失败'
+      const code = (e as { code?: string }).code
+      if (code === 'ER_DUP_ENTRY') return fail(ctx, 400, `子代理账号 ${agentAccount} 已分配给其他租户`)
+      return fail(ctx, 400, msg)
+    }
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.provider', id, { provider, agentAccount })
+    ok(ctx, { providers: await listTenantProviders(id) })
+  })
+
+  // 下发：写进租户库的 bg_admin_settings，之后该租户的 win568 调用自动用自己的子代理
+  router.post('/tenants/:id/provider/:provider/sync', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+    try {
+      // 必须在租户上下文里写：不包上下文会把客户的子代理密钥写进自营站的设置表
+      const res = await runWithTenant(tenant, () => syncProviderToTenantDb(ctx.state.env, id, String(ctx.params.provider)))
+      await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.provider.sync', id,
+        { provider: ctx.params.provider })
+      ok(ctx, { ...res, providers: await listTenantProviders(id) })
+    } catch (e) {
+      fail(ctx, 400, e instanceof Error ? e.message : '下发失败')
+    }
+  })
+
+  router.put('/tenants/:id/channels/:code', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+    const code = String(ctx.params.code).trim().toLowerCase()
+    if (!/^[a-z0-9_-]{2,32}$/.test(code)) return fail(ctx, 400, '通道代号不合法')
+    const b = ctx.request.body as Record<string, unknown>
+    const owner = String(b.owner ?? 'platform')
+    if (owner !== 'platform' && owner !== 'tenant') return fail(ctx, 400, 'owner 只能是 platform 或 tenant')
+    try {
+      await saveTenantChannel(id, {
+        channelCode: code,
+        owner,
+        merchantNo: String(b.merchantNo ?? '').trim(),
+        credential: String(b.credential ?? '').trim(),
+        enabled: b.enabled !== false,
+        sortOrder: Number(b.sortOrder ?? 100),
+      })
+    } catch (e) {
+      return fail(ctx, 400, e instanceof Error ? e.message : '保存失败')
+    }
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.channel', id, { channel: code, owner })
+    ok(ctx, { channels: await listTenantChannels(id) })
+  })
+
+  router.delete('/tenants/:id/channels/:code', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+    await deleteTenantChannel(id, String(ctx.params.code))
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.channel.delete', id,
+      { channel: ctx.params.code })
+    ok(ctx, { channels: await listTenantChannels(id) })
+  })
+
+  // 下发通道分配：未分配的一律关掉 —— 新站的 payment_channels 是从自营库整表复制来的，
+  // 不关掉就等于开站即挂着一批平台没分给它的收款方式
+  router.post('/tenants/:id/channels/sync', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+    try {
+      const res = await runWithTenant(tenant, () => syncChannelsToTenantDb(ctx.state.env, id))
+      await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.channel.sync', id, res)
+      ok(ctx, res)
+    } catch (e) {
+      fail(ctx, 400, e instanceof Error ? e.message : '下发失败')
+    }
+  })
+
   // ── App 出包参数（P1-15）──────────────────────────────────────────────────
   // 出包本身在出包机上跑（scripts/build-tenant-apk.sh），这里只维护参数：
   // 平台库存不下签名密钥，服务器也没有 Android SDK，把构建塞进服务端只会得到一个跑不动的按钮。

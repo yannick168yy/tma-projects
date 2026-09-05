@@ -85,9 +85,50 @@ export interface TenantDetail extends PlatformTenant {
   pool: { min: number; max: number; queueLimit: number }
   markets: Array<{ market: string; currency: string; timezone: string; enabled: boolean }>
   domains: TenantDomain[]
-  providers: Array<{ provider: string; agentAccount: string; status: string }>
-  channels: Array<{ channelCode: string; owner: string; merchantNo: string | null; enabled: boolean }>
+  providers: TenantProvider[]
+  channels: TenantChannel[]
+  // 平台主密钥没配时后台不该假装能存密钥
+  credentialKeyReady: boolean
 }
+
+// ── 外部对接（P1-5）：子代理与支付通道 ──
+// 密钥明文永不出平台库，后台只拿掩码
+export interface TenantProvider {
+  provider: string
+  agentAccount: string
+  status: 'pending' | 'active' | 'disabled'
+  companyKeyMask: string | null
+  serverId: string | null
+  remark: string | null
+}
+export interface TenantChannel {
+  channelCode: string
+  owner: 'platform' | 'tenant'
+  merchantNo: string | null
+  credentialMask: string | null
+  enabled: boolean
+  sortOrder: number
+}
+
+export const saveTenantProvider = (tenantId: number, body: {
+  provider: string; agentAccount: string; companyKey?: string; serverId?: string
+  status: string; remark?: string
+}) => put<{ providers: TenantProvider[] }>(`/platform/tenants/${tenantId}/provider`, body)
+
+export const syncTenantProvider = (tenantId: number, provider: string) =>
+  post<{ companyKey: boolean; serverId: boolean; providers: TenantProvider[] }>(
+    `/platform/tenants/${tenantId}/provider/${provider}/sync`, {})
+
+export const saveTenantChannel = (tenantId: number, code: string, body: {
+  owner: string; merchantNo?: string; credential?: string; enabled: boolean; sortOrder?: number
+}) => put<{ channels: TenantChannel[] }>(`/platform/tenants/${tenantId}/channels/${code}`, body)
+
+export const deleteTenantChannel = (tenantId: number, code: string) =>
+  del<{ channels: TenantChannel[] }>(`/platform/tenants/${tenantId}/channels/${code}`)
+
+export const syncTenantChannels = (tenantId: number) =>
+  post<{ enabled: string[]; copied: number; disabled: number }>(
+    `/platform/tenants/${tenantId}/channels/sync`, {})
 export const getTenantDetail = (id: number) => get<TenantDetail>(`/platform/tenants/${id}`)
 export const updateTenantStatus = (id: number, status: string) =>
   put<{ id: number; status: string }>(`/platform/tenants/${id}/status`, { status })
