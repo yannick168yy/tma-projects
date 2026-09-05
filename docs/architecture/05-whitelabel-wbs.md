@@ -1014,9 +1014,25 @@ P1-13 已把顺序/显示/参数做成服务端下发，这次拆的是区块本
 ### P3-3 活动模板市场 · 6d
 现有活动模板化，租户从模板库挑选并改参数，取代逐家写代码
 
-### P3-4 L3 overlay 构建体系 · 5d
-`apps/web-tma/src/tenants/<code>/` + Vite alias 覆盖同名组件；`--tenant=xxx` 出独立产物；
-CI 产物隔离与独立 CDN 前缀；overlay 租户的主干发版回归流程
+### P3-4 L3 overlay 构建体系 · 5d ✅ 已完成 2026-09-05
+`vite-tenant-overlay.ts` 插件 + `TENANT=<code> npm run build:tenant`
++ 部署目标 `web-tma-tenant` + `docs/ops/tenant-overlay.md`。
+
+- `src/tenants/<code>/` 下放与主干同路径同名的文件即覆盖；没有同名文件的模块照走主干，
+  所以一个 overlay 租户只需要放它真正要改的那几个文件
+- 只改写 `@/` 内部引用（含 alias 展开后的绝对路径）；`node_modules` 与相对路径不参与，
+  否则同一模块会出现两份实例。overlay 内的相对 import 先查 overlay 再回落主干，
+  拷一个文件过来改不需要把它的依赖一起拷
+- 🔴 **TENANT 拼错直接构建失败**，不静默出一份主干产物 —— 后者部署上去看着正常，
+  客户报「定制没生效」时极难查
+- 🔴 产物与 base 前缀都隔离（`dist-tenants/<code>/` + `/t/<code>/`）：两份产物混在
+  一个站点目录里，assets 文件名哈希撞了会让主干页面加载到 overlay 的 chunk，
+  表现是随机白屏
+- 构建日志打印「这次覆盖了哪几个模块」：文件放错位置时它不出现在清单里，
+  这是覆盖悄悄失效的唯一可靠信号
+- `docs/ops/tenant-overlay.md` 给出回归判断：改完主干用一条 git diff 命令列出
+  「哪些租户拿不到本次改动」，按改动性质分四档处理；并给出收缩 overlay 的检查方法 ——
+  overlay 文件不会自动跟上主干修复，这个代价必须显式管理
 
 ### P3-5 租户自助能力 · 6d
 通道自配、活动配置、App 自助出包

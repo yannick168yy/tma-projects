@@ -9,7 +9,7 @@
 #   SSH_OPTS="-o StrictHostKeyChecking=no" \
 #   bash deploy/single-node/deploy-fast.sh web-tma
 #
-# 目标（可多个）：db | web-tma | web-admin | web-platform | bff-node | core-node | all
+# 目标（可多个）：db | web-tma | web-tma-tenant | web-admin | web-platform | bff-node | core-node | all
 #   db = 只跑平台库+租户库迁移，不构建不重启
 
 set -euo pipefail
@@ -221,6 +221,25 @@ for TARGET in "${TARGETS[@]}"; do
         "$ROOT/apps/web-tma/dist/" "$HOST:/www/wwwroot/188facai.com/"
       echo "==> [web-tma] 完成（nginx 即时生效，无需重启）"
       ;;
+    # overlay 租户前台（P3-4）：TENANT=<code> bash deploy-fast.sh web-tma-tenant
+    # 产物与主干完全分开（dist-tenants/<code>/ + base=/t/<code>/），
+    # 站点目录也分开 —— 两份产物混在一个目录里，assets 名字撞了就会加载到别人的 chunk
+    web-tma-tenant)
+      if [[ -z "${TENANT:-}" ]]; then
+        echo "需要 TENANT=<租户代号>" >&2; exit 1
+      fi
+      TENANT_SITE_DIR="${TENANT_SITE_DIR:-/www/wwwroot/188facai.com/t/$TENANT}"
+      echo "==> [web-tma:$TENANT] 本地构建 overlay 产物..."
+      (cd "$ROOT/apps/web-tma" && TENANT="$TENANT" npm run build:tenant)
+      echo "==> [web-tma:$TENANT] 生成 gzip 静态资源..."
+      find "$ROOT/apps/web-tma/dist-tenants/$TENANT" -type f \( -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.svg' -o -name '*.html' \) \
+        -exec gzip -9 -k -f {} \;
+      echo "==> [web-tma:$TENANT] 同步到 $TENANT_SITE_DIR ..."
+      ssh "${SSH_ARGS[@]}" "$HOST" "mkdir -p '$TENANT_SITE_DIR'"
+      RSYNC_RSH="$RSYNC_RSH" rsync -az --delete \
+        "$ROOT/apps/web-tma/dist-tenants/$TENANT/" "$HOST:$TENANT_SITE_DIR/"
+      echo "==> [web-tma:$TENANT] 完成"
+      ;;
     web-platform)
       echo "==> [web-platform] 本地构建..."
       (cd "$ROOT/apps/web-platform" && npm run build)
@@ -306,7 +325,7 @@ for TARGET in "${TARGETS[@]}"; do
       echo "==> [core-node] 完成"
       ;;
     *)
-      echo "未知目标: $TARGET（可选: db | web-tma | web-admin | web-platform | bff-node | core-node | all）" >&2
+      echo "未知目标: $TARGET（可选: db | web-tma | web-tma-tenant | web-admin | web-platform | bff-node | core-node | all）" >&2
       exit 1
       ;;
   esac

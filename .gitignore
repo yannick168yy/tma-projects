@@ -5,6 +5,8 @@ target/
 
 # Build
 dist/
+# overlay 租户产物（P3-4）：每个租户一份，不进仓库
+dist-tenants/
 build/
 *.jar
 !apps/android-shell/android/gradle/wrapper/gradle-wrapper.jar
