@@ -185,7 +185,8 @@ export function createPlatformRouter(): Router {
       'SELECT market, currency, timezone, enabled FROM pf_tenant_market WHERE tenant_id = ? ORDER BY market', [id])
     const [domains] = await pool.query<RowDataPacket[]>(
       `SELECT id, domain, market, purpose, enabled, app_market, app_priority,
-              domain_type, cert_status, cert_expires_at, cert_checked_at, cert_detail, dns_resolved_ip
+              domain_type, cert_status, cert_expires_at, cert_checked_at, cert_detail, dns_resolved_ip,
+              acme_enabled, cert_issued_at, cert_last_error
          FROM pf_tenant_domain WHERE tenant_id = ? ORDER BY purpose, app_priority, domain`, [id])
     const [providers] = await pool.query<RowDataPacket[]>(
       'SELECT provider, agent_account, status FROM pf_tenant_provider WHERE tenant_id = ?', [id])
@@ -212,6 +213,9 @@ export function createPlatformRouter(): Router {
         certExpiresAt: d.cert_expires_at ? String(d.cert_expires_at) : null,
         certCheckedAt: d.cert_checked_at ? String(d.cert_checked_at) : null,
         certDetail: d.cert_detail, dnsResolvedIp: d.dns_resolved_ip,
+        acmeEnabled: d.acme_enabled === 1,
+        certIssuedAt: d.cert_issued_at ? String(d.cert_issued_at) : null,
+        certLastError: d.cert_last_error,
       })),
       providers: providers.map((p) => ({ provider: p.provider, agentAccount: p.agent_account, status: p.status })),
       channels: channels.map((c) => ({ channelCode: c.channel_code, owner: c.owner, merchantNo: c.merchant_no, enabled: c.enabled === 1 })),
@@ -687,6 +691,26 @@ export function createPlatformRouter(): Router {
   })
 
   // 巡检：只读探测 DNS 与证书并回写状态，不签发、不改 nginx
+  // 自动签发开关（P1-4）。签发本身在宿主机跑（deploy/single-node/issue-tenant-certs.sh
+  // + betogo-cert.timer）：容器碰不到 nginx 与 certbot，这里放个按钮只会是个永远失败的按钮。
+  // 关掉它用于「证书托管在 Cloudflare 等外部」的域名 —— 平台不要去动人家的证书。
+  router.put('/tenants/:id/domains/:domainId/acme', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const domainId = Number(ctx.params.domainId)
+    const enabled = (ctx.request.body as { enabled?: unknown }).enabled === true
+    const pool = getPlatformPool()
+    const [[row]] = await pool.query<RowDataPacket[]>(
+      'SELECT domain, domain_type FROM pf_tenant_domain WHERE id = ? AND tenant_id = ? LIMIT 1',
+      [domainId, id]) as unknown as [RowDataPacket[]]
+    if (!row) return fail(ctx, 404, '域名不存在')
+    // 平台子域名走泛域名证书，没有单独签发这回事，开关对它没有意义
+    if (row.domain_type === 'platform_subdomain') return fail(ctx, 400, '平台子域名由泛域名证书覆盖，无需单独签发')
+    await pool.execute('UPDATE pf_tenant_domain SET acme_enabled = ? WHERE id = ?', [enabled ? 1 : 0, domainId])
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip,
+      enabled ? 'domain.acme.on' : 'domain.acme.off', id, { domain: row.domain })
+    ok(ctx, { ok: true, enabled })
+  })
+
   router.post('/domains/probe', auth, async (ctx) => {
     const b = ctx.request.body as { domainIds?: unknown }
     const ids = Array.isArray(b.domainIds) ? b.domainIds.map(Number).filter(Number.isInteger) : undefined

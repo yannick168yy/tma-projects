@@ -58,6 +58,31 @@ DEPLOY_HOST=... bash deploy/single-node/deploy-fast.sh db
 
 平台库 `betogo_platform` 与租户库分属两套迁移体系，详见 `infra/database/platform/README.md`。
 
+## 租户自带域名的证书自动签发（P1-4）
+
+平台子域名 `<code>.<平台根域名>` 由泛域名证书覆盖，**开站即可用，不需要做任何事**。
+客户自带域名要单独签，由宿主机上的定时任务完成：
+
+```bash
+# 一次性安装（在服务器上）
+apt install -y certbot
+mkdir -p /www/wwwroot/acme-challenge
+cp deploy/single-node/betogo-cert.{service,timer} /etc/systemd/system/
+# 改 betogo-cert.service 里的 ACME_EMAIL / SERVER_PUBLIC_IP
+systemctl daemon-reload && systemctl enable --now betogo-cert.timer
+
+# 手动跑一次看看会做什么（不改任何东西）
+bash deploy/single-node/issue-tenant-certs.sh --dry-run
+```
+
+- 客户把 A 记录指过来后，**最多一小时**自动拿到证书并生成 nginx vhost
+- DNS 还没指过来就跳过，不去撞 Let's Encrypt 的失败限流
+- 续期交给 certbot 自带的 timer；本脚本只管首签与 vhost 补齐
+- 平台控制台「租户详情 → 域名」有「自动签发」开关：证书托管在 Cloudflare 等外部时关掉它，
+  平台就不会去动那个域名的证书
+- **签发不做在 bff-node 里**：容器碰不到宿主机的 nginx 与 certbot，
+  后台放一个「签发」按钮只会是个永远失败的按钮
+
 ## 两条踩过的坑（改脚本前先看）
 
 1. **容器 `exec` 查询不要加 `-i`**。`podman/docker exec -i` 会抢占 stdin；

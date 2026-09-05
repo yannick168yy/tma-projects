@@ -74,6 +74,9 @@ export interface TenantDomain {
   certCheckedAt: string | null
   certDetail: string | null
   dnsResolvedIp: string | null
+  acmeEnabled: boolean
+  certIssuedAt: string | null
+  certLastError: string | null
 }
 
 export interface TenantDetail extends PlatformTenant {
@@ -131,6 +134,10 @@ export const addTenantDomain = (
   tenantId: number,
   body: { domain?: string; market: string; purpose: string; type: 'platform_subdomain' | 'custom' },
 ) => post<{ id: number; domain: string; certStatus: string }>(`/platform/tenants/${tenantId}/domains`, body)
+
+// 自动签发开关：签发本身在宿主机跑（betogo-cert.timer），这里只是让不让它去签
+export const setDomainAcme = (tenantId: number, domainId: number, enabled: boolean) =>
+  put<{ ok: boolean; enabled: boolean }>(`/platform/tenants/${tenantId}/domains/${domainId}/acme`, { enabled })
 
 export const removeTenantDomain = (tenantId: number, domainId: number) =>
   del<{ id: number }>(`/platform/tenants/${tenantId}/domains/${domainId}`)

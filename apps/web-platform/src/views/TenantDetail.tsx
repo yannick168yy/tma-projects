@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Alert, Button, Card, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd'
+import { Alert, Button, Card, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Tooltip, Typography, message } from 'antd'
 import {
-  addTenantDomain, deleteTenantI18n, getTenantBrand, getTenantDetail, getTenantFeatures, impersonateTenant,
+  addTenantDomain, deleteTenantI18n, getTenantBrand, getTenantDetail, getTenantFeatures, impersonateTenant, setDomainAcme,
   listTenantI18n, probeDomains, removeTenantDomain, saveTenantBrand, searchI18nKeys,
   setTenantFeature, setTenantI18n, updateTenantPool, updateTenantStatus, uploadBrandAsset,
   getTenantApps, saveTenantApp, deleteTenantApp,
@@ -133,6 +133,15 @@ export default function TenantDetail() {
       addForm.resetFields()
       await load()
     } catch (e) { message.error(e instanceof Error ? e.message : '添加失败') }
+  }
+
+  async function toggleAcme(domainId: number, enabled: boolean) {
+    if (!d) return
+    try {
+      await setDomainAcme(d.id, domainId, enabled)
+      message.success(enabled ? '已开启自动签发，下一轮（最多 1 小时）生效' : '已关闭自动签发')
+      await load()
+    } catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
   }
 
   async function delDomain(domainId: number) {
@@ -274,6 +283,16 @@ export default function TenantDetail() {
               } },
             { title: '到期', dataIndex: 'certExpiresAt', width: 110,
               render: (v: string | null) => v ? v.slice(0, 10) : '-' },
+            // 自动签发只对自带域名有意义：平台子域名走泛域名证书，没有单独签发这回事
+            { title: '自动签发', width: 100,
+              render: (_, r) => r.domainType === 'platform_subdomain'
+                ? <Tooltip title="平台子域名由泛域名证书覆盖"><Tag color="cyan">泛域名</Tag></Tooltip>
+                : (
+                  <Tooltip title={r.certLastError ?? (r.certIssuedAt ? `上次签发 ${r.certIssuedAt.slice(0, 16)}` : '尚未签发')}>
+                    <Switch size="small" checked={r.acmeEnabled}
+                      onChange={(v) => void toggleAcme(r.id, v)} />
+                  </Tooltip>
+                ) },
             { title: '解析到', dataIndex: 'dnsResolvedIp', width: 120, render: (v: string | null) => v ?? '-' },
             { title: '启用', dataIndex: 'enabled', width: 60, render: (v: boolean) => v ? <Tag color="green">是</Tag> : <Tag>否</Tag> },
             { title: '操作', width: 70,
