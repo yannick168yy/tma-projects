@@ -1,5 +1,5 @@
 import { getSiteName } from '@/config/brand'
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
@@ -9,7 +9,7 @@ import {
 import GameCardV2 from '@/components/home/GameCardV2'
 import TaskFloatBall from '@/components/tasks/TaskFloatBall'
 import { INFO_LINKS } from '@/data/home'
-import { fetchHomepageGames, fetchGames, fetchGameHistory, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab, type GameHistoryItem } from '@/api/slots'
+import { fetchHomepageGames, fetchGames, fetchGameHistory, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab, type GameHistoryItem, type HomeSection } from '@/api/slots'
 import { fetchHomeContent } from '@/api/home'
 import type { AnnouncementContents } from '@/api/announcements'
 import { resolveHomeActionPath } from '@/navigation/appRoutes'
@@ -31,6 +31,13 @@ import { localizedImage } from '@/utils/localizedImage'
 
 // 最近在玩区最大展示数，不足时用推荐游戏补齐
 const RECENT_ROW_MAX = 10
+
+// 后台没配过「首页布局」时的默认区块顺序。必须与 bff 的 HOME_LAYOUT_SECTIONS 同序。
+const DEFAULT_HOME_SECTIONS = [
+  'announcement', 'banner', 'recentPlayed', 'popular', 'cashRebate', 'highRebate', 'highRtp',
+  'lossRebate', 'recommended', 'slots', 'providerZone', 'casino', 'newGames', 'perya',
+  'fishing', 'lottery', 'baccarat', 'sports', 'bettingTable',
+]
 
 // 厂商专区（TOP PROVIDERS）
 // code 须与 bg_568win_game.provider 统一后的显示名一致(迁移134)
@@ -195,6 +202,13 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   // 后台「首页板块配置」按币种隐藏的板块：整块不渲染（内容仍会下发，只是不展示）
   const [hiddenSections, setHiddenSections] = useState<string[]>([])
   const shown = (key: keyof typeof emptyHomepage) => !hiddenSections.includes(key)
+  // 后台「首页布局」下发的区块顺序与参数；没下发(老缓存/接口失败)时退回默认顺序 + 隐藏名单
+  const [serverSections, setServerSections] = useState<HomeSection[]>([])
+  const homeLayout = useMemo<HomeSection[]>(() => (
+    serverSections.length
+      ? serverSections
+      : DEFAULT_HOME_SECTIONS.filter((k) => !hiddenSections.includes(k)).map((key) => ({ key }))
+  ), [serverSections, hiddenSections])
   const [gamesLoading, setGamesLoading] = useState(true)
   const [recentGames, setRecentGames] = useState<SlotGame[]>([])
   // 最近在玩不足最大数时补齐：只从推荐候选池第 13 款起取（前 12 由推荐板块展示、
@@ -347,6 +361,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
           perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], baccarat: data.baccarat ?? [], highRtp: data.highRtp ?? [], highRebate: data.highRebate ?? [], sports: data.sports ?? [],
         })
         setHiddenSections(data.hiddenSections ?? [])
+        setServerSections(data.sections ?? [])
       })
       .catch(() => {})
       .finally(() => setGamesLoading(false))
@@ -394,16 +409,23 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   }, [activeCurrency])
 
 
-  return (
-    <div className="page-main">
-      {homeBannerTopAnnouncement && (
-        <div className="px-4 pt-2">
-          <AnnouncementBar contents={homeBannerTopAnnouncement} tone="general" />
-        </div>
-      )}
+  // ── 首页区块渲染表 ──────────────────────────────────────────────────────────
+  // 顺序 / 显示隐藏 / 每块参数由后台「首页布局」下发（/slots/homepage 的 sections 字段）。
+  // 后台没配过时退回 DEFAULT_HOME_SECTIONS —— 它与 bff 的 HOME_LAYOUT_SECTIONS 必须同序，
+  // 两边都是"默认首页长什么样"的事实来源，加块时两处一起改。
+  const gameBlock = (s: HomeSection, games: SlotGame[], def: { layout: 'big' | 'small'; skeleton: number }, showHot = false) => {
+    const list = s.limit ? games.slice(0, s.limit) : games
+    return (s.layout ?? def.layout) === 'big' ? bigGrid(list, s.limit ?? def.skeleton, showHot) : smallRow(list)
+  }
 
-      {/* Banner 轮播（后台装修配置） */}
-      {homeBanners.length > 0 && (
+  const blocks: Record<string, (s: HomeSection) => React.ReactNode> = {
+    announcement: () => homeBannerTopAnnouncement && (
+      <div className="px-4 pt-2">
+        <AnnouncementBar contents={homeBannerTopAnnouncement} tone="general" />
+      </div>
+    ),
+    // Banner 轮播（图片与跳转在后台「首页装修」页配置）
+    banner: () => homeBanners.length > 0 && (
         <div className="px-4 mt-2">
           {/* 16:9 跟随屏宽自适应，固定高度在窄屏机会横向裁切图片 */}
           <div className="relative aspect-video overflow-hidden rounded-2xl">
@@ -421,10 +443,10 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
             </div>
           </div>
         </div>
-      )}
-
-      {/* 最近在玩（登录用户）：不足最大数时用推荐游戏补齐，金色竖线分隔；无最近在玩时该区放推荐（小卡） */}
-      {recentGames.length > 0 ? (
+      ),
+    // 最近在玩（登录用户）：不足最大数时用推荐游戏补齐，金色竖线分隔；
+    // 无最近在玩时该区改放推荐小卡 —— 所以隐藏 recommended 会同时关掉这个兜底
+    recentPlayed: () => recentGames.length > 0 ? (
         <section className="mt-5">
           {sectionHeader(<History size={15} className="text-amber-400" />, t('home.recentPlayed'))}
           <div className="flex items-center gap-2 px-4 overflow-x-auto hide-scrollbar">
@@ -446,17 +468,15 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
             {smallRow(recommendedDisplay)}
           </section>
         )
-      )}
-
-      {/* Popular：大卡 3x3 */}
-      {shown('popular') && (
-        <section className="mt-5">
-          {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onNavigatePath('/games'))}
-          {bigGrid(homepageGames.popular, 12, true)}
-        </section>
-      )}
-
-      {/* Cash Rebate 活动横条 → rebate 页 */}
+      ),
+    popular: (s) => (
+      <section className="mt-5">
+        {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onNavigatePath('/games'))}
+        {gameBlock(s, homepageGames.popular, { layout: 'big', skeleton: 12 }, true)}
+      </section>
+    ),
+    // Cash Rebate 活动横条 → rebate 页
+    cashRebate: () => (
       <section className="mt-6">
         {sectionHeader(<Percent size={15} className="text-amber-400" />, t('cashback.pageTitle').toUpperCase())}
         <div className="px-4">
@@ -469,26 +489,22 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
           </button>
         </div>
       </section>
-
-      {/* 高洗码游戏：elite 档(2% 返水)精选，板块内容由后台首页板块配置管理 */}
-      {shown('highRebate') && homepageGames.highRebate.length > 0 && (
-        <section className="mt-6">
-          {sectionHeader(<Gem size={15} className="text-amber-400" />, t('home.highRebate'), () => onNavigatePath('/games?cat=highrebate'))}
-          <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
-            {homepageGames.highRebate.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" />)}
-          </div>
-        </section>
-      )}
-
-      {/* 高 RTP 专栏：小卡横滑 */}
-      {shown('highRtp') && (gamesLoading || homepageGames.highRtp.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.highRtp'), () => onNavigatePath('/games?cat=highrtp'))}
-          {smallRow(homepageGames.highRtp)}
-        </section>
-      )}
-
-      {/* 负盈利返水活动横条 → VIP 负盈利返水 tab */}
+    ),
+    // 高洗码游戏：elite 档(2% 返水)精选，板块内容由后台首页板块配置管理
+    highRebate: (s) => homepageGames.highRebate.length > 0 && (
+      <section className="mt-6">
+        {sectionHeader(<Gem size={15} className="text-amber-400" />, t('home.highRebate'), () => onNavigatePath('/games?cat=highrebate'))}
+        {gameBlock(s, homepageGames.highRebate, { layout: 'big', skeleton: 9 })}
+      </section>
+    ),
+    highRtp: (s) => (gamesLoading || homepageGames.highRtp.length > 0) && (
+      <section className="mt-6">
+        {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.highRtp'), () => onNavigatePath('/games?cat=highrtp'))}
+        {gameBlock(s, homepageGames.highRtp, { layout: 'small', skeleton: 6 })}
+      </section>
+    ),
+    // 负盈利返水活动横条 → VIP 负盈利返水 tab
+    lossRebate: () => (
       <section className="mt-6">
         {sectionHeader(<Percent size={15} className="text-amber-400" />, t('lossRebate.title'))}
         <div className="px-4">
@@ -497,24 +513,22 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
           </button>
         </div>
       </section>
-
-      {/* 推荐精选（大卡）：有最近在玩时展示，置于 Slots 板块上方 */}
-      {shown('recommended') && recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
-          {bigGrid(recommendedDisplay, 12)}
-        </section>
-      )}
-
-      {/* Slots：大卡 3x2 */}
-      {shown('slots') && (gamesLoading || homepageGames.slots.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Gamepad2 size={15} className="text-violet-400" />, t('home.egamesZone'), () => onNavigatePath('/games?cat=slot'))}
-          {bigGrid(homepageGames.slots, 6)}
-        </section>
-      )}
-
-      {/* 厂商专区：tab + 小卡横滑 */}
+    ),
+    // 推荐精选（大卡）：仅在「最近在玩」占了上方那一行时才出现
+    recommended: (s) => recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
+      <section className="mt-6">
+        {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
+        {gameBlock(s, recommendedDisplay, { layout: 'big', skeleton: 12 })}
+      </section>
+    ),
+    slots: (s) => (gamesLoading || homepageGames.slots.length > 0) && (
+      <section className="mt-6">
+        {sectionHeader(<Gamepad2 size={15} className="text-violet-400" />, t('home.egamesZone'), () => onNavigatePath('/games?cat=slot'))}
+        {gameBlock(s, homepageGames.slots, { layout: 'big', skeleton: 6 })}
+      </section>
+    ),
+    // 厂商专区：tab + 小卡横滑
+    providerZone: (s) => (
       <section className="mt-6">
         {sectionHeader(<Factory size={15} className="text-sky-400" />, t('home.providerZone'), () => onNavigatePath(`/games?provider=${providerZoneTab}`))}
         <div className="flex gap-2 px-4 mb-3 overflow-x-auto hide-scrollbar">
@@ -529,66 +543,53 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
             </button>
           ))}
         </div>
-        {smallRow(providerZoneGames, providerZoneGames.length === 0)}
+        {smallRow(s.limit ? providerZoneGames.slice(0, s.limit) : providerZoneGames, providerZoneGames.length === 0)}
       </section>
-
-      {/* Casino：大卡 3x2 */}
-      {shown('casino') && (gamesLoading || homepageGames.casino.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />, t('home.casinoZone'), () => onNavigatePath('/games?cat=casino'))}
-          {bigGrid(homepageGames.casino, 6)}
-        </section>
-      )}
-
-      {/* New Games：小卡横滑 */}
-      {shown('newGames') && (gamesLoading || homepageGames.newGames.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Sparkles size={15} className="text-emerald-400" />, t('home.newGames'))}
-          {smallRow(homepageGames.newGames)}
-        </section>
-      )}
-
-      {/* Perya：小卡横滑 */}
-      {shown('perya') && (gamesLoading || homepageGames.perya.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Drama size={15} className="text-orange-400" />, t('home.peryaZone'), () => onNavigatePath('/games?cat=perya'))}
-          {bigGrid(homepageGames.perya, 6)}
-        </section>
-      )}
-
-      {/* Fishing：大卡 3x2 */}
-      {shown('fishing') && (gamesLoading || homepageGames.fishing.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Fish size={15} className="text-cyan-400" />, t('home.fishingZone'), () => onNavigatePath('/games?cat=fishing'))}
-          {bigGrid(homepageGames.fishing, 6)}
-        </section>
-      )}
-
-      {/* Lottery：小卡横滑 */}
-      {shown('lottery') && (gamesLoading || homepageGames.lottery.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Ticket size={15} className="text-pink-400" />, t('home.lotteryZone'), () => onNavigatePath('/games?cat=lottery'))}
-          {bigGrid(homepageGames.lottery.slice(0, 6), 6)}
-        </section>
-      )}
-
-      {/* 百家乐专栏：小卡横滑 */}
-      {shown('baccarat') && (gamesLoading || homepageGames.baccarat.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Gem size={15} className="text-purple-400" />, t('home.baccaratZone'))}
-          {smallRow(homepageGames.baccarat)}
-        </section>
-      )}
-
-      {/* 体育游戏板块：大卡 3 列（USDT 仅 1 款，空则不渲染）*/}
-      {shown('sports') && (gamesLoading || homepageGames.sports.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Trophy size={15} className="text-green-400" />, t('home.sportsZone'), () => onNavigatePath('/games?cat=sports'))}
-          {bigGrid(homepageGames.sports, 6)}
-        </section>
-      )}
-
-      {/* Betting Table */}
+    ),
+    casino: (s) => (gamesLoading || homepageGames.casino.length > 0) && (
+      <section className="mt-6">
+        {sectionHeader(<span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />, t('home.casinoZone'), () => onNavigatePath('/games?cat=casino'))}
+        {gameBlock(s, homepageGames.casino, { layout: 'big', skeleton: 6 })}
+      </section>
+    ),
+    newGames: (s) => (gamesLoading || homepageGames.newGames.length > 0) && (
+      <section className="mt-6">
+        {sectionHeader(<Sparkles size={15} className="text-emerald-400" />, t('home.newGames'))}
+        {gameBlock(s, homepageGames.newGames, { layout: 'small', skeleton: 6 })}
+      </section>
+    ),
+    perya: (s) => (gamesLoading || homepageGames.perya.length > 0) && (
+      <section className="mt-6">
+        {sectionHeader(<Drama size={15} className="text-orange-400" />, t('home.peryaZone'), () => onNavigatePath('/games?cat=perya'))}
+        {gameBlock(s, homepageGames.perya, { layout: 'big', skeleton: 6 })}
+      </section>
+    ),
+    fishing: (s) => (gamesLoading || homepageGames.fishing.length > 0) && (
+      <section className="mt-6">
+        {sectionHeader(<Fish size={15} className="text-cyan-400" />, t('home.fishingZone'), () => onNavigatePath('/games?cat=fishing'))}
+        {gameBlock(s, homepageGames.fishing, { layout: 'big', skeleton: 6 })}
+      </section>
+    ),
+    lottery: (s) => (gamesLoading || homepageGames.lottery.length > 0) && (
+      <section className="mt-6">
+        {sectionHeader(<Ticket size={15} className="text-pink-400" />, t('home.lotteryZone'), () => onNavigatePath('/games?cat=lottery'))}
+        {gameBlock(s, homepageGames.lottery.slice(0, 6), { layout: 'big', skeleton: 6 })}
+      </section>
+    ),
+    baccarat: (s) => (gamesLoading || homepageGames.baccarat.length > 0) && (
+      <section className="mt-6">
+        {sectionHeader(<Gem size={15} className="text-purple-400" />, t('home.baccaratZone'))}
+        {gameBlock(s, homepageGames.baccarat, { layout: 'small', skeleton: 6 })}
+      </section>
+    ),
+    // 体育：USDT 下仅 1 款，空则整块不渲染
+    sports: (s) => (gamesLoading || homepageGames.sports.length > 0) && (
+      <section className="mt-6">
+        {sectionHeader(<Trophy size={15} className="text-green-400" />, t('home.sportsZone'), () => onNavigatePath('/games?cat=sports'))}
+        {gameBlock(s, homepageGames.sports, { layout: 'big', skeleton: 6 })}
+      </section>
+    ),
+    bettingTable: () => (
       <section ref={betSectionRef} className="mt-8 px-4">
         <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
           {t('home.bettingTable')}
@@ -717,6 +718,12 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
           </div>
         )}
       </section>
+    ),
+  }
+
+  return (
+    <div className="page-main">
+      {homeLayout.map((s) => <Fragment key={s.key}>{blocks[s.key]?.(s)}</Fragment>)}
 
       {/* 页脚三层：社群(主角) / 品牌介绍+数据(点缀) / 法务收尾 */}
       <footer className="mt-10 border-t border-border/50 pt-14">

@@ -4,6 +4,7 @@ import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
 import { getLevelThresholds, resolveLevel } from './rebate.service.js'
 import { usdtRateMap } from './marketing-bi.service.js'
+import { HOME_LAYOUT_KEYS, HOME_LAYOUT_SECTIONS, sanitizeSectionParams, type HomeSectionParams } from './sg-game.service.js'
 
 export interface OrderSummary {
   usdt: number                                         // 全币种折 USDT 合计
@@ -1369,6 +1370,76 @@ export async function listHiddenSections(env: Env): Promise<{ sectionKey: string
     `SELECT section_key, currency FROM bg_homepage_section_visibility WHERE hidden = 1`,
   )
   return rows.map((r) => ({ sectionKey: String(r.section_key), currency: String(r.currency) }))
+}
+
+// ── 首页装修：区块顺序 + 每块参数 ────────────────────────────────────────────
+// 与「显示/隐藏」同表（bg_homepage_section_visibility），区块目录见 sg-game.service 的
+// HOME_LAYOUT_SECTIONS —— 除 12 个游戏板块外还含 banner/公告/活动横条等运营块。
+
+export interface HomeLayoutRow {
+  sectionKey: string
+  label: string
+  kind: 'game' | 'ops'
+  hidden: boolean
+  sortOrder: number
+  params: HomeSectionParams | null
+}
+
+// 后台列表：以代码目录为准补齐所有区块（DB 里没行的用默认值），顺序即前台实际渲染顺序
+export async function listHomeLayout(env: Env, currency: string): Promise<HomeLayoutRow[]> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT * FROM bg_homepage_section_visibility WHERE currency = ?`,
+    [currency],
+  )
+  const byKey = new Map(rows.map((r) => [String(r.section_key), r]))
+  return HOME_LAYOUT_SECTIONS
+    .map((def, idx) => {
+      const r = byKey.get(def.key)
+      return {
+        sectionKey: def.key,
+        label: def.label,
+        kind: def.kind as 'game' | 'ops',
+        hidden: r ? Number(r.hidden) === 1 : false,
+        sortOrder: Number(r?.sort_order ?? 0) || idx + 1,
+        params: sanitizeSectionParams(r?.params),
+      }
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+}
+
+// 整体保存：数组下标即新的 sort_order（1-based）。只写传进来的 key，未传的保持原样。
+export async function saveHomeLayout(
+  env: Env,
+  currency: string,
+  items: { sectionKey: string; hidden: boolean; params: HomeSectionParams | null }[],
+): Promise<void> {
+  if (currency !== 'PHP' && currency !== 'USDT') throw new Error('currency 必须为 PHP 或 USDT')
+  const seen = new Set<string>()
+  for (const it of items) {
+    if (!HOME_LAYOUT_KEYS.includes(it.sectionKey)) throw new Error(`unknown section_key: ${it.sectionKey}`)
+    if (seen.has(it.sectionKey)) throw new Error(`duplicate section_key: ${it.sectionKey}`)
+    seen.add(it.sectionKey)
+  }
+  const conn = await pool(env).getConnection()
+  try {
+    await conn.beginTransaction()
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i]
+      const params = sanitizeSectionParams(it.params)
+      await conn.execute(
+        `INSERT INTO bg_homepage_section_visibility (section_key, currency, hidden, sort_order, params)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE hidden = VALUES(hidden), sort_order = VALUES(sort_order), params = VALUES(params)`,
+        [it.sectionKey, currency, it.hidden ? 1 : 0, i + 1, params ? JSON.stringify(params) : null],
+      )
+    }
+    await conn.commit()
+  } catch (e) {
+    await conn.rollback()
+    throw e
+  } finally {
+    conn.release()
+  }
 }
 
 export async function setSectionVisibility(env: Env, sectionKey: string, currency: string, hidden: boolean): Promise<void> {

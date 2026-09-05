@@ -342,12 +342,62 @@ export interface HomepageSelection {
   sports: DbGame[]
   // 后台配置为「隐藏」的板块 key：内容照常生成（后台仍可编辑/冻结），仅前台跳过渲染
   hiddenSections: string[]
+  // 首页装修：已按后台顺序排好、已剔除隐藏块的区块列表（含每块参数）。
+  // 前端按它渲染；为空表示后台没配过，前端用自己的默认顺序
+  sections: HomeSectionLayoutItem[]
   generatedAt: string
+}
+
+// ── 首页装修：区块目录 ──────────────────────────────────────────────────────
+// kind='game' 的块内容来自选品（可钉/冻结/配数量与卡型）；kind='ops' 是运营块（只管显示与顺序）。
+// 数组顺序 = 后台没配过时的默认渲染顺序，与 HomeContent.tsx 的 JSX 顺序一致，改这里要同步改那边。
+export const HOME_LAYOUT_SECTIONS = [
+  { key: 'announcement', kind: 'ops', label: '顶部公告条' },
+  { key: 'banner', kind: 'ops', label: 'Banner 轮播' },
+  { key: 'recentPlayed', kind: 'ops', label: '最近在玩（无记录时放推荐）' },
+  { key: 'popular', kind: 'game', label: '热门推荐' },
+  { key: 'cashRebate', kind: 'ops', label: '洗码返水横条' },
+  { key: 'highRebate', kind: 'game', label: '高洗码游戏' },
+  { key: 'highRtp', kind: 'game', label: '高RTP 97%+' },
+  { key: 'lossRebate', kind: 'ops', label: '负盈利返水横条' },
+  { key: 'recommended', kind: 'game', label: '推荐精选' },
+  { key: 'slots', kind: 'game', label: '电子/老虎机' },
+  { key: 'providerZone', kind: 'ops', label: '厂商专区' },
+  { key: 'casino', kind: 'game', label: '真人娱乐' },
+  { key: 'newGames', kind: 'game', label: '最新上线' },
+  { key: 'perya', kind: 'game', label: 'Perya（含宾果）' },
+  { key: 'fishing', kind: 'game', label: '捕鱼' },
+  { key: 'lottery', kind: 'game', label: '彩票 & 其他' },
+  { key: 'baccarat', kind: 'game', label: '百家乐' },
+  { key: 'sports', kind: 'game', label: '体育游戏' },
+  { key: 'bettingTable', kind: 'ops', label: '投注榜' },
+] as const
+
+export const HOME_LAYOUT_KEYS: string[] = HOME_LAYOUT_SECTIONS.map((s) => s.key)
+
+export interface HomeSectionParams {
+  // 该块最多展示几款（游戏块）/几个（厂商专区）。缺省=用前端默认
+  limit?: number
+  // 卡型：big=3列大卡网格，small=单行小卡横滑。仅游戏块有意义
+  layout?: 'big' | 'small'
+}
+
+export interface HomeSectionLayoutItem extends HomeSectionParams {
+  key: string
+}
+
+export interface HomeSectionLayoutRow {
+  sectionKey: string
+  currency: string
+  hidden: boolean
+  sortOrder: number
+  params: HomeSectionParams | null
 }
 
 export const EMPTY_HOMEPAGE_SELECTION: HomepageSelection = {
   popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], highRebate: [], sports: [],
   hiddenSections: [],
+  sections: [],
   generatedAt: '',
 }
 
@@ -460,20 +510,56 @@ export async function loadFrozenBoards(env: Env): Promise<Map<string, string[]>>
   return map
 }
 
-// 隐藏板块读取：Set 元素 = `${section_key}|${currency}`。容错同 loadFrozenBoards：
-// 表未迁移时返回空集合，退化为全部显示。
-export async function loadHiddenSections(env: Env): Promise<Set<string>> {
+// 首页装修配置读取（显示隐藏 + 顺序 + 每块参数）。容错同 loadFrozenBoards：
+// 表未迁移时返回空数组，退化为全部显示 + 代码默认顺序。
+// 刻意用 SELECT *：迁移 219 之前没有 sort_order/params 两列，列名写死会让整块配置在
+// 「代码已上线、迁移还没跑」的那几秒里连隐藏配置一起失效。
+export async function loadSectionLayout(env: Env): Promise<HomeSectionLayoutRow[]> {
   const db = getMysqlPool(env)
-  const set = new Set<string>()
   try {
-    const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT section_key, currency FROM bg_homepage_section_visibility WHERE hidden = 1`,
-    )
-    for (const r of rows) set.add(`${String(r.section_key)}|${String(r.currency)}`)
+    const [rows] = await db.query<RowDataPacket[]>(`SELECT * FROM bg_homepage_section_visibility`)
+    return rows.map((r) => ({
+      sectionKey: String(r.section_key),
+      currency: String(r.currency),
+      hidden: Number(r.hidden) === 1,
+      sortOrder: Number(r.sort_order ?? 0),
+      params: sanitizeSectionParams(r.params),
+    }))
   } catch (e) {
-    console.warn('[homepage] loadHiddenSections failed (table missing?), all sections visible:', e instanceof Error ? e.message : e)
+    console.warn('[homepage] loadSectionLayout failed (table missing?), all sections visible:', e instanceof Error ? e.message : e)
+    return []
   }
-  return set
+}
+
+// params 是后台写入的 JSON，只认识 limit / layout 两个字段，其余一律丢弃——
+// 让前端能安全地把它直接展开进渲染参数
+export function sanitizeSectionParams(raw: unknown): HomeSectionParams | null {
+  const obj = typeof raw === 'string' ? safeJsonParse(raw) : raw
+  if (!obj || typeof obj !== 'object') return null
+  const src = obj as Record<string, unknown>
+  const out: HomeSectionParams = {}
+  const limit = Number(src.limit)
+  if (Number.isFinite(limit) && limit > 0) out.limit = Math.min(Math.floor(limit), 60)
+  if (src.layout === 'big' || src.layout === 'small') out.layout = src.layout
+  return Object.keys(out).length ? out : null
+}
+
+function safeJsonParse(text: string): unknown {
+  try { return JSON.parse(text) } catch { return null }
+}
+
+// 按币种拼出前端要用的有序区块列表：隐藏的剔除，没配过顺序的留在代码默认位置。
+// sort_order=0 视为「没配过」，用默认下标(1-based)参与排序——与后台保存时写的 1..N 同一把标尺。
+// 名次撞车时（只可能出现在「只配了一部分区块」的库里）让配过的排前面：运营明确表过态。
+export function buildSectionList(rows: HomeSectionLayoutRow[], cur: string): HomeSectionLayoutItem[] {
+  const byKey = new Map(rows.filter((r) => r.currency === cur).map((r) => [r.sectionKey, r]))
+  const rank = (x: { idx: number; row?: HomeSectionLayoutRow }) => x.row?.sortOrder || x.idx + 1
+  const configured = (x: { row?: HomeSectionLayoutRow }) => (x.row?.sortOrder ? 0 : 1)
+  return HOME_LAYOUT_SECTIONS
+    .map((def, idx) => ({ def, idx, row: byKey.get(def.key) }))
+    .filter((x) => !x.row?.hidden)
+    .sort((a, b) => rank(a) - rank(b) || configured(a) - configured(b))
+    .map(({ def, row }) => ({ key: def.key, ...(row?.params ?? {}) }))
 }
 
 // frozen: 本币种的冻结名单(key=sectionKey → uuid[])。popular/recommended/highRebate 若有冻结名单则直接用，
@@ -675,6 +761,7 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
         && !(g.provider === 'Lucky Sports' && g.name !== 'Basketball'))), score, 5, 6),
     ], 6, true),
     hiddenSections: hidden,
+    sections: [], // 由 refreshHomepageSelection 按币种填充（装修配置与选品算法无关）
     generatedAt: new Date().toISOString(),
   }
 
@@ -697,12 +784,13 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   if (!allGames.length) return
   const overrides = await loadSectionOverrides(env)
   const frozenAll = await loadFrozenBoards(env)
-  const hiddenAll = await loadHiddenSections(env)
+  const layoutRows = await loadSectionLayout(env)
 
   for (const cur of HOMEPAGE_CURRENCIES) {
     const pool = allGames.filter((g) => supportsCurrency(g, cur))
-    const hidden = [...hiddenAll].filter((k) => k.endsWith(`|${cur}`)).map((k) => k.slice(0, k.lastIndexOf('|')))
+    const hidden = layoutRows.filter((r) => r.currency === cur && r.hidden).map((r) => r.sectionKey)
     const selection = buildHomepageSelection(pool, cur, overrides, frozenForCurrency(frozenAll, cur), hidden)
+    selection.sections = buildSectionList(layoutRows, cur)
     await redis.set(`${HOMEPAGE_KEY}:${cur}`, JSON.stringify(selection), 'EX', HOMEPAGE_TTL)
   }
   console.log('[homepage] selection refreshed (per-currency)')
@@ -741,7 +829,7 @@ async function hydrateAvailability(env: Env, selection: HomepageSelection): Prom
     games.map((g) => ({ ...g, isAvailable: liveByUuid.get(g.uuid) ?? false }))
   const out = { ...selection } as Record<string, unknown>
   for (const [k, v] of Object.entries(out)) {
-    if (k !== 'hiddenSections' && Array.isArray(v)) out[k] = rehydrate(v as DbGame[])
+    if (k !== 'hiddenSections' && k !== 'sections' && Array.isArray(v)) out[k] = rehydrate(v as DbGame[])
   }
   return out as unknown as HomepageSelection
 }
@@ -773,6 +861,7 @@ export function applyHomepageCurrency(selection: HomepageSelection, currency?: s
     highRebate: apply(selection.highRebate ?? []),
     sports: apply(selection.sports ?? []),
     hiddenSections: selection.hiddenSections ?? [],
+    sections: selection.sections ?? [],
     generatedAt: selection.generatedAt,
   }
 }

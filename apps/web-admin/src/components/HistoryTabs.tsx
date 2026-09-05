@@ -37,6 +37,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/bet-orders': '投注记录',
   '/home-content': '首页装修',
   '/homepage-sections': '首页板块配置',
+  '/homepage-layout': '首页布局',
   '/category-sort': '分类列表排序',
   '/promotions': '活动配置',
   '/promotions/claims': '参与记录',

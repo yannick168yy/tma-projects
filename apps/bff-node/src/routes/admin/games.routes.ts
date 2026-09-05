@@ -17,6 +17,8 @@ import {
   listFrozenBoardStatus,
   listHiddenSections,
   setSectionVisibility,
+  listHomeLayout,
+  saveHomeLayout,
   listCategorySortGames,
   replaceCategorySortGames,
   CATEGORY_SORT_KEYS,
@@ -285,6 +287,47 @@ router.get('/homepage-sections', async (ctx) => {
     ok(ctx, { sectionKeys: HOMEPAGE_SECTION_KEYS, sections, freezableKeys: FREEZABLE_SECTION_KEYS, frozen: frozenStatus, hidden })
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Failed')
+  }
+})
+
+// 首页装修：区块顺序 + 显示隐藏 + 每块参数（含 banner/公告/活动横条等运营块）
+router.get('/homepage-layout', async (ctx) => {
+  try {
+    const currency = String(ctx.query.currency ?? 'PHP')
+    if (currency !== 'PHP' && currency !== 'USDT') { fail(ctx, 400, 'currency 必须为 PHP 或 USDT'); return }
+    ok(ctx, { items: await listHomeLayout(ctx.state.env, currency) })
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'Failed')
+  }
+})
+
+// 整体保存：body.items 的数组顺序即前台渲染顺序
+router.put('/homepage-layout', async (ctx) => {
+  try {
+    const body = ctx.request.body as {
+      currency?: string
+      items?: { sectionKey: string; hidden?: boolean; params?: { limit?: number; layout?: 'big' | 'small' } | null }[]
+    }
+    const currency = body.currency ?? 'PHP'
+    const items = (Array.isArray(body.items) ? body.items : []).map((it) => ({
+      sectionKey: String(it.sectionKey),
+      hidden: it.hidden === true,
+      params: it.params ?? null,
+    }))
+    if (!items.length) { fail(ctx, 400, 'items 不能为空'); return }
+    await saveHomeLayout(ctx.state.env, currency, items)
+    await refreshHomepageSelection(ctx.state.env)
+    await writeAuditLog(ctx.state.env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: 'game.homepage.layout.update',
+      targetType: 'homepage_layout',
+      targetId: currency,
+      ip: ctx.ip,
+    })
+    ok(ctx, { ok: true })
+  } catch (e) {
+    fail(ctx, 400, e instanceof Error ? e.message : 'Failed')
   }
 })
 

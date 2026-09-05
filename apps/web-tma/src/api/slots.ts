@@ -48,6 +48,13 @@ export interface GameListParams {
   currency?: string
 }
 
+// 首页装修：后台「首页布局」下发的一块。key 见 HomeContent 的 DEFAULT_HOME_SECTIONS
+export interface HomeSection {
+  key: string
+  limit?: number
+  layout?: 'big' | 'small'
+}
+
 export interface HomepageGames {
   popular: SlotGame[]
   recommended: SlotGame[]
@@ -63,6 +70,8 @@ export interface HomepageGames {
   sports: SlotGame[]
   // 后台配置为隐藏的板块 key，前台跳过渲染
   hiddenSections?: string[]
+  // 已排好序、已剔除隐藏块的首页区块列表。缺省(老缓存/老后端)时前端用自己的默认顺序
+  sections?: HomeSection[]
   generatedAt: string
 }
 
