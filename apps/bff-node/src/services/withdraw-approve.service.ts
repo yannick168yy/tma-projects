@@ -8,6 +8,7 @@ import { createWithdrawal as unispayCreateWithdrawal, UnispayError } from './uni
 import { refreshAndCheckProviderBalance } from './payment-accounting.service.js'
 import { nowIso } from '../utils/format.js'
 import { providerFromChannel } from '../utils/payment-provider.js'
+import { assertPayoutQuota, chargePayout } from './billing/payout-quota.service.js'
 
 export interface ApproveResult {
   status: OrderWithdraw['status']
@@ -32,8 +33,14 @@ export async function approveWithdraw(
   redis: Redis,
   order: OrderWithdraw,
 ): Promise<ApproveResult> {
+  // 模式 A 由平台垫付这笔钱，先看租户额度够不够（P2-7）。
+  // 不够就抛错转人工，订单留在 pending：既不自动拒绝玩家，也不让平台单方面垫付。
+  // 只约束已配额度的客户站，自营站与未开额度的租户直接放行
+  await assertPayoutQuota(env, redis, order)
+
   if (order.channelId === 'matrix') {
     const matrixOrderNo = await executeMatrixWithdrawOrder(env, redis, order.orderId)
+    await chargePayout(env, redis, order)
     return { status: 'processing', matrixOrderNo }
   }
 
@@ -55,6 +62,8 @@ export async function approveWithdraw(
       await saveWithdraw(redis, order)
       // 出款后即时刷新余额并检查低额告警，不阻塞审批响应
       void refreshAndCheckProviderBalance(env, 'yfpay').catch(() => {})
+      // 提交出款即扣额度；出款最终失败的由日切那轮反向冲回（reversePayouts）
+      await chargePayout(env, redis, order)
       return { status: 'processing' }
     } catch (err) {
       console.error('[bff] yfpay withdrawal/create failed', {
@@ -89,6 +98,7 @@ export async function approveWithdraw(
       order.status = 'processing'
       order.extraData = { ...ex, platformId: r.platformId }
       await saveWithdraw(redis, order)
+      await chargePayout(env, redis, order)
       return { status: 'processing' }
     } catch (err) {
       await creditWallet(redis, order.userId, order.amount, {
@@ -107,5 +117,6 @@ export async function approveWithdraw(
   order.status = 'completed'
   order.completedAt = nowIso()
   await saveWithdraw(redis, order)
+  await chargePayout(env, redis, order)
   return { status: order.status }
 }
