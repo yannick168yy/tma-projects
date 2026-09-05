@@ -218,3 +218,29 @@ export const deleteTenantI18n = (tenantId: number, locale: string, keyPath: stri
 // ── impersonate（P1-6）──
 export const impersonateTenant = (tenantId: number) =>
   post<{ url: string; expiresIn: number }>(`/platform/tenants/${tenantId}/impersonate`, {})
+
+// ── App 出包参数（P1-15）──
+// 出包本身在出包机上跑（scripts/build-tenant-apk.sh）：签名密钥不进平台库，
+// 服务器上也没有 Android SDK。这里只维护参数。
+export interface TenantAppBuild {
+  appMarket: string
+  packageName: string
+  appLabel: string
+  routeDomains: string[]
+  tgRecoveryChannel: string
+  splashBackground: string
+  keystoreRef: string
+  versionCode: number
+  versionName: string
+  updatedAt: string | null
+}
+
+export const getTenantApps = (tenantId: number) =>
+  get<{ items: TenantAppBuild[]; markets: string[]; domainCandidates: string[]; buildCommand: string }>(
+    `/platform/tenants/${tenantId}/app`)
+
+export const saveTenantApp = (tenantId: number, input: TenantAppBuild) =>
+  put<{ items: TenantAppBuild[] }>(`/platform/tenants/${tenantId}/app`, input)
+
+export const deleteTenantApp = (tenantId: number, market: string) =>
+  del<{ items: TenantAppBuild[] }>(`/platform/tenants/${tenantId}/app/${encodeURIComponent(market)}`)

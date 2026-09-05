@@ -752,9 +752,43 @@ key 目录     total=1334，搜 checkin.title 命中并带出平台默认文案
 报错信息带上区间，运营看到就知道该找平台升套餐还是自己改小。
 
 
-### P1-15 App 出包参数化 · 4d
-包名、图标、启动图、线路组、签名密钥按租户参数化
-（复用现有 `app_domain_groups` + `route-health.service.ts` + 路由签名机制）
+### P1-15 App 出包参数化 · 4d ✅ 已完成 2026-09-05
+自营的 `ph` / `id` 两个 flavor 原样保留（已发布，不能动），新增 `tenant` flavor，
+参数全部走 `-P`：**接一个客户不用再改 build.gradle**。
+
+- 平台库 `008_tenant_app_build.sql` → `pf_tenant_app`：包名 / 桌面名 / 市场 / 线路组 /
+  TG 旁路频道 / 启动屏底色 / 签名引用名 / 版本号。主键带 market —— 自营站就是一租户两个包
+- 出包脚本 `scripts/build-tenant-apk.sh <租户代号>`：读平台库 → 生成图标 →
+  `cap sync` → `assembleTenant<Debug|Release>`
+- 平台控制台「租户详情 → App 出包」维护参数，并给出出包命令
+- 图标：传一张 1024 PNG，`sips` 生成五档 mipmap 放进临时目录，用 `-PtenantResDir` 传给 gradle，
+  **不覆盖仓库里的默认图标**
+- 启动图仍在 web 层（换图免发包），这里只参数化原生那一瞬的底色
+
+**🔴 签名密钥不进平台库。** 库里只有一个引用名 `keystore_ref`，密钥文件与密码放在出包机的
+`android/keystore-<ref>.properties`。密钥丢了就再也无法更新已发布的 App，它不该躺在任何一个
+能被拖库的地方。引用名的字符集卡死在 `[a-z0-9._-]` —— 它会被拼进文件名，放开路径字符
+等于让平台后台能读出包机上的任意文件。
+
+**顺带修掉两个租户 App 起不来的坑**（都不是 UI 问题，是发出去才会发现的那种）：
+1. `/app/bootstrap` 的 `market` 白名单写死 PH/ID。租户 App 的 `BuildConfig.APP_MARKET`
+   就是这个取值，开在别的市场的客户包**一启动就 400**。改为按该租户开通的市场校验
+2. 🔴 线路表兜底会把**自营站的域名**下发给租户 App —— 等于把客户的用户送去别家站点。
+   改为兜底只对自营站生效，租户配空了直接 503：宁可这次冷启动失败
+3. `saveSiteDomainMappings` 的「每个市场至少留一条线路」写死 PH/ID，
+   单市场租户连域名映射都保存不了。改为只校验声明过 App 线路的市场
+
+**实测**（本机 Android SDK 真实出包，不是干跑）
+```
+assembleTenantDebug → games.demo1.app / versionCode 3 / versionName 1.0.2 / label DEMO1
+BuildConfig: APP_MARKET=PH  APP_DOMAINS=demo1.example.com
+带 -PtenantResDir 的图标覆盖：构建通过
+回归 assemblePhDebug → games.betogo.app / 11 / 1.0.10 / BETOGO，自营包零变化
+护栏：租户 release 缺签名密钥 / 缺线路组 / 缺验签公钥，三种都在配置阶段失败
+```
+
+> **踩坑**：`versionCode (expr).toInteger()` 被 Groovy 解析成「先用 String 调 versionCode，
+> 再对返回值取 toInteger」，配置阶段报一句毫无线索的 `Value is null`。先算成局部变量再赋值。
 
 ---
 

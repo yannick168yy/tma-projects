@@ -109,9 +109,13 @@ function assertAppGroupsUsable(mappings: SiteDomainMapping[]): void {
   if (mismatched.length > 0) {
     throw new Error(`以下域名的 App 域名组与所属站点不一致，对 App 不会生效：${mismatched.map((item) => item.domain).join('、')}`)
   }
-  for (const market of ['PH', 'ID'] as const) {
+  // 只校验「声明过 App 线路」的市场，不写死 PH/ID：包网租户可能只开一个市场，
+  // 写死会让它连域名映射都保存不了。把某市场最后一条线路停用仍会被挡下（行还在、
+  // appMarket 还写着），真正想去掉该市场的 App 得先把这些行的 appMarket 清空。
+  const declared = new Set(mappings.map((item) => item.appMarket).filter((m): m is SiteMarket => !!m))
+  for (const market of declared) {
     if (appDomainsForMarket(mappings, market).length === 0) {
-      throw new Error(`${market === 'PH' ? '菲律宾' : '印尼'} App 至少要保留一个启用的线路域名`)
+      throw new Error(`${market} App 至少要保留一个启用的线路域名`)
     }
   }
 }

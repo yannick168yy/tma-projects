@@ -52,6 +52,13 @@ import {
   listTenantOverrides,
   setTenantOverride,
 } from '../../services/tenant-feature.service.js'
+import {
+  listTenantApps,
+  saveTenantApp,
+  deleteTenantApp,
+  validateTenantApp,
+  type TenantAppBuild,
+} from '../../services/tenant-app.service.js'
 import { ok, fail } from '../../utils/response.js'
 
 /**
@@ -500,6 +507,88 @@ export function createPlatformRouter(): Router {
   // 返回三份：生效值 / 套餐默认 / 租户覆盖。
   // 只给生效值的话，后台看不出「这个 off 是套餐带的还是这家单独关的」，
   // 也就无从判断清掉覆盖会回到什么。
+  // ── App 出包参数（P1-15）──────────────────────────────────────────────────
+  // 出包本身在出包机上跑（scripts/build-tenant-apk.sh），这里只维护参数：
+  // 平台库存不下签名密钥，服务器也没有 Android SDK，把构建塞进服务端只会得到一个跑不动的按钮。
+
+  router.get('/tenants/:id/app', platformAuthMiddleware(), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+    const pool = getPlatformPool()
+    const [markets] = await pool.query<RowDataPacket[]>(
+      'SELECT market FROM pf_tenant_market WHERE tenant_id = ? ORDER BY market', [id])
+    const [domains] = await pool.query<RowDataPacket[]>(
+      `SELECT domain, app_priority FROM pf_tenant_domain
+        WHERE tenant_id = ? AND purpose = 'site' AND enabled = 1
+        ORDER BY app_priority, domain`, [id])
+    ok(ctx, {
+      items: await listTenantApps(id),
+      markets: markets.map((m) => String(m.market)),
+      // 线路组只能从已登记的站点域名里挑：打进 APK 的域名写错了要重新发包才能救
+      domainCandidates: domains.map((d) => String(d.domain)),
+      buildCommand: `bash scripts/build-tenant-apk.sh ${tenant.code} --market <市场> --icon <图标.png>`,
+    })
+  })
+
+  router.put('/tenants/:id/app', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+
+    const b = ctx.request.body as Record<string, unknown>
+    const input: TenantAppBuild = {
+      appMarket: String(b.appMarket ?? '').trim().toUpperCase(),
+      packageName: String(b.packageName ?? '').trim().toLowerCase(),
+      appLabel: String(b.appLabel ?? '').trim(),
+      routeDomains: (Array.isArray(b.routeDomains) ? b.routeDomains : [])
+        .map((d) => String(d).trim().toLowerCase()).filter(Boolean),
+      tgRecoveryChannel: String(b.tgRecoveryChannel ?? '').trim(),
+      splashBackground: String(b.splashBackground ?? '#080b14').trim(),
+      keystoreRef: String(b.keystoreRef ?? '').trim(),
+      versionCode: Number(b.versionCode ?? 1),
+      versionName: String(b.versionName ?? '1.0.0').trim(),
+      updatedAt: null,
+    }
+    const err = validateTenantApp(input)
+    if (err) return fail(ctx, 400, err)
+
+    const pool = getPlatformPool()
+    const [markets] = await pool.query<RowDataPacket[]>(
+      'SELECT market FROM pf_tenant_market WHERE tenant_id = ? AND market = ?', [id, input.appMarket])
+    if (!markets.length) return fail(ctx, 400, `该租户没有开通市场 ${input.appMarket}`)
+
+    // 线路域名必须是已登记且启用的站点域名。写错的域名一旦打进 APK，
+    // 只能靠重新发包补救 —— 这条校验值得挡在这里
+    const [owned] = await pool.query<RowDataPacket[]>(
+      `SELECT domain FROM pf_tenant_domain WHERE tenant_id = ? AND purpose = 'site' AND enabled = 1`, [id])
+    const ownedSet = new Set(owned.map((d) => String(d.domain)))
+    const unknown = input.routeDomains.filter((d) => !ownedSet.has(d))
+    if (unknown.length) return fail(ctx, 400, `线路域名未登记或未启用：${unknown.join(', ')}`)
+
+    try {
+      await saveTenantApp(id, input)
+    } catch (e) {
+      const code = (e as { code?: string }).code
+      if (code === 'ER_DUP_ENTRY') return fail(ctx, 400, `包名 ${input.packageName} 已被其他租户占用`)
+      throw e
+    }
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.app', id, {
+      market: input.appMarket, packageName: input.packageName,
+    })
+    ok(ctx, { items: await listTenantApps(id) })
+  })
+
+  router.delete('/tenants/:id/app/:market', platformAuthMiddleware('platform_super'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const tenant = await tenantById(id)
+    if (!tenant) return fail(ctx, 404, '租户不存在')
+    const market = String(ctx.params.market).toUpperCase()
+    await deleteTenantApp(id, market)
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.app.delete', id, { market })
+    ok(ctx, { items: await listTenantApps(id) })
+  })
+
   router.get('/tenants/:id/features', platformAuthMiddleware(), async (ctx) => {
     const id = Number(ctx.params.id)
     const [[row]] = await getPlatformPool().query<RowDataPacket[]>(

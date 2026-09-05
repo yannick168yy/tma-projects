@@ -129,14 +129,27 @@ export function createApiRouter(): Router {
   api.get('/app/bootstrap', async (ctx) => {
     ctx.set('Cache-Control', 'no-store')
     const rawMarket = String(ctx.query.market ?? '').toUpperCase()
-    if (rawMarket !== 'PH' && rawMarket !== 'ID') {
-      fail(ctx, 400, 'market 必须是 PH 或 ID'); return
+    const tenant = ctx.state.tenant
+    // 市场白名单按租户开通的市场来，不再写死 PH/ID：租户 App 的 BuildConfig.APP_MARKET
+    // 就是这里的取值，写死会让开在别的市场的客户包一启动就 400。
+    // 无租户上下文（strict=false 且平台库同时挂了）时维持原来的 PH/ID
+    const tenantMarkets = tenant ? await getTenantMarkets(tenant.id).catch(() => []) : []
+    const allowed = tenantMarkets.length ? tenantMarkets.map((m) => m.market) : ['PH', 'ID']
+    if (!allowed.includes(rawMarket)) {
+      fail(ctx, 400, `market 必须是 ${allowed.join(' 或 ')}`); return
     }
     const market = rawMarket as SiteMarket
     const mappings = await getSiteDomainMappings(ctx.state.redis, ctx.state.env)
-    // 配置异常（DB 降级、线路被清空）时绝不下发空表：App 收到空表会判定全部线路不可用而起不来
+    // 配置异常（DB 降级、线路被清空）时绝不下发空表：App 收到空表会判定全部线路不可用而起不来。
+    // 但兜底表是**自营站**的域名 —— 下发给客户租户等于把人家的用户送去别家站点，
+    // 比冷启动失败严重得多。所以租户只用自己配的表，配空了就明确报错。
     const configured = appDomainsForMarket(mappings, market)
-    const domains = (configured.length > 0 ? configured : defaultAppDomainsForMarket(market)).map((item) => ({
+    const fallback = !tenant || tenant.selfOperated ? defaultAppDomainsForMarket(market) : []
+    const usable = configured.length > 0 ? configured : fallback
+    if (usable.length === 0) {
+      fail(ctx, 503, `${market} 线路表未配置`); return
+    }
+    const domains = usable.map((item) => ({
       domain: item.domain,
       url: `https://${item.domain}`,
       priority: item.appPriority,

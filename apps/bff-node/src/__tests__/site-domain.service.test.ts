@@ -54,7 +54,15 @@ describe('站点域名映射', () => {
     await expect(saveSiteDomainMappings(redisStub, envStub, [
       { domain: 'betogo.games', market: 'PH', enabled: false, appMarket: 'PH', appPriority: 10 },
       { domain: 'betogo.app', market: 'ID', enabled: true, appMarket: 'ID', appPriority: 10 },
-    ])).rejects.toThrow('菲律宾 App 至少要保留一个启用的线路域名')
+    ])).rejects.toThrow('PH App 至少要保留一个启用的线路域名')
+  })
+
+  // P1-15：包网租户可能只开一个市场，校验写死 PH/ID 会让它连域名映射都保存不了。
+  // 用例环境没有 MySQL，能走到写库这一步就说明校验放行了
+  it('单市场租户只配一个市场的线路不再被校验挡下', async () => {
+    await expect(saveSiteDomainMappings(redisStub, envStub, [
+      { domain: 'example.com', market: 'PH', enabled: true, appMarket: 'PH', appPriority: 10 },
+    ])).rejects.toThrow(/MySQL is not configured/)
   })
 
   it('兜底线路表按优先级给出非空域名', () => {
