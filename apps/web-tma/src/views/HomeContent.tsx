@@ -2,14 +2,17 @@ import { getSiteName } from '@/config/brand'
 import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
-  Fish, Ticket, Drama, Rocket, X, Gem, Percent,
-  Zap, Headphones, ShieldCheck, Crown,
+  Gamepad2, History, Factory, X, Gem, Percent,
+  Zap, Headphones, ShieldCheck,
 } from 'lucide-react'
 import GameCardV2 from '@/components/home/GameCardV2'
+import BannerCarousel, { type HomeBanner } from '@/components/home/BannerCarousel'
+import BettingTable from '@/components/home/BettingTable'
+import { GAME_SECTIONS, GameSectionBlock } from '@/components/home/gameSections'
+import { DEFAULT_BLOCK_ORDER } from '@/components/home/blockOrder'
 import TaskFloatBall from '@/components/tasks/TaskFloatBall'
 import { INFO_LINKS } from '@/data/home'
-import { fetchHomepageGames, fetchGames, fetchGameHistory, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab, type GameHistoryItem, type HomeSection } from '@/api/slots'
+import { fetchHomepageGames, fetchGames, fetchGameHistory, launchGame, type SlotGame, type GameHistoryItem, type HomeSection } from '@/api/slots'
 import { fetchHomeContent } from '@/api/home'
 import type { AnnouncementContents } from '@/api/announcements'
 import { resolveHomeActionPath } from '@/navigation/appRoutes'
@@ -19,7 +22,6 @@ import { usePromotionStore } from '@/stores/promotion'
 import { matchPopupAudience } from '@/api/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
-import { localizedGameName } from '@/utils/game'
 import { analytics } from '@/utils/analytics'
 import iconFacebook from '@/assets/team/3-circles/facebook.webp'
 import iconTelegram from '@/assets/team/3-circles/telegram.webp'
@@ -32,12 +34,6 @@ import { localizedImage } from '@/utils/localizedImage'
 // 最近在玩区最大展示数，不足时用推荐游戏补齐
 const RECENT_ROW_MAX = 10
 
-// 后台没配过「首页布局」时的默认区块顺序。必须与 bff 的 HOME_LAYOUT_SECTIONS 同序。
-const DEFAULT_HOME_SECTIONS = [
-  'announcement', 'banner', 'recentPlayed', 'popular', 'cashRebate', 'highRebate', 'highRtp',
-  'lossRebate', 'recommended', 'slots', 'providerZone', 'casino', 'newGames', 'perya',
-  'fishing', 'lottery', 'baccarat', 'sports', 'bettingTable',
-]
 
 // 厂商专区（TOP PROVIDERS）
 // code 须与 bg_568win_game.provider 统一后的显示名一致(迁移134)
@@ -70,18 +66,10 @@ const COMMUNITY_LINKS: { label: string; icon: string; url: string }[] = [
   { label: 'Viber', icon: iconViber, url: 'https://invite.viber.com/?g2=AQBhXJCwtpAV81bXwM93sEjLZsg%2FLSk%2FjwMfIuJNShYEdNkwvHqOqU8AFEFtKo5I' },
   { label: 'Facebook', icon: iconFacebook, url: 'https://www.facebook.com/share/1LPECYxaAS/' },
 ]
-const BET_SCROLL_MIN_DURATION_SECONDS = 32
-const BET_SCROLL_SECONDS_PER_ITEM = 2.8
 
 // 榜单前三名的金/银/铜华丽配色
-const RANK_TOP_STYLES = [
-  { row: 'bg-gradient-to-r from-amber-500/25 via-amber-500/8 to-transparent border-amber-400/25', medal: 'bg-gradient-to-br from-amber-200 to-amber-500 text-amber-950 shadow-[0_3px_12px_rgba(245,158,11,0.55)]', ring: 'ring-2 ring-amber-400/60', amount: 'text-amber-300' },
-  { row: 'bg-gradient-to-r from-slate-200/18 via-slate-200/6 to-transparent border-slate-300/20', medal: 'bg-gradient-to-br from-slate-100 to-slate-400 text-slate-800 shadow-[0_3px_10px_rgba(203,213,225,0.45)]', ring: 'ring-2 ring-slate-300/55', amount: 'text-slate-100' },
-  { row: 'bg-gradient-to-r from-orange-700/22 via-orange-700/7 to-transparent border-orange-500/20', medal: 'bg-gradient-to-br from-orange-300 to-orange-600 text-orange-950 shadow-[0_3px_10px_rgba(194,120,3,0.45)]', ring: 'ring-2 ring-orange-500/55', amount: 'text-orange-300' },
-]
 
 // 首页 banner 来自后台装修配置，只需图片 + 跳转目标
-interface HomeBanner { id: number; image: string; target: string }
 
 interface Props {
   homeBannerTopAnnouncement?: AnnouncementContents
@@ -143,57 +131,6 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
     onNavigatePath(target)
   }
 
-  // Banner
-  const [activeBanner, setActiveBanner] = useState(0)
-  const bannerTrackRef = useRef<HTMLDivElement>(null)
-  const bannerDragRef = useRef({ startX: 0, startY: 0, startScroll: 0, axis: null as 'x'|'y'|null, lastX: 0, lastT: 0 })
-
-  function onBannerScroll() {
-    const el = bannerTrackRef.current; if (!el || el.clientWidth <= 0) return
-    setActiveBanner(Math.max(0, Math.min(homeBanners.length - 1, Math.round(el.scrollLeft / el.clientWidth))))
-  }
-  function scrollToBanner(index: number) {
-    const el = bannerTrackRef.current; if (!el) return
-    el.scrollTo({ left: index * el.clientWidth, behavior: 'smooth' }); setActiveBanner(index)
-  }
-  function onBannerTouchStart(e: React.TouchEvent) {
-    const t = e.touches[0]; if (!t) return
-    bannerDragRef.current = { startX: t.clientX, startY: t.clientY, startScroll: bannerTrackRef.current?.scrollLeft ?? 0, axis: null, lastX: t.clientX, lastT: Date.now() }
-  }
-  function onBannerTouchMove(e: React.TouchEvent) {
-    const el = bannerTrackRef.current; const touch = e.touches[0]; if (!el || !touch) return
-    const dx = touch.clientX - bannerDragRef.current.startX; const dy = touch.clientY - bannerDragRef.current.startY
-    if (bannerDragRef.current.axis === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) bannerDragRef.current.axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y'
-    if (bannerDragRef.current.axis !== 'x') return
-    e.preventDefault(); el.scrollLeft = bannerDragRef.current.startScroll - dx
-    bannerDragRef.current.lastX = touch.clientX; bannerDragRef.current.lastT = Date.now()
-  }
-  function onBannerTouchEnd() {
-    if (bannerDragRef.current.axis === 'x') {
-      const el = bannerTrackRef.current; if (el && el.clientWidth > 0) {
-        const dx = bannerDragRef.current.startX - bannerDragRef.current.lastX
-        const velocity = dx / Math.max(1, Date.now() - bannerDragRef.current.lastT)
-        const threshold = el.clientWidth * 0.18; const cur = activeBanner
-        if (dx > threshold || velocity > 0.35) { const next = Math.min(homeBanners.length - 1, cur + 1); el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' }); setActiveBanner(next) }
-        else if (dx < -threshold || velocity < -0.35) { const prev = Math.max(0, cur - 1); el.scrollTo({ left: prev * el.clientWidth, behavior: 'smooth' }); setActiveBanner(prev) }
-        else el.scrollTo({ left: cur * el.clientWidth, behavior: 'smooth' })
-      }
-    }
-    bannerDragRef.current.axis = null
-  }
-
-  useEffect(() => {
-    if (homeBanners.length <= 1) return
-    const id = setInterval(() => {
-      setActiveBanner((cur) => {
-        const next = (cur + 1) % homeBanners.length
-        const el = bannerTrackRef.current
-        if (el && el.clientWidth > 0) el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' })
-        return next
-      })
-    }, 3500)
-    return () => clearInterval(id)
-  }, [homeBanners.length])
 
   // Game data
   const emptyHomepage = { popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], highRebate: [], sports: [] }
@@ -207,7 +144,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   const homeLayout = useMemo<HomeSection[]>(() => (
     serverSections.length
       ? serverSections
-      : DEFAULT_HOME_SECTIONS.filter((k) => !hiddenSections.includes(k)).map((key) => ({ key }))
+      : DEFAULT_BLOCK_ORDER.filter((k) => !hiddenSections.includes(k)).map((key) => ({ key }))
   ), [serverSections, hiddenSections])
   const [gamesLoading, setGamesLoading] = useState(true)
   const [recentGames, setRecentGames] = useState<SlotGame[]>([])
@@ -264,25 +201,6 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
     onNavigatePath('/vip?tab=lossrebate')
   }, [auth, onNavigatePath, t])
 
-  // Betting table
-  const betSectionRef = useRef<HTMLElement>(null)
-  const [activeBetTab, setActiveBetTab] = useState<BetTab>('latest')
-  const [latestBets, setLatestBets] = useState<BetRecord[]>([]); const [weekBets, setWeekBets] = useState<BetRecord[]>([]); const [monthBets, setMonthBets] = useState<BetRecord[]>([])
-  const [betLoaded, setBetLoaded] = useState<Record<BetTab, boolean>>({ latest: false, week: false, month: false })
-  function formatBet(amount: number, currency: string) {
-    return currency === 'IDR' ? `Rp ${amount.toLocaleString('en-US')}` : `₱ ${amount.toLocaleString('en-PH')}`
-  }
-  async function loadBetTab(tab: BetTab) {
-    if (betLoaded[tab]) return; setBetLoaded((prev) => ({ ...prev, [tab]: true }))
-    try {
-      const data = await fetchBettingActivity(tab, activeCurrency)
-      if (tab === 'latest') setLatestBets(data); else if (tab === 'week') setWeekBets(data); else setMonthBets(data)
-    } catch { /**/ }
-  }
-  async function switchBetTab(tab: BetTab) { setActiveBetTab(tab); await loadBetTab(tab) }
-  const latestBetsLoop = useMemo(() => [...latestBets, ...latestBets], [latestBets])
-  const rankBets = activeBetTab === 'week' ? weekBets : monthBets
-  const latestBetScrollDuration = `${Math.max(BET_SCROLL_MIN_DURATION_SECONDS, latestBets.length * BET_SCROLL_SECONDS_PER_ITEM)}s`
   const firstDepositHighlight = promotion.highlights.find((item) => item.promoId === 'firstdep')
   const firstdepPopup = promotion.promoConfig?.popups?.find((p) => p.id === 'firstdep')
   // 后台「首页弹窗」开关+人群控制悬浮球显隐；叠加原有「已充值则不再展示首充」逻辑
@@ -300,20 +218,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
     )
   }
 
-  function bigGrid(games: SlotGame[], skeletonCount: number, showHot = false) {
-    if (gamesLoading) {
-      return (
-        <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
-          {Array.from({ length: skeletonCount }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-xl bg-secondary" />)}
-        </div>
-      )
-    }
-    return (
-      <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
-        {games.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" showHot={showHot} />)}
-      </div>
-    )
-  }
+
 
   function smallRow(games: SlotGame[], loading = gamesLoading) {
     if (loading) {
@@ -330,11 +235,6 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
     )
   }
 
-  function betTabLabel(tab: BetTab) {
-    if (tab === 'latest') return t('home.latestBets')
-    if (tab === 'week') return t('home.topWeek')
-    return t('home.topMonth')
-  }
 
   // Info modal
   const [infoModal, setInfoModal] = useState<string | null>(null)
@@ -391,59 +291,40 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   }, [i18n.language])
 
   // 投注流非首屏关键，进入视口前不拉，避免与首页游戏/内容抢首屏带宽
-  useEffect(() => {
-    setLatestBets([]); setWeekBets([]); setMonthBets([])
-    setBetLoaded({ latest: false, week: false, month: false })
-    const el = betSectionRef.current
-    if (!el) return
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) {
-        fetchBettingActivity('latest', activeCurrency)
-          .then((data) => { setLatestBets(data); setBetLoaded((prev) => ({ ...prev, latest: true })) })
-          .catch(() => {})
-        observer.disconnect()
-      }
-    }, { threshold: 0.1, rootMargin: '200px' })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [activeCurrency])
 
 
   // ── 首页区块渲染表 ──────────────────────────────────────────────────────────
   // 顺序 / 显示隐藏 / 每块参数由后台「首页布局」下发（/slots/homepage 的 sections 字段）。
-  // 后台没配过时退回 DEFAULT_HOME_SECTIONS —— 它与 bff 的 HOME_LAYOUT_SECTIONS 必须同序，
-  // 两边都是"默认首页长什么样"的事实来源，加块时两处一起改。
-  const gameBlock = (s: HomeSection, games: SlotGame[], def: { layout: 'big' | 'small'; skeleton: number }, showHot = false) => {
-    const list = s.limit ? games.slice(0, s.limit) : games
-    return (s.layout ?? def.layout) === 'big' ? bigGrid(list, s.limit ?? def.skeleton, showHot) : smallRow(list)
-  }
+  // 服务端总会下发 sections（buildSectionList 按 HOME_LAYOUT_SECTIONS 全量生成），
+  // 拿不到只可能是老缓存或接口失败，那时退回 DEFAULT_BLOCK_ORDER。
+
+
+  // 游戏块全部由注册表生成（GAME_SECTIONS）；下面这张表只剩「长得都不一样」的运营块。
+  // 加一个游戏专区改 gameSections.tsx 一行，不用再照抄一段 JSX。
+  const gameBlocks = useMemo<Record<string, (s: HomeSection) => React.ReactNode>>(() => (
+    Object.fromEntries(GAME_SECTIONS.map((spec) => [spec.key, (s: HomeSection) => (
+      <GameSectionBlock
+        spec={spec}
+        section={s}
+        games={spec.dataKey === 'recommendedDisplay' ? recommendedDisplay : homepageGames[spec.dataKey]}
+        loading={gamesLoading}
+        // 「推荐精选」大卡只在最近在玩占了上方那行时出现，否则 recentPlayed 已经放过推荐小卡
+        enabled={spec.key === 'recommended' ? recentGames.length > 0 : true}
+        t={t}
+        onTap={(uuid) => void onGameTapAction(uuid)}
+        onNavigate={onNavigatePath}
+      />
+    )]))
+  ), [homepageGames, recommendedDisplay, gamesLoading, recentGames.length, t, onGameTapAction, onNavigatePath])
 
   const blocks: Record<string, (s: HomeSection) => React.ReactNode> = {
+    ...gameBlocks,
     announcement: () => homeBannerTopAnnouncement && (
       <div className="px-4 pt-2">
         <AnnouncementBar contents={homeBannerTopAnnouncement} tone="general" />
       </div>
     ),
-    // Banner 轮播（图片与跳转在后台「首页装修」页配置）
-    banner: () => homeBanners.length > 0 && (
-        <div className="px-4 mt-2">
-          {/* 16:9 跟随屏宽自适应，固定高度在窄屏机会横向裁切图片 */}
-          <div className="relative aspect-video overflow-hidden rounded-2xl">
-            <div ref={bannerTrackRef} className="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar" onScroll={onBannerScroll} onTouchStart={onBannerTouchStart} onTouchMove={onBannerTouchMove} onTouchEnd={onBannerTouchEnd} onTouchCancel={onBannerTouchEnd}>
-              {homeBanners.map((banner) => (
-                <article key={banner.id} className="relative h-full w-full flex-shrink-0 snap-center" onClick={() => navHomeTarget(banner.target)}>
-                  <img src={banner.image} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
-                </article>
-              ))}
-            </div>
-            <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-              {homeBanners.map((_, i) => (
-                <button key={i} type="button" className={`pointer-events-auto h-1.5 rounded-full transition-all ${i === activeBanner ? 'w-5 bg-white' : 'w-1.5 bg-white/40'}`} onClick={() => scrollToBanner(i)} />
-              ))}
-            </div>
-          </div>
-        </div>
-      ),
+    banner: () => <BannerCarousel banners={homeBanners} onTap={navHomeTarget} />,
     // 最近在玩（登录用户）：不足最大数时用推荐游戏补齐，金色竖线分隔；
     // 无最近在玩时该区改放推荐小卡 —— 所以隐藏 recommended 会同时关掉这个兜底
     recentPlayed: () => recentGames.length > 0 ? (
@@ -469,12 +350,6 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
           </section>
         )
       ),
-    popular: (s) => (
-      <section className="mt-5">
-        {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onNavigatePath('/games'))}
-        {gameBlock(s, homepageGames.popular, { layout: 'big', skeleton: 12 }, true)}
-      </section>
-    ),
     // Cash Rebate 活动横条 → rebate 页
     cashRebate: () => (
       <section className="mt-6">
@@ -490,19 +365,6 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
         </div>
       </section>
     ),
-    // 高洗码游戏：elite 档(2% 返水)精选，板块内容由后台首页板块配置管理
-    highRebate: (s) => homepageGames.highRebate.length > 0 && (
-      <section className="mt-6">
-        {sectionHeader(<Gem size={15} className="text-amber-400" />, t('home.highRebate'), () => onNavigatePath('/games?cat=highrebate'))}
-        {gameBlock(s, homepageGames.highRebate, { layout: 'big', skeleton: 9 })}
-      </section>
-    ),
-    highRtp: (s) => (gamesLoading || homepageGames.highRtp.length > 0) && (
-      <section className="mt-6">
-        {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.highRtp'), () => onNavigatePath('/games?cat=highrtp'))}
-        {gameBlock(s, homepageGames.highRtp, { layout: 'small', skeleton: 6 })}
-      </section>
-    ),
     // 负盈利返水活动横条 → VIP 负盈利返水 tab
     lossRebate: () => (
       <section className="mt-6">
@@ -512,19 +374,6 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
             <img src={lossRebateBanner} alt="Loss Rebate" draggable={false} className="w-full rounded-2xl" />
           </button>
         </div>
-      </section>
-    ),
-    // 推荐精选（大卡）：仅在「最近在玩」占了上方那一行时才出现
-    recommended: (s) => recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
-      <section className="mt-6">
-        {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
-        {gameBlock(s, recommendedDisplay, { layout: 'big', skeleton: 12 })}
-      </section>
-    ),
-    slots: (s) => (gamesLoading || homepageGames.slots.length > 0) && (
-      <section className="mt-6">
-        {sectionHeader(<Gamepad2 size={15} className="text-violet-400" />, t('home.egamesZone'), () => onNavigatePath('/games?cat=slot'))}
-        {gameBlock(s, homepageGames.slots, { layout: 'big', skeleton: 6 })}
       </section>
     ),
     // 厂商专区：tab + 小卡横滑
@@ -546,179 +395,19 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
         {smallRow(s.limit ? providerZoneGames.slice(0, s.limit) : providerZoneGames, providerZoneGames.length === 0)}
       </section>
     ),
-    casino: (s) => (gamesLoading || homepageGames.casino.length > 0) && (
-      <section className="mt-6">
-        {sectionHeader(<span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />, t('home.casinoZone'), () => onNavigatePath('/games?cat=casino'))}
-        {gameBlock(s, homepageGames.casino, { layout: 'big', skeleton: 6 })}
-      </section>
-    ),
-    newGames: (s) => (gamesLoading || homepageGames.newGames.length > 0) && (
-      <section className="mt-6">
-        {sectionHeader(<Sparkles size={15} className="text-emerald-400" />, t('home.newGames'))}
-        {gameBlock(s, homepageGames.newGames, { layout: 'small', skeleton: 6 })}
-      </section>
-    ),
-    perya: (s) => (gamesLoading || homepageGames.perya.length > 0) && (
-      <section className="mt-6">
-        {sectionHeader(<Drama size={15} className="text-orange-400" />, t('home.peryaZone'), () => onNavigatePath('/games?cat=perya'))}
-        {gameBlock(s, homepageGames.perya, { layout: 'big', skeleton: 6 })}
-      </section>
-    ),
-    fishing: (s) => (gamesLoading || homepageGames.fishing.length > 0) && (
-      <section className="mt-6">
-        {sectionHeader(<Fish size={15} className="text-cyan-400" />, t('home.fishingZone'), () => onNavigatePath('/games?cat=fishing'))}
-        {gameBlock(s, homepageGames.fishing, { layout: 'big', skeleton: 6 })}
-      </section>
-    ),
-    lottery: (s) => (gamesLoading || homepageGames.lottery.length > 0) && (
-      <section className="mt-6">
-        {sectionHeader(<Ticket size={15} className="text-pink-400" />, t('home.lotteryZone'), () => onNavigatePath('/games?cat=lottery'))}
-        {gameBlock(s, homepageGames.lottery.slice(0, 6), { layout: 'big', skeleton: 6 })}
-      </section>
-    ),
-    baccarat: (s) => (gamesLoading || homepageGames.baccarat.length > 0) && (
-      <section className="mt-6">
-        {sectionHeader(<Gem size={15} className="text-purple-400" />, t('home.baccaratZone'))}
-        {gameBlock(s, homepageGames.baccarat, { layout: 'small', skeleton: 6 })}
-      </section>
-    ),
-    // 体育：USDT 下仅 1 款，空则整块不渲染
-    sports: (s) => (gamesLoading || homepageGames.sports.length > 0) && (
-      <section className="mt-6">
-        {sectionHeader(<Trophy size={15} className="text-green-400" />, t('home.sportsZone'), () => onNavigatePath('/games?cat=sports'))}
-        {gameBlock(s, homepageGames.sports, { layout: 'big', skeleton: 6 })}
-      </section>
-    ),
     bettingTable: () => (
-      <section ref={betSectionRef} className="mt-8 px-4">
-        <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
-          {t('home.bettingTable')}
-        </h3>
-
-        <div className="flex gap-1 mb-3 bg-secondary rounded-xl p-1">
-          {(['latest', 'week', 'month'] as BetTab[]).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${activeBetTab === tab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
-              onClick={() => void switchBetTab(tab)}
-            >
-              {betTabLabel(tab)}
-            </button>
-          ))}
-        </div>
-
-        {activeBetTab === 'latest' ? (
-          <div className="relative overflow-hidden rounded-xl bg-secondary h-[600px]">
-            {latestBets.length === 0 ? (
-              <div className="space-y-px pt-1">
-                {Array.from({ length: 8 }).map((_, n) => (
-                  <div key={n} className="flex items-center gap-3 px-3 py-2.5">
-                    <div className="w-10 h-10 rounded-lg animate-pulse bg-white/10 flex-shrink-0" />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-3 w-28 rounded animate-pulse bg-white/10" />
-                      <div className="h-2 w-16 rounded animate-pulse bg-white/10" />
-                    </div>
-                    <div className="h-3 w-16 rounded animate-pulse bg-white/10" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="animate-scroll-up" style={{ animationDuration: latestBetScrollDuration }}>
-                {latestBetsLoop.map((rec, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-white/5 active:bg-white/5 transition-colors text-left"
-                    onClick={() => void onGameTapAction(rec.uuid)}
-                  >
-                    {rec.imageUrl ? (
-                      <img src={rec.imageUrl} alt={rec.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-lg bg-white/10 flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-foreground truncate">{localizedGameName(rec, locale)}</p>
-                      <p className="text-[10px] text-muted-foreground">{rec.provider}</p>
-                    </div>
-                    <span className="text-xs font-bold text-primary flex-shrink-0">{formatBet(rec.betAmount, rec.currency)}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="rounded-xl bg-secondary overflow-hidden">
-            {rankBets.length === 0 ? (
-              <div className="space-y-px pt-1">
-                {Array.from({ length: 8 }).map((_, n) => (
-                  <div key={n} className="flex items-center gap-3 px-3 py-2.5 border-b border-white/5">
-                    <div className="w-5 h-5 rounded animate-pulse bg-white/10 flex-shrink-0" />
-                    <div className="w-10 h-10 rounded-lg animate-pulse bg-white/10 flex-shrink-0" />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-3 w-28 rounded animate-pulse bg-white/10" />
-                      <div className="h-2 w-16 rounded animate-pulse bg-white/10" />
-                    </div>
-                    <div className="h-3 w-16 rounded animate-pulse bg-white/10" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div>
-                {rankBets.map((rec, idx) => {
-                  const top = idx < 3 ? RANK_TOP_STYLES[idx] : null
-                  if (top) {
-                    return (
-                      <button
-                        key={`${rec.uuid}-${idx}`}
-                        type="button"
-                        className={`relative w-full flex items-center gap-3.5 px-3.5 py-4 border-b active:brightness-110 transition text-left ${top.row}`}
-                        onClick={() => void onGameTapAction(rec.uuid)}
-                      >
-                        <div className="relative flex-shrink-0">
-                          <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${top.medal}`}>{idx + 1}</span>
-                          {idx === 0 && <Crown size={13} className="absolute -top-2 left-1/2 -translate-x-1/2 rotate-[8deg] text-amber-300 drop-shadow" fill="currentColor" />}
-                        </div>
-                        {rec.imageUrl ? (
-                          <img src={rec.imageUrl} alt={rec.name} className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-white/5 ${top.ring}`} />
-                        ) : (
-                          <div className={`w-16 h-16 rounded-xl bg-white/10 flex-shrink-0 ${top.ring}`} />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-black text-foreground truncate">{localizedGameName(rec, locale)}</p>
-                          <p className="text-[11px] text-muted-foreground">{rec.provider}</p>
-                        </div>
-                        <span className={`text-base font-black flex-shrink-0 ${top.amount}`}>{formatBet(rec.betAmount, rec.currency)}</span>
-                      </button>
-                    )
-                  }
-                  return (
-                    <button
-                      key={`${rec.uuid}-${idx}`}
-                      type="button"
-                      className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-white/5 last:border-0 active:bg-white/5 transition-colors text-left"
-                      onClick={() => void onGameTapAction(rec.uuid)}
-                    >
-                      <span className="w-5 text-center text-xs font-black flex-shrink-0 text-muted-foreground">#{idx + 1}</span>
-                      {rec.imageUrl ? (
-                        <img src={rec.imageUrl} alt={rec.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5" />
-                      ) : (
-                        <div className="w-10 h-10 rounded-lg bg-white/10 flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-foreground truncate">{localizedGameName(rec, locale)}</p>
-                        <p className="text-[10px] text-muted-foreground">{rec.provider}</p>
-                      </div>
-                      <span className="text-xs font-bold text-primary flex-shrink-0">{formatBet(rec.betAmount, rec.currency)}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+      <BettingTable currency={activeCurrency} locale={locale} t={t} onTapGame={(uuid) => void onGameTapAction(uuid)} />
     ),
+  }
+
+  // 加了区块却忘了排进兜底顺序（或反之）只会表现为「某块偶尔不出现」，
+  // 极难在测试环境复现，所以在开发期直接吵出来
+  if (import.meta.env.DEV) {
+    const missing = DEFAULT_BLOCK_ORDER.filter((k) => !blocks[k])
+    const unordered = Object.keys(blocks).filter((k) => !DEFAULT_BLOCK_ORDER.includes(k as typeof DEFAULT_BLOCK_ORDER[number]))
+    if (missing.length || unordered.length) {
+      console.error('[home] 区块表与兜底顺序不一致', { 顺序里没有对应区块: missing, 区块没排进顺序: unordered })
+    }
   }
 
   return (

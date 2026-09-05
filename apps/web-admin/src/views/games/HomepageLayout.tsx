@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { HolderOutlined } from '@ant-design/icons'
 import { Table, Select, Button, message, Tag, Space, Alert, Typography, Switch, InputNumber } from 'antd'
 import { getHomeLayout, putHomeLayout, type HomeLayoutRow } from '../../api'
 
@@ -33,6 +34,21 @@ export default function HomepageLayout() {
   useEffect(() => { void load() }, [load])
 
   const mutate = (next: HomeLayoutRow[]) => { setRows(next); setDirty(true) }
+
+  // 拖拽排序用原生 HTML5 drag —— 19 行的表格不值得为它引一个 dnd 库。
+  // ↑↓ 按钮保留：拖拽在触控板上容易拖过头，精调还是点按钮快
+  const dragFrom = useRef<number | null>(null)
+  const [dragOver, setDragOver] = useState<number | null>(null)
+  const drop = (to: number) => {
+    const from = dragFrom.current
+    dragFrom.current = null
+    setDragOver(null)
+    if (from === null || from === to) return
+    const next = [...rows]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    mutate(next)
+  }
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir
     if (j < 0 || j >= rows.length) return
@@ -62,6 +78,10 @@ export default function HomepageLayout() {
   }
 
   const columns = [
+    {
+      title: '', width: 40,
+      render: () => <HolderOutlined style={{ cursor: 'grab', color: '#999' }} />,
+    },
     { title: '顺序', width: 60, render: (_: unknown, __: HomeLayoutRow, i: number) => <span style={{ color: '#999' }}>{i + 1}</span> },
     {
       title: '区块', render: (_: unknown, r: HomeLayoutRow) => (
@@ -117,11 +137,27 @@ export default function HomepageLayout() {
       </Space>
 
       <Alert style={{ marginBottom: 12 }} type="info" showIcon
-        message="调整首页各区块的顺序、显示与参数，保存后立即重建首页并生效"
+        message="拖动行调整顺序（也可用 ↑↓ 精调），保存后立即重建首页并生效"
         description="运营块（Banner、公告、活动横条、厂商专区、投注榜）此前只能改代码，现在可直接排序与开关。Banner/卡片的图片与跳转仍在「首页装修」页配置。展示数量留空=用前端默认；卡型留空=用该板块默认形态。游戏板块内部的钉位/移除/冻结仍在「首页板块配置」页。顺序与显示按币种分别配置。" />
 
       <Table<HomeLayoutRow> rowKey="sectionKey" size="small" loading={loading} columns={columns}
-        dataSource={rows} pagination={false} />
+        dataSource={rows} pagination={false}
+        onRow={(_, index) => ({
+          draggable: true,
+          onDragStart: () => { dragFrom.current = index ?? null },
+          onDragOver: (e) => { e.preventDefault(); setDragOver(index ?? null) },
+          onDragLeave: () => setDragOver((cur) => (cur === index ? null : cur)),
+          onDrop: () => drop(index ?? 0),
+          onDragEnd: () => { dragFrom.current = null; setDragOver(null) },
+          style: {
+            cursor: 'grab',
+            // 拖到哪一行要看得见，否则松手全靠猜
+            borderTop: dragOver === index && dragFrom.current !== null && dragFrom.current > (index ?? 0)
+              ? '2px solid #1677ff' : undefined,
+            borderBottom: dragOver === index && dragFrom.current !== null && dragFrom.current < (index ?? 0)
+              ? '2px solid #1677ff' : undefined,
+          },
+        })} />
     </div>
   )
 }
