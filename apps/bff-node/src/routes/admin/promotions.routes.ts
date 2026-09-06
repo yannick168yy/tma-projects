@@ -123,8 +123,8 @@ export default router
 // 模板内容（别家调出来的参数）不下发给租户，只给名字与覆盖范围。
 router.get('/templates', async (ctx) => {
   const tenant = ctx.state.tenant
-  const market = tenant ? (await getTenantMarkets(tenant.id).catch(() => []))[0]?.market ?? null : null
-  ok(ctx, await listTemplatesForTenant(market))
+  const markets = tenant ? (await getTenantMarkets(tenant.id).catch(() => [])).map((m) => m.market) : []
+  ok(ctx, await listTemplatesForTenant(markets))
 })
 
 router.post('/templates/:id/apply', requireRole(['super_admin', 'ops']), async (ctx) => {

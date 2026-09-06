@@ -220,13 +220,20 @@ export async function applyTemplateForCurrentTenant(
   return applyTemplate(env, tenant.id, templateId, { name: adminUsername, side: 'tenant' })
 }
 
-/** 租户后台可见的模板：停用的不给看，配置内容也不下发（那是别家调出来的参数） */
-export async function listTemplatesForTenant(market: string | null): Promise<Array<{
+/**
+ * 租户后台可见的模板：停用的不给看，配置内容也不下发（那是别家调出来的参数）。
+ *
+ * 按租户开通的**全部**市场过滤，不是取第一个 —— 多市场租户（自营站同时开 PH 与 ID）
+ * 取第一个会把另一个市场的模板全挡掉，表现是「后台一个模板都看不到」。
+ */
+export async function listTemplatesForTenant(markets: string[]): Promise<Array<{
   id: number; name: string; description: string | null; sections: string[]; sectionLabels: string[]
 }>> {
+  const list = markets.filter(Boolean)
+  const placeholders = list.length > 0 ? list.map(() => '?').join(',') : "''"
   const [rows] = await getPlatformPool().query<RowDataPacket[]>(
     `SELECT id, name, description, sections FROM pf_promo_template
-      WHERE enabled = 1 AND (market IS NULL OR market = ?) ORDER BY id DESC`, [market])
+      WHERE enabled = 1 AND (market IS NULL OR market IN (${placeholders})) ORDER BY id DESC`, list)
   return rows.map((r) => {
     const sections = String(r.sections ?? '').split(',').filter(Boolean)
     return {
