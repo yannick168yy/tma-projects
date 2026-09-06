@@ -6,10 +6,12 @@ import Koa from 'koa'
 import bodyParser from 'koa-bodyparser'
 import request from 'supertest'
 
-vi.mock('../services/promo-config.service.js', () => ({
-  getPromoConfig: vi.fn(),
-  savePromoConfig: vi.fn(),
-}))
+// 只 mock 碰库的两个；mergePromoConfig / validatePromoConfig 是纯函数，
+// 用真实实现才测得到「校验规则」本身（P3-3 把它们从路由里抽了出来）
+vi.mock('../services/promo-config.service.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/promo-config.service.js')>()
+  return { ...actual, getPromoConfig: vi.fn(), savePromoConfig: vi.fn() }
+})
 
 // admin-auth service mock（绕过 token 验证）
 vi.mock('../services/admin-auth.service.js', () => ({
