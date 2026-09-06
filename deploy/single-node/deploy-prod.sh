@@ -169,7 +169,7 @@ for t in "${TARGETS[@]}"; do
         "$PROD_HOST:$PROD_DIR/deploy/single-node/"
       if remote "sudo podman container exists tma-web-platform"; then
         remote "sudo podman restart tma-web-platform >/dev/null"; sleep 3
-        health "http://127.0.0.1:${PLATFORM_PORT:-8090}/platform/" web-platform
+        health "http://127.0.0.1:${PLATFORM_PORT:-8090}/" web-platform
       else
         echo "    ⚠️ 生产还没有 tma-web-platform 容器，dist 与配置已就位。创建它："
         echo "       sudo bash $PROD_DIR/deploy/single-node/recreate-web-platform.sh"

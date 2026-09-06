@@ -106,8 +106,9 @@ for TARGET in "${TARGETS[@]}"; do
       echo "==> [web-tma:$TENANT] 完成"
       ;;
     web-platform)
-      echo "==> [web-platform] 本地构建..."
-      (cd "$ROOT/apps/web-platform" && npm run build)
+      echo "==> [web-platform] 本地构建（测试环境挂在 188facai.com/platform/ 下，必须带前缀）..."
+      # 生产有独立域名走根路径，这里只有一个域名，只能用路径前缀跟租户站共存
+      (cd "$ROOT/apps/web-platform" && PLATFORM_BASE=/platform/ npm run build)
       echo "==> [web-platform] 同步 dist..."
       RSYNC_RSH="$RSYNC_RSH" rsync -az --delete \
         "$ROOT/apps/web-platform/dist/" "$HOST:$DIR/apps/web-platform/dist/"

@@ -21,7 +21,7 @@ http.interceptors.response.use(
     if (err.response?.status === 401 && localStorage.getItem(PLATFORM_TOKEN_KEY)) {
       localStorage.removeItem(PLATFORM_TOKEN_KEY)
       localStorage.removeItem(PLATFORM_ROLE_KEY)
-      window.location.href = '/platform/login'
+      window.location.href = `${import.meta.env.BASE_URL}login`
     }
     const msg = err.response?.data?.message || err.message || '请求失败'
     return Promise.reject(new Error(msg))

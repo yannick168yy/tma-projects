@@ -27,10 +27,10 @@ run rm -f tma-web-platform 2>/dev/null || true
 run run -d --name tma-web-platform --network "$NET" --restart=always \
   --log-driver=json-file --log-opt max-size=20m --log-opt max-file=3 \
   --memory=128m --memory-swap=128m \
-  -v "$DIR/apps/web-platform/dist":/usr/share/nginx/html/platform:ro \
+  -v "$DIR/apps/web-platform/dist":/usr/share/nginx/html:ro \
   -p 127.0.0.1:${PORT}:80 \
   betogo-web-platform:latest
 
 sleep 3
 run ps --format '{{.Names}} {{.Status}}' | grep tma-web-platform
-echo "本机自检: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${PORT}/platform/)"
+echo "本机自检: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${PORT}/)"

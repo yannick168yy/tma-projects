@@ -11,7 +11,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ConfigProvider locale={zhCN}>
       <AntApp>
-        <BrowserRouter basename="/platform">
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <App />
         </BrowserRouter>
       </AntApp>
