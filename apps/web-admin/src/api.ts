@@ -2072,3 +2072,50 @@ export interface BottomNavCatalog {
 export const getBottomNav = () => get<BottomNavCatalog>('/admin/settings/bottom-nav')
 export const putBottomNav = (items: Array<{ navId: string; hidden: boolean; icon: string | null; targetPath: string | null }>) =>
   put<BottomNavCatalog>('/admin/settings/bottom-nav', { items })
+
+// ── 租户自助（P3-5）──
+// 接口上没有 tenantId：一律以服务端的租户上下文为准
+export interface SelfChannel {
+  channelCode: string
+  owner: 'platform' | 'tenant'
+  merchantNo: string | null
+  credentialMask: string | null
+  enabled: boolean
+  editable: boolean
+  feeRatePct: number
+  feeFixed: number
+}
+export interface SelfAppBuild {
+  appMarket: string
+  packageName: string
+  appLabel: string
+  routeDomains: string[]
+  tgRecoveryChannel: string
+  splashBackground: string
+  keystoreRef: string
+  versionCode: number
+  versionName: string
+  updatedAt: string | null
+}
+export interface SelfBuildRequest {
+  id: number
+  appMarket: string
+  versionName: string
+  versionCode: number
+  note: string | null
+  status: string
+  artifactUrl: string | null
+  rejectReason: string | null
+  createdAt: string
+  handledAt: string | null
+}
+export const getSelfChannels = () =>
+  get<{ credentialKeyReady: boolean; items: SelfChannel[] }>('/admin/self-service/channels')
+export const saveSelfChannel = (code: string, body: { merchantNo: string; credential: string }) =>
+  req<{ credentialKeyReady: boolean; items: SelfChannel[] }>('PUT', `/admin/self-service/channels/${code}`, body)
+export const getSelfApps = () =>
+  get<{ items: SelfAppBuild[]; requests: SelfBuildRequest[] }>('/admin/self-service/app')
+export const saveSelfApp = (market: string, body: Partial<SelfAppBuild>) =>
+  req<{ items: SelfAppBuild[]; requests: SelfBuildRequest[] }>('PUT', `/admin/self-service/app/${market}`, body)
+export const requestAppBuild = (market: string, note: string) =>
+  post<{ requests: SelfBuildRequest[] }>(`/admin/self-service/app/${market}/build`, { note })

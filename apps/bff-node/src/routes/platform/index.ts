@@ -72,6 +72,7 @@ import {
 import { ok, fail } from '../../utils/response.js'
 import { writeAudit } from '../../services/platform-audit.service.js'
 import { invalidateChannelOwnershipCache } from '../../services/billing/settlement-mode.service.js'
+import { listAllBuildRequests, resolveBuildRequest } from '../../services/self-service.service.js'
 
 /**
  * 平台控制台 API。与 /admin（租户后台）完全分离：
@@ -870,6 +871,27 @@ export function createPlatformRouter(): Router {
     await invalidateTenantHostCache(getDefaultRedis(ctx.state.env))
     await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'tenant.status', id, { from: row.status, to: next })
     ok(ctx, { id, status: next })
+  })
+
+  // ── 出包申请待办（P3-5）──────────────────────────────────────────────────
+  // 客户在自己后台调好参数后提申请，平台在出包机上跑 scripts/build-tenant-apk.sh，
+  // 回填产物地址。服务器上没有签名密钥也没有 Android SDK，做不了「点一下就出包」
+  router.get('/app-builds', platformAuthMiddleware(), async (ctx) => {
+    ok(ctx, await listAllBuildRequests(String(ctx.query.status ?? 'pending')))
+  })
+
+  router.put('/app-builds/:id', platformAuthMiddleware('platform_super', 'platform_ops'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    const b = ctx.request.body as { status?: string; artifactUrl?: string; rejectReason?: string }
+    const status = b.status === 'building' || b.status === 'done' || b.status === 'rejected' ? b.status : null
+    if (!status) return fail(ctx, 400, 'status 只能是 building / done / rejected')
+    if (status === 'done' && !b.artifactUrl) return fail(ctx, 400, '完成时要回填产物地址，否则客户不知道去哪拿包')
+    if (status === 'rejected' && !b.rejectReason) return fail(ctx, 400, '驳回要写原因')
+    const done = await resolveBuildRequest(id, status, ctx.state.platformAdmin?.adminId ?? null,
+      { artifactUrl: b.artifactUrl ?? null, rejectReason: b.rejectReason ?? null })
+    if (!done) return fail(ctx, 400, '该申请不存在或已处理')
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'app.build.resolve', null, { id, status })
+    ok(ctx, await listAllBuildRequests('pending'))
   })
 
   return router
