@@ -577,3 +577,72 @@ export function matchFirstDepBonus(tiers: FirstDepTier[] | undefined, amount: nu
   }
   return bonus
 }
+
+/**
+ * 合并补丁到当前配置（P3-3）。
+ *
+ * 按「区块级替换」而不是深合并：档位、弹窗、卡片都是数组，深合并的语义没人说得清
+ * （第 3 档合并到第 3 档？还是按金额匹配？），而区块级替换的语义是「这块整个换掉」。
+ * 补丁里没有的区块保持原样，所以一个模板可以只调首充档位而不动弹窗。
+ */
+export function mergePromoConfig(current: PromoConfig, patch: Partial<PromoConfig>): PromoConfig {
+  return {
+    trial:    { ...current.trial,    ...(patch.trial    ?? {}), amountByCcy: { ...(current.trial.amountByCcy ?? {}), ...(patch.trial?.amountByCcy ?? {}) } },
+    firstdep: { ...current.firstdep, ...(patch.firstdep ?? {}) },
+    appdl:    { ...current.appdl,    ...(patch.appdl    ?? {}), amountByCcy: { ...(current.appdl.amountByCcy ?? {}), ...(patch.appdl?.amountByCcy ?? {}) } },
+    redep:    { ...current.redep,    ...(patch.redep    ?? {}) },
+    regularRedep: {
+      ...current.regularRedep, ...(patch.regularRedep ?? {}),
+      tiers: { ...current.regularRedep.tiers, ...(patch.regularRedep?.tiers ?? {}) },
+      dailyBonusCaps: { ...current.regularRedep.dailyBonusCaps, ...(patch.regularRedep?.dailyBonusCaps ?? {}) },
+    },
+    lossRebate: { ...current.lossRebate, ...(patch.lossRebate ?? {}) },
+    popups:   patch.popups ?? current.popups,
+    bonusCards: patch.bonusCards ?? current.bonusCards,
+  }
+}
+
+/**
+ * 活动参数校验。返回错误文案，null=通过。
+ *
+ * 从后台路由里抽出来（P3-3）：活动模板套用走的是同一份参数，两份校验一定会漂移，
+ * 而漂移的后果是「后台改不进去的值，套模板能进去」—— 资损口子。
+ */
+export function validatePromoConfig(c: PromoConfig): string | null {
+  if (c.trial.amount <= 0 || c.trial.amount > 50000
+    || Object.values(c.trial.amountByCcy ?? {}).some((amount) => amount <= 0)) {
+    return 'trial PHP 金额必须在 1-50000、各币种金额必须大于 0'
+  }
+  if (c.firstdep.turnoverX < 0 || c.firstdep.turnoverDays < 0) {
+    return 'firstdep 流水倍率/有效期不能为负'
+  }
+  if (c.appdl.amount <= 0 || c.appdl.amount > 50000
+    || Object.values(c.appdl.amountByCcy ?? {}).some((amount) => amount <= 0)
+    || c.appdl.turnoverX < 0 || c.appdl.turnoverDays < 0) {
+    return 'appdl PHP 金额必须在 1-50000、各币种金额必须大于 0、流水倍率/有效期不能为负'
+  }
+  if (c.redep.minDeposit <= 0 || c.redep.bonusAmount < 0 || c.redep.windowHours <= 0
+    || c.redep.cooldownDays < 0 || c.redep.turnoverX < 0 || c.redep.turnoverDays < 0) {
+    return 'redep 档位/时长必须为正,奖励/冷却/流水参数不能为负'
+  }
+  if (c.regularRedep.turnoverX < 0 || c.regularRedep.turnoverDays < 0 || c.regularRedep.claimHours <= 0
+    || c.regularRedep.dailyMaxClaims <= 0 || Object.values(c.regularRedep.dailyBonusCaps).some((amount) => amount < 0)) {
+    return '常规复充的流水、领取时限、每日次数或赠金上限配置无效'
+  }
+  for (const [currency, tiers] of Object.entries(c.regularRedep.tiers)) {
+    if (tiers.some((tier) => tier.depositAmount <= 0 || tier.bonusAmount < 0)) {
+      return `常规复充 ${currency} 档位金额必须大于 0、奖励不能为负`
+    }
+  }
+  if (c.lossRebate.ratePct < 0 || c.lossRebate.ratePct > 100 || c.lossRebate.minDeposit < 0) {
+    return 'lossRebate 费率须在 0-100、门槛不能为负'
+  }
+  for (const [currency, list] of Object.entries(c.firstdep.tiers)) {
+    for (const tier of list) {
+      if (!(tier.depositAmount > 0) || tier.bonusAmount < 0) {
+        return `firstdep ${currency} 档位金额必须大于 0、奖励不能为负`
+      }
+    }
+  }
+  return null
+}

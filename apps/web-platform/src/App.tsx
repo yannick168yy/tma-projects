@@ -10,6 +10,7 @@ import Invoices from './views/Invoices'
 import Accounts from './views/Accounts'
 import Reconcile from './views/Reconcile'
 import RiskFederation from './views/RiskFederation'
+import PromoTemplates from './views/PromoTemplates'
 import TenantLayout from './views/tenant/TenantLayout'
 import Overview from './views/tenant/Overview'
 import Plan from './views/tenant/Plan'
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="billing/accounts" element={<Accounts />} />
         <Route path="billing/reconcile" element={<Reconcile />} />
         <Route path="risk" element={<RiskFederation />} />
+        <Route path="promo-templates" element={<PromoTemplates />} />
         <Route path="tenants/:id" element={<TenantLayout />}>
           <Route index element={<Navigate to="overview" replace />} />
           <Route path="overview" element={<Overview />} />

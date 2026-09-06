@@ -1,8 +1,16 @@
 import Router from '@koa/router'
 import type { RowDataPacket } from 'mysql2/promise'
-import { getPromoConfig, savePromoConfig, type PromoConfig } from '../../services/promo-config.service.js'
+import {
+  getPromoConfig, mergePromoConfig, savePromoConfig, validatePromoConfig, type PromoConfig,
+} from '../../services/promo-config.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { fail, ok } from '../../utils/response.js'
+import { requireRole } from '../../middleware/require-role.js'
+import { writeAuditLog } from '../../services/admin-store.js'
+import { getTenantMarkets } from '../../services/brand.service.js'
+import {
+  applyTemplateForCurrentTenant, listTemplatesForTenant,
+} from '../../services/promo-template.service.js'
 
 const router = new Router({ prefix: '/promotions' })
 
@@ -13,54 +21,12 @@ router.get('/config', async (ctx) => {
 
 router.put('/config', async (ctx) => {
   const body = ctx.request.body as Partial<PromoConfig>
-
   const current = await getPromoConfig(ctx.state.env)
-  const updated: PromoConfig = {
-    trial:    { ...current.trial,    ...(body.trial    ?? {}), amountByCcy: { ...(current.trial.amountByCcy ?? {}), ...(body.trial?.amountByCcy ?? {}) } },
-    firstdep: { ...current.firstdep, ...(body.firstdep ?? {}) },
-    appdl:    { ...current.appdl,    ...(body.appdl    ?? {}), amountByCcy: { ...(current.appdl.amountByCcy ?? {}), ...(body.appdl?.amountByCcy ?? {}) } },
-    redep:    { ...current.redep,    ...(body.redep    ?? {}) },
-    regularRedep: { ...current.regularRedep, ...(body.regularRedep ?? {}), tiers: { ...current.regularRedep.tiers, ...(body.regularRedep?.tiers ?? {}) }, dailyBonusCaps: { ...current.regularRedep.dailyBonusCaps, ...(body.regularRedep?.dailyBonusCaps ?? {}) } },
-    lossRebate: { ...current.lossRebate, ...(body.lossRebate ?? {}) },
-    popups:   body.popups ?? current.popups,
-    bonusCards: body.bonusCards ?? current.bonusCards,
-  }
-
-  // 简单校验
-  if (updated.trial.amount <= 0 || updated.trial.amount > 50000
-    || Object.values(updated.trial.amountByCcy ?? {}).some((amount) => amount <= 0)) {
-    fail(ctx, 400, 'trial PHP 金额必须在 1-50000、各币种金额必须大于 0'); return
-  }
-  if (updated.firstdep.turnoverX < 0 || updated.firstdep.turnoverDays < 0) {
-    fail(ctx, 400, 'firstdep 流水倍率/有效期不能为负'); return
-  }
-  if (updated.appdl.amount <= 0 || updated.appdl.amount > 50000
-    || Object.values(updated.appdl.amountByCcy ?? {}).some((amount) => amount <= 0) || updated.appdl.turnoverX < 0 || updated.appdl.turnoverDays < 0) {
-    fail(ctx, 400, 'appdl PHP 金额必须在 1-50000、各币种金额必须大于 0、流水倍率/有效期不能为负'); return
-  }
-  if (updated.redep.minDeposit <= 0 || updated.redep.bonusAmount < 0 || updated.redep.windowHours <= 0
-    || updated.redep.cooldownDays < 0 || updated.redep.turnoverX < 0 || updated.redep.turnoverDays < 0) {
-    fail(ctx, 400, 'redep 档位/时长必须为正,奖励/冷却/流水参数不能为负'); return
-  }
-  if (updated.regularRedep.turnoverX < 0 || updated.regularRedep.turnoverDays < 0 || updated.regularRedep.claimHours <= 0
-    || updated.regularRedep.dailyMaxClaims <= 0 || Object.values(updated.regularRedep.dailyBonusCaps).some((amount) => amount < 0)) {
-    fail(ctx, 400, '常规复充的流水、领取时限、每日次数或赠金上限配置无效'); return
-  }
-  for (const [currency, tiers] of Object.entries(updated.regularRedep.tiers)) {
-    if (tiers.some((tier) => tier.depositAmount <= 0 || tier.bonusAmount < 0)) {
-      fail(ctx, 400, `常规复充 ${currency} 档位金额必须大于 0、奖励不能为负`); return
-    }
-  }
-  if (updated.lossRebate.ratePct < 0 || updated.lossRebate.ratePct > 100 || updated.lossRebate.minDeposit < 0) {
-    fail(ctx, 400, 'lossRebate 费率须在 0-100、门槛不能为负'); return
-  }
-  for (const [currency, list] of Object.entries(updated.firstdep.tiers)) {
-    for (const tier of list) {
-      if (!(tier.depositAmount > 0) || tier.bonusAmount < 0) {
-        fail(ctx, 400, `firstdep ${currency} 档位金额必须大于 0、奖励不能为负`); return
-      }
-    }
-  }
+  const updated = mergePromoConfig(current, body)
+  // 校验与「活动模板套用」共用一份（P3-3）：两份校验漂移的后果是
+  // 「后台改不进去的值，套模板能进去」
+  const err = validatePromoConfig(updated)
+  if (err) { fail(ctx, 400, err); return }
   await savePromoConfig(ctx.state.env, updated)
   ok(ctx, updated)
 })
@@ -151,3 +117,31 @@ router.get('/claims', async (ctx) => {
 })
 
 export default router
+
+// ── 活动模板自助套用（P3-3 / P3-5）─────────────────────────────────────────
+// 🔴 只能套到自己身上：tenantId 取自上下文，不接受入参。
+// 模板内容（别家调出来的参数）不下发给租户，只给名字与覆盖范围。
+router.get('/templates', async (ctx) => {
+  const tenant = ctx.state.tenant
+  const market = tenant ? (await getTenantMarkets(tenant.id).catch(() => []))[0]?.market ?? null : null
+  ok(ctx, await listTemplatesForTenant(market))
+})
+
+router.post('/templates/:id/apply', requireRole(['super_admin', 'ops']), async (ctx) => {
+  try {
+    const res = await applyTemplateForCurrentTenant(
+      ctx.state.env, Number(ctx.params.id), ctx.state.adminUsername ?? null)
+    await writeAuditLog(ctx.state.env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: 'promo.template.apply',
+      targetType: 'promo_template',
+      targetId: String(ctx.params.id),
+      detail: res,
+      ip: ctx.ip,
+    })
+    ok(ctx, { ...res, config: await getPromoConfig(ctx.state.env) })
+  } catch (e) {
+    fail(ctx, 400, e instanceof Error ? e.message : '套用失败')
+  }
+})

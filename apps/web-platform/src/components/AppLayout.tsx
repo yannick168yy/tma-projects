@@ -1,7 +1,8 @@
 import { Layout, Menu, Button, Typography, Space, Tag } from 'antd'
 import {
   AppstoreOutlined, ClusterOutlined, DashboardOutlined, DollarOutlined, FileTextOutlined,
-  LogoutOutlined, PlusCircleOutlined, SafetyCertificateOutlined, SwapOutlined, WalletOutlined,
+  GiftOutlined, LogoutOutlined, PlusCircleOutlined, SafetyCertificateOutlined,
+  SwapOutlined, WalletOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
@@ -22,6 +23,7 @@ export default function AppLayout() {
     : pathname.startsWith('/plans') ? '/plans'
     : pathname.startsWith('/billing/') ? pathname
     : pathname.startsWith('/risk') ? '/risk'
+    : pathname.startsWith('/promo-templates') ? '/promo-templates'
     : '/tenants'
 
   return (
@@ -44,6 +46,7 @@ export default function AppLayout() {
             { key: '/billing/accounts', icon: <WalletOutlined />, label: '额度与队列' },
             { key: '/billing/reconcile', icon: <SwapOutlined />, label: '资金模式对账' },
             { key: '/risk', icon: <SafetyCertificateOutlined />, label: '风控联防' },
+            { key: '/promo-templates', icon: <GiftOutlined />, label: '活动模板' },
           ]}
         />
       </Layout.Sider>

@@ -606,3 +606,48 @@ export const getCrossTenantRisk = (minTenants = 2, idType?: string) => {
   return get<{ enabled: boolean; rows: CrossTenantRow[] }>(`/platform/risk/cross-tenant?${p.toString()}`)
 }
 export const collectRiskIdentities = () => post<{ ok: boolean }>('/platform/risk/collect', {})
+
+// ── 活动模板市场（P3-3）──
+export interface PromoTemplate {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  market: string | null
+  sections: string[]
+  config: Record<string, unknown>
+  sourceTenantCode: string | null
+  enabled: boolean
+  applyCount: number
+  createdAt: string
+}
+export interface PromoTemplateApply {
+  id: number
+  templateCode: string
+  templateName: string
+  tenantCode: string
+  appliedBy: string | null
+  bySide: string
+  createdAt: string
+}
+export interface PromoDiffRow { section: string; label: string; before: unknown; after: unknown }
+
+export const listPromoTemplates = () =>
+  get<{
+    sections: Array<{ key: string; label: string }>
+    items: PromoTemplate[]
+    history: PromoTemplateApply[]
+  }>('/platform/promo-templates')
+export const exportPromoTemplate = (tenantId: number, body: {
+  code: string; name: string; description?: string; market?: string | null; sections: string[]
+}) => post<{ id: number; items: PromoTemplate[] }>(`/platform/promo-templates/export/${tenantId}`, body)
+export const setPromoTemplateEnabled = (id: number, enabled: boolean) =>
+  put<{ items: PromoTemplate[] }>(`/platform/promo-templates/${id}/enabled`, { enabled })
+export const deletePromoTemplate = (id: number) =>
+  del<{ items: PromoTemplate[] }>(`/platform/promo-templates/${id}`)
+export const previewPromoTemplate = (id: number, tenantId: number) =>
+  get<{ templateName: string; diff: PromoDiffRow[]; error: string | null }>(
+    `/platform/promo-templates/${id}/preview/${tenantId}`)
+export const applyPromoTemplate = (id: number, tenantId: number) =>
+  post<{ applied: string[]; history: PromoTemplateApply[] }>(
+    `/platform/promo-templates/${id}/apply/${tenantId}`, {})

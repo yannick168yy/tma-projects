@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Card, InputNumber, Select, Switch, Button, message, Typography, Row, Col, Spin, Tabs, Table, Space, Segmented } from 'antd'
+import { Alert, Card, InputNumber, Select, Switch, Button, message, Typography, Row, Col, Spin, Tabs, Table, Space, Segmented, Popconfirm } from 'antd'
 import { GiftOutlined, PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
-import { getPromoConfig, savePromoConfig, triggerVipNegativeRebate, FIRSTDEP_CURRENCIES, CONFIG_CCY_OPTIONS, type PromoConfig, type FirstDepTier, type RegularRedepTier, type PopupConfig, type BonusCard } from '../api'
+import { getPromoConfig, savePromoConfig, triggerVipNegativeRebate, listPromoTemplates, applyPromoTemplate, FIRSTDEP_CURRENCIES, CONFIG_CCY_OPTIONS, type PromoConfig, type FirstDepTier, type RegularRedepTier, type PopupConfig, type BonusCard, type PromoTemplateOption } from '../api'
 
 const { Title, Text } = Typography
 
@@ -54,6 +54,20 @@ export default function Promotions() {
   const [redepCcy, setRedepCcy] = useState<string>('PHP')
   const [lossCcy, setLossCcy] = useState<string>('PHP')
   const [generalCcy, setGeneralCcy] = useState<string>('PHP')
+  // 活动模板自助套用（P3-3 / P3-5）：平台把调好的一套参数做成模板，这里一键套
+  const [templates, setTemplates] = useState<PromoTemplateOption[]>([])
+  const [applyingTpl, setApplyingTpl] = useState<number | null>(null)
+
+  async function applyTemplate(id: number) {
+    setApplyingTpl(id)
+    try {
+      const res = await applyPromoTemplate(id)
+      message.success(`已套用：${res.applied.join('、')}。下面显示的就是套用后的参数`)
+      await load()
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '套用失败')
+    } finally { setApplyingTpl(null) }
+  }
 
   async function settleNow() {
     setSettling(true)
@@ -66,6 +80,8 @@ export default function Promotions() {
 
   async function load() {
     setLoading(true)
+    // 模板拉不到不影响主功能：这页的主职责是改参数，模板只是快捷方式
+    void listPromoTemplates().then(setTemplates).catch(() => setTemplates([]))
     try {
       const data = await getPromoConfig()
       for (const c of FIRSTDEP_CURRENCIES) if (!data.firstdep.tiers[c]) data.firstdep.tiers[c] = []
@@ -571,6 +587,32 @@ export default function Promotions() {
         <Title level={4} style={{ margin: 0 }}>活动配置</Title>
         <Text type="secondary" style={{ fontSize: 13 }}>修改后客户端展示和发放金额即时同步</Text>
       </div>
+
+      {templates.length > 0 && (
+        <Alert style={{ marginBottom: 16 }} type="info" showIcon
+          message="套用平台活动模板"
+          description={
+            <Space direction="vertical" size={6} style={{ width: '100%' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                模板只覆盖它包含的区块，其余参数保持现状；套用后可以继续手工微调再保存。
+              </Text>
+              <Space wrap>
+                {templates.map((t) => (
+                  <Popconfirm key={t.id} title={`套用「${t.name}」？`}
+                    description={`将覆盖：${t.sectionLabels.join('、')}。当前参数会存进套用记录，可找平台回滚。`}
+                    onConfirm={() => void applyTemplate(t.id)}>
+                    <Button size="small" loading={applyingTpl === t.id}>
+                      {t.name}
+                      <Text type="secondary" style={{ fontSize: 11, marginLeft: 6 }}>
+                        {t.sectionLabels.length} 个区块
+                      </Text>
+                    </Button>
+                  </Popconfirm>
+                ))}
+              </Space>
+            </Space>
+          } />
+      )}
 
       <Tabs
         defaultActiveKey="general"

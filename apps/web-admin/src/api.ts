@@ -1269,6 +1269,19 @@ export interface PromoConfig {
 export const getPromoConfig = () => get<PromoConfig>('/admin/promotions/config')
 export const savePromoConfig = (data: PromoConfig) => req<PromoConfig>('PUT', '/admin/promotions/config', data)
 
+// ── 活动模板自助套用（P3-3 / P3-5）──
+// 模板内容（别家调出来的参数）不下发，只给名字与覆盖范围；套用后返回新配置
+export interface PromoTemplateOption {
+  id: number
+  name: string
+  description: string | null
+  sections: string[]
+  sectionLabels: string[]
+}
+export const listPromoTemplates = () => get<PromoTemplateOption[]>('/admin/promotions/templates')
+export const applyPromoTemplate = (id: number) =>
+  post<{ applied: string[]; config: PromoConfig }>(`/admin/promotions/templates/${id}/apply`, {})
+
 // 每日签到配置
 export type CheckinTier = 'starter' | 'premium' | 'elite'
 export interface CheckinReward { tier: CheckinTier; n: number }
