@@ -3,7 +3,11 @@ import type { RowDataPacket } from 'mysql2/promise'
 import { getPlatformPool } from '../../clients/platform-mysql.client.js'
 import { getDefaultRedis } from '../../clients/redis.client.js'
 import { platformAuthMiddleware } from '../../middleware/platform-auth.js'
-import { loginPlatformAdmin, logoutPlatformAdmin } from '../../services/platform-auth.service.js'
+import {
+  clearPlatformTotpSetupRequired, disablePlatformAdminTotp, getPlatformAdminById,
+  loginPlatformAdmin, logoutPlatformAdmin, setPlatformAdminTotpSecret, verifyPlatformTotpLogin,
+} from '../../services/platform-auth.service.js'
+import { buildTotpUri, generateTotpSecret, verifyTotpCode } from '../../utils/totp.js'
 import { invalidateTenantHostCache } from '../../services/tenant.service.js'
 import { dropTenantPool } from '../../clients/mysql.client.js'
 import { platformRootDomain, refreshDomainCertStatus } from '../../services/domain-cert.service.js'
@@ -99,12 +103,59 @@ async function loadI18nCatalog(): Promise<Record<string, string> | null> {
 export function createPlatformRouter(): Router {
   const router = new Router({ prefix: '/platform' })
 
+  // 平台后台没有 IP 白名单兜底，登录页对全网可达，必须自己扛暴力破解：
+  // 同一 IP+账号连错 5 次锁 15 分钟。锁的是组合而不是账号，避免拿它去锁死别人。
+  const LOGIN_MAX_FAILS = 5
+  const LOGIN_LOCK_SEC = 900
+
   router.post('/auth/login', async (ctx) => {
     const body = ctx.request.body as { username?: string; password?: string }
     if (!body.username || !body.password) return fail(ctx, 400, '账号与密码必填')
-    const res = await loginPlatformAdmin(getDefaultRedis(ctx.state.env), body.username, body.password)
+    const redis = getDefaultRedis(ctx.state.env)
+    const ip = (ctx.ip || 'unknown').replace(/^::ffff:/i, '')
+    const username = body.username.trim()
+    const failureKey = `platform:login:fails:${ip}:${username}`
+    const lockKey = `platform:login:lock:${ip}:${username}`
+    if (await redis.get(lockKey)) return fail(ctx, 429, '尝试过于频繁，请 15 分钟后再试', 429)
+
+    const res = await loginPlatformAdmin(redis, ctx.state.env, username, body.password)
     // 不区分「账号不存在」与「密码错误」，避免账号枚举
-    if (!res) return fail(ctx, 401, '账号或密码错误', 401)
+    if (!res) {
+      const failed = await redis.incr(failureKey)
+      if (failed === 1) await redis.expire(failureKey, LOGIN_LOCK_SEC)
+      if (failed >= LOGIN_MAX_FAILS) {
+        await redis.set(lockKey, '1', 'EX', LOGIN_LOCK_SEC)
+        await redis.del(failureKey)
+        return fail(ctx, 429, '尝试过于频繁，请 15 分钟后再试', 429)
+      }
+      return fail(ctx, 401, '账号或密码错误', 401)
+    }
+    await redis.del(failureKey, lockKey)
+    ok(ctx, res)
+  })
+
+  router.post('/auth/login/totp', async (ctx) => {
+    const body = ctx.request.body as { challengeToken?: string; code?: string }
+    if (!body.challengeToken || !body.code) return fail(ctx, 400, 'challengeToken 与验证码必填')
+    const redis = getDefaultRedis(ctx.state.env)
+    const ip = (ctx.ip || 'unknown').replace(/^::ffff:/i, '')
+    // 第二步单独限流：challenge 票有效期内只有 6 位数字要猜，不锁就是 10^6 在线爆破
+    const failureKey = `platform:totp:fails:${ip}`
+    const lockKey = `platform:totp:lock:${ip}`
+    if (await redis.get(lockKey)) return fail(ctx, 429, '验证码尝试过于频繁，请 15 分钟后再试', 429)
+
+    const res = await verifyPlatformTotpLogin(redis, body.challengeToken, body.code)
+    if (!res) {
+      const failed = await redis.incr(failureKey)
+      if (failed === 1) await redis.expire(failureKey, LOGIN_LOCK_SEC)
+      if (failed >= LOGIN_MAX_FAILS) {
+        await redis.set(lockKey, '1', 'EX', LOGIN_LOCK_SEC)
+        await redis.del(failureKey)
+        return fail(ctx, 429, '验证码尝试过于频繁，请 15 分钟后再试', 429)
+      }
+      return fail(ctx, 401, '验证码错误或已过期', 401)
+    }
+    await redis.del(failureKey, lockKey)
     ok(ctx, res)
   })
 
@@ -117,7 +168,63 @@ export function createPlatformRouter(): Router {
 
   router.get('/auth/me', auth, async (ctx) => {
     const s = ctx.state.platformAdmin!
-    ok(ctx, { id: s.adminId, username: s.username, role: s.role })
+    ok(ctx, {
+      id: s.adminId, username: s.username, role: s.role,
+      totpSetupRequired: s.totpSetupRequired ?? false,
+    })
+  })
+
+  // ── Google Authenticator 绑定 ─────────────────────────────────────────────
+  // 密钥在确认前只存 Redis：没验过的密钥落库，等于给账号挂一个谁也没拿在手上的第二因子
+  const TOTP_SETUP_TTL_SEC = 600
+  const setupKey = (adminId: number) => `platform:totp:setup:${adminId}`
+
+  router.get('/security/totp/status', auth, async (ctx) => {
+    const admin = await getPlatformAdminById(ctx.state.platformAdmin!.adminId)
+    if (!admin) return fail(ctx, 404, '账号不存在', 404)
+    ok(ctx, { enabled: Boolean(admin.totp_secret) })
+  })
+
+  router.post('/security/totp/setup', auth, async (ctx) => {
+    const admin = await getPlatformAdminById(ctx.state.platformAdmin!.adminId)
+    if (!admin) return fail(ctx, 404, '账号不存在', 404)
+    const secret = generateTotpSecret()
+    await getDefaultRedis(ctx.state.env).setex(setupKey(admin.id), TOTP_SETUP_TTL_SEC, secret)
+    ok(ctx, {
+      secret,
+      otpauthUri: buildTotpUri({ issuer: 'BetoGo Platform', account: admin.username, secret }),
+      expiresIn: TOTP_SETUP_TTL_SEC,
+    })
+  })
+
+  router.post('/security/totp/enable', auth, async (ctx) => {
+    const body = ctx.request.body as { code?: string }
+    if (!body.code) return fail(ctx, 400, '请输入验证码')
+    const session = ctx.state.platformAdmin!
+    const redis = getDefaultRedis(ctx.state.env)
+    const secret = await redis.get(setupKey(session.adminId))
+    if (!secret) return fail(ctx, 400, '二维码已过期，请重新生成')
+    if (!verifyTotpCode(secret, body.code)) return fail(ctx, 400, '验证码错误')
+    await setPlatformAdminTotpSecret(session.adminId, secret)
+    await redis.del(setupKey(session.adminId))
+    await clearPlatformTotpSetupRequired(redis, ctx.get('Authorization').slice(7))
+    await writeAudit(session.adminId, ctx.ip, 'platform_admin.totp_enable', null, { username: session.username })
+    ok(ctx, { enabled: true })
+  })
+
+  // 解绑要验当前验证码：只靠 session 就能解绑，等于把「手机丢了」和「session 被偷了」当成同一件事
+  router.post('/security/totp/disable', auth, async (ctx) => {
+    const body = ctx.request.body as { code?: string }
+    const session = ctx.state.platformAdmin!
+    const admin = await getPlatformAdminById(session.adminId)
+    if (!admin) return fail(ctx, 404, '账号不存在', 404)
+    if (!admin.totp_secret) return fail(ctx, 400, '当前未绑定')
+    if (!body.code) return fail(ctx, 400, '请输入验证码')
+    if (!verifyTotpCode(admin.totp_secret, body.code)) return fail(ctx, 400, '验证码错误')
+    await disablePlatformAdminTotp(session.adminId)
+    await getDefaultRedis(ctx.state.env).del(setupKey(session.adminId))
+    await writeAudit(session.adminId, ctx.ip, 'platform_admin.totp_disable', null, { username: session.username })
+    ok(ctx, { enabled: false })
   })
 
   router.get('/tenants', auth, async (ctx) => {

@@ -38,6 +38,12 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((v) => v === 'true'),
+  // 平台控制台是否强制绑定 Google Authenticator。与租户后台不同，这里对**所有**平台角色
+  // 生效且默认 true：平台后台没有 IP 白名单兜底，而任何一个平台角色都看得到全部租户的资金。
+  PLATFORM_TOTP_REQUIRED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
   // 租户解析严格模式。false=未登记域名回落自营站并告警（P0 观察期默认）；
   // true=未登记域名直接 404。第一个包网客户上线前必须切 true，否则别家域名会打到自营库
   TENANT_RESOLVE_STRICT: z

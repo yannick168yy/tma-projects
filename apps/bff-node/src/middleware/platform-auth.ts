@@ -20,6 +20,20 @@ export function platformAuthMiddleware(...roles: PlatformRole[]): Middleware {
       fail(ctx, 401, 'Platform session expired or invalid', 401)
       return
     }
+    // 未绑 TOTP 的受限会话：只放行绑定流程本身与身份查询/登出。
+    // 不含 disable —— 否则拿到受限 session 就能把强制绑定关掉，这道闸门等于没有。
+    if (session.totpSetupRequired) {
+      const p = ctx.path
+      const allowed = p === '/api/v1/platform/auth/me'
+        || p === '/api/v1/platform/auth/logout'
+        || p === '/api/v1/platform/security/totp/status'
+        || p === '/api/v1/platform/security/totp/setup'
+        || p === '/api/v1/platform/security/totp/enable'
+      if (!allowed) {
+        fail(ctx, 403, 'TOTP setup required', 403)
+        return
+      }
+    }
     if (roles.length > 0 && !roles.includes(session.role)) {
       fail(ctx, 403, '无操作权限', 403)
       return

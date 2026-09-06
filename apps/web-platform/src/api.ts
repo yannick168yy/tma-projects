@@ -40,10 +40,31 @@ export const put = <T>(url: string, body?: unknown) => unwrap<T>(http.put(url, b
 export const del = <T>(url: string) => unwrap<T>(http.delete(url))
 
 // ── 平台认证 ──
-export interface PlatformLoginResult { token: string; role: string; username: string }
+export interface PlatformLoginResult {
+  token: string
+  role: string
+  username: string
+  requiresTotp?: false
+  /** 强制绑定 Google Authenticator 但还没绑：这个 session 只能用于绑定 */
+  totpSetupRequired?: boolean
+}
+export interface PlatformTotpChallenge { requiresTotp: true; challengeToken: string; expiresIn: number }
+
 export const platformLogin = (username: string, password: string) =>
-  post<PlatformLoginResult>('/platform/auth/login', { username, password })
-export const platformMe = () => get<{ id: number; username: string; role: string }>('/platform/auth/me')
+  post<PlatformLoginResult | PlatformTotpChallenge>('/platform/auth/login', { username, password })
+export const platformLoginTotp = (challengeToken: string, code: string) =>
+  post<PlatformLoginResult>('/platform/auth/login/totp', { challengeToken, code })
+export const platformMe = () =>
+  get<{ id: number; username: string; role: string; totpSetupRequired: boolean }>('/platform/auth/me')
+
+// ── Google Authenticator 绑定 ──
+export interface PlatformTotpSetup { secret: string; otpauthUri: string; expiresIn: number }
+export const getPlatformTotpStatus = () => get<{ enabled: boolean }>('/platform/security/totp/status')
+export const setupPlatformTotp = () => post<PlatformTotpSetup>('/platform/security/totp/setup')
+export const enablePlatformTotp = (code: string) =>
+  post<{ enabled: boolean }>('/platform/security/totp/enable', { code })
+export const disablePlatformTotp = (code: string) =>
+  post<{ enabled: boolean }>('/platform/security/totp/disable', { code })
 
 // ── 租户总览 ──
 export interface PlatformTenant {

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import Login from './views/Login'
+import Security from './views/Security'
 import Tenants from './views/Tenants'
 import PlatformOverview from './views/Overview'
 import CreateTenant from './views/CreateTenant'
@@ -27,6 +28,13 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return token ? <>{children}</> : <Navigate to="/login" replace />
 }
 
+// 未绑 TOTP 的受限会话除了绑定页哪都去不了。后端 platformAuthMiddleware 已经挡死了，
+// 这里只是免得页面加载出来一片 403。
+function RequireTotpBound({ children }: { children: React.ReactNode }) {
+  const mustSetup = useAuthStore((s) => s.totpSetupRequired)
+  return mustSetup ? <Navigate to="/security" replace /> : <>{children}</>
+}
+
 // 前端只是少让人点错；真正的权限边界是后端 platformAuthMiddleware('platform_super')
 function RequireSuper({ children }: { children: React.ReactNode }) {
   const role = useAuthStore((s) => s.role)
@@ -39,17 +47,18 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route index element={<Navigate to="/overview" replace />} />
-        <Route path="overview" element={<PlatformOverview />} />
-        <Route path="tenants" element={<Tenants />} />
-        <Route path="tenants/new" element={<RequireSuper><CreateTenant /></RequireSuper>} />
-        <Route path="plans" element={<Plans />} />
-        <Route path="billing/plans" element={<BillingPlans />} />
-        <Route path="billing/invoices" element={<Invoices />} />
-        <Route path="billing/accounts" element={<Accounts />} />
-        <Route path="billing/reconcile" element={<Reconcile />} />
-        <Route path="risk" element={<RiskFederation />} />
-        <Route path="promo-templates" element={<PromoTemplates />} />
-        <Route path="tenants/:id" element={<TenantLayout />}>
+        <Route path="security" element={<Security />} />
+        <Route path="overview" element={<RequireTotpBound><PlatformOverview /></RequireTotpBound>} />
+        <Route path="tenants" element={<RequireTotpBound><Tenants /></RequireTotpBound>} />
+        <Route path="tenants/new" element={<RequireTotpBound><RequireSuper><CreateTenant /></RequireSuper></RequireTotpBound>} />
+        <Route path="plans" element={<RequireTotpBound><Plans /></RequireTotpBound>} />
+        <Route path="billing/plans" element={<RequireTotpBound><BillingPlans /></RequireTotpBound>} />
+        <Route path="billing/invoices" element={<RequireTotpBound><Invoices /></RequireTotpBound>} />
+        <Route path="billing/accounts" element={<RequireTotpBound><Accounts /></RequireTotpBound>} />
+        <Route path="billing/reconcile" element={<RequireTotpBound><Reconcile /></RequireTotpBound>} />
+        <Route path="risk" element={<RequireTotpBound><RiskFederation /></RequireTotpBound>} />
+        <Route path="promo-templates" element={<RequireTotpBound><PromoTemplates /></RequireTotpBound>} />
+        <Route path="tenants/:id" element={<RequireTotpBound><TenantLayout /></RequireTotpBound>}>
           <Route index element={<Navigate to="overview" replace />} />
           <Route path="overview" element={<Overview />} />
           <Route path="plan" element={<Plan />} />
