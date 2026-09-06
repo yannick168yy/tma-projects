@@ -73,6 +73,7 @@ import { ok, fail } from '../../utils/response.js'
 import { writeAudit } from '../../services/platform-audit.service.js'
 import { invalidateChannelOwnershipCache } from '../../services/billing/settlement-mode.service.js'
 import { listAllBuildRequests, resolveBuildRequest } from '../../services/self-service.service.js'
+import { listAllApiKeys, revokeApiKeyByPlatform } from '../../services/open-api.service.js'
 
 /**
  * 平台控制台 API。与 /admin（租户后台）完全分离：
@@ -892,6 +893,21 @@ export function createPlatformRouter(): Router {
     if (!done) return fail(ctx, 400, '该申请不存在或已处理')
     await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'app.build.resolve', null, { id, status })
     ok(ctx, await listAllBuildRequests('pending'))
+  })
+
+  // ── 开放 API 密钥总览（P3-7）──────────────────────────────────────────────
+  // 客户自己开自己的 key，平台这里只做两件事：看有没有异常（谁在什么 IP 用）、
+  // 泄露时先行吊销。平台不能替客户创建 —— 创建时会返回完整 key，
+  // 那把 key 就会经过平台的人手里
+  router.get('/api-keys', platformAuthMiddleware(), async (ctx) => {
+    ok(ctx, await listAllApiKeys())
+  })
+
+  router.delete('/api-keys/:id', platformAuthMiddleware('platform_super', 'platform_ops'), async (ctx) => {
+    const id = Number(ctx.params.id)
+    if (!(await revokeApiKeyByPlatform(id))) return fail(ctx, 404, '该密钥不存在')
+    await writeAudit(ctx.state.platformAdmin?.adminId ?? null, ctx.ip, 'openapi.key.revoke', null, { id })
+    ok(ctx, await listAllApiKeys())
   })
 
   return router

@@ -14,6 +14,7 @@ import { runDunning } from './services/billing/dunning.service.js'
 import { runPlatformBi } from './services/billing/platform-bi.service.js'
 import { reverseFailedPayouts } from './services/billing/payout-quota.service.js'
 import { runIdentityCollection } from './services/risk-federation.service.js'
+import { createOpenApiRouter } from './routes/open/index.js'
 import { childLogger } from './lib/logger.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
@@ -368,6 +369,12 @@ export function createApp(env: Env): Koa {
 
   // 欠费降级：停提现/停充值/停站的真正生效点（P2-10）
   app.use(tenantGateMiddleware())
+
+  // 开放 API（P3-7）：自带 X-Api-Key 鉴权与按 key 限流，不走 admin/平台的会话体系。
+  // 挂在 /api/open/v1，与内部 /api/v1 分开 —— 两者的版本号不是一回事
+  const openApi = createOpenApiRouter()
+  app.use(openApi.routes())
+  app.use(openApi.allowedMethods())
 
   const api = createApiRouter()
   app.use(api.routes())

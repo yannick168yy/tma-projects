@@ -6,6 +6,11 @@ import {
   saveSelfApp, saveSelfChannelCredential,
 } from '../../services/self-service.service.js'
 import type { TenantAppBuild } from '../../services/tenant-app.service.js'
+import { currentTenant } from '../../lib/tenant-context.js'
+import { writeAuditLog } from '../../services/admin-store.js'
+import {
+  API_SCOPES, createApiKey, isApiScope, listApiKeys, revokeApiKey, SCOPE_LABEL,
+} from '../../services/open-api.service.js'
 
 /**
  * 租户自助（P3-5）。
@@ -66,3 +71,56 @@ router.post('/app/:market/build', guard, async (ctx) => {
 })
 
 export default router
+
+// ── 开放 API 密钥（P3-7）─────────────────────────────────────────────────────
+// 客户自己开、自己吊销。完整 key 只在创建那一次返回 —— 能随时查看意味着
+// 任何一个能进后台的人都能拿走全部 key。
+router.get('/api-keys', guard, async (ctx) => {
+  ok(ctx, {
+    scopes: API_SCOPES.map((s) => ({ scope: s, label: SCOPE_LABEL[s] })),
+    items: await listApiKeys(currentTenant().id),
+  })
+})
+
+router.post('/api-keys', guard, async (ctx) => {
+  const b = ctx.request.body as Record<string, unknown>
+  const name = String(b.name ?? '').trim()
+  if (!name) return fail(ctx, 400, '请填用途备注：三个月后没人记得这把 key 是给谁的')
+  const scopes = (Array.isArray(b.scopes) ? b.scopes : []).filter(isApiScope)
+  if (scopes.length === 0) return fail(ctx, 400, '至少选一个权限范围')
+  const ratePerMin = Math.min(600, Math.max(10, Number(b.ratePerMin ?? 120)))
+  const ipAllowlist = String(b.ipAllowlist ?? '').split(/[,\s]+/).map((s) => s.trim()).filter(Boolean)
+  const tenant = currentTenant()
+  const res = await createApiKey(tenant.id, {
+    name, scopes, ratePerMin, ipAllowlist,
+    expiresAt: b.expiresAt ? String(b.expiresAt) : null,
+    createdBy: ctx.state.adminUsername ?? null,
+  })
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'openapi.key.create',
+    targetType: 'api_key',
+    targetId: String(res.row.id),
+    // 审计里只记前缀与权限，不记完整 key
+    detail: { keyPrefix: res.row.keyPrefix, scopes, ratePerMin },
+    ip: ctx.ip,
+  })
+  ok(ctx, { key: res.key, items: await listApiKeys(tenant.id) })
+})
+
+router.delete('/api-keys/:id', guard, async (ctx) => {
+  const tenant = currentTenant()
+  const id = Number(ctx.params.id)
+  if (!(await revokeApiKey(tenant.id, id))) return fail(ctx, 404, '该密钥不存在')
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'openapi.key.revoke',
+    targetType: 'api_key',
+    targetId: String(id),
+    detail: {},
+    ip: ctx.ip,
+  })
+  ok(ctx, { items: await listApiKeys(tenant.id) })
+})

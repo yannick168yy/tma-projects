@@ -2119,3 +2119,26 @@ export const saveSelfApp = (market: string, body: Partial<SelfAppBuild>) =>
   req<{ items: SelfAppBuild[]; requests: SelfBuildRequest[] }>('PUT', `/admin/self-service/app/${market}`, body)
 export const requestAppBuild = (market: string, note: string) =>
   post<{ requests: SelfBuildRequest[] }>(`/admin/self-service/app/${market}/build`, { note })
+
+// ── 开放 API 密钥（P3-7）──
+export interface ApiKeyRow {
+  id: number
+  name: string
+  keyPrefix: string
+  scopes: string[]
+  ratePerMin: number
+  ipAllowlist: string[]
+  enabled: boolean
+  lastUsedAt: string | null
+  lastUsedIp: string | null
+  expiresAt: string | null
+  createdBy: string | null
+  createdAt: string
+}
+export const getApiKeys = () =>
+  get<{ scopes: Array<{ scope: string; label: string }>; items: ApiKeyRow[] }>('/admin/self-service/api-keys')
+export const createApiKey = (body: {
+  name: string; scopes: string[]; ratePerMin: number; ipAllowlist: string; expiresAt?: string | null
+}) => post<{ key: string; items: ApiKeyRow[] }>('/admin/self-service/api-keys', body)
+export const revokeApiKey = (id: number) =>
+  del<{ items: ApiKeyRow[] }>(`/admin/self-service/api-keys/${id}`)
