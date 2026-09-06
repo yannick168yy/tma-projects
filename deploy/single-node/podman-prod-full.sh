@@ -28,6 +28,8 @@ fi
 
 # P1-0d：容器固定 IP + hosts 注入，绕开 musl 并行 DNS 的 NXDOMAIN 竞态
 source "$(dirname "$0")/peer-hosts.sh"
+# 沿用容器当前地址；默认值是测试机的，在生产上是错的
+peer_pin_live_ips
 
 run() {
   if [[ "$CTR" == podman ]]; then

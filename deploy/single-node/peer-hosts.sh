@@ -27,6 +27,21 @@ _peer_live_ip() {
   "$ctr" inspect "$name" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null | head -1
 }
 
+# 用法：peer_pin_live_ips（在 rm 掉任何容器之前调用一次），把 PEER_IP_* 覆盖为容器当前实际地址。
+# WHY：上面那些默认值取自阿里云测试机，生产的地址完全不同（实测生产 mysql 在 .109 而非 .177）。
+# 拿默认值去 --ip 会把容器钉到错误地址，其他容器 hosts 里的旧地址随即失效 ——
+# 这比 DNS 抖动糟得多：不是 4% 概率失败，而是 100% 连不上。
+# 所以永远优先沿用容器已持有的地址，只有容器不存在时才落到默认值。
+peer_pin_live_ips() {
+  local live
+  live="$(_peer_live_ip tma-mysql)";     [[ -n "$live" ]] && PEER_IP_MYSQL="$live"
+  live="$(_peer_live_ip tma-redis)";     [[ -n "$live" ]] && PEER_IP_REDIS="$live"
+  live="$(_peer_live_ip tma-nats)";      [[ -n "$live" ]] && PEER_IP_NATS="$live"
+  live="$(_peer_live_ip tma-core-node)"; [[ -n "$live" ]] && PEER_IP_CORE_NODE="$live"
+  live="$(_peer_live_ip tma-bff-node)";  [[ -n "$live" ]] && PEER_IP_BFF_NODE="$live"
+  return 0
+}
+
 # 用法：peer_host_args <本容器名>，输出可直接展开的 --add-host 参数
 # 本容器自己不写进 hosts（重建时它还不存在）
 peer_host_args() {

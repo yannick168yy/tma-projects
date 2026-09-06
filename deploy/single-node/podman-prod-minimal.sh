@@ -64,6 +64,8 @@ run() {
 
 # P1-0d：容器固定 IP（应用容器靠 /etc/hosts 直连，绕开 musl 并行 DNS 的 NXDOMAIN 竞态）
 source "$(dirname "$0")/peer-hosts.sh"
+# 沿用容器当前地址；默认值是测试机的，在生产上是错的
+peer_pin_live_ips
 
 OPTIONAL_CONTAINERS=(tma-nacos tma-rabbitmq tma-core-java tma-core-node tma-nats)
 

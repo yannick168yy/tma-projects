@@ -158,16 +158,22 @@ for t in "${TARGETS[@]}"; do
     web-platform)
       echo "### web-platform（平台控制台）"
       (cd "$ROOT/apps/web-platform" && npm run build >/dev/null)
-      remote "mkdir -p $PROD_DIR/apps/web-platform/dist"
+      remote "mkdir -p $PROD_DIR/apps/web-platform/dist $PROD_DIR/apps/web-platform/nginx"
       sync_dist web-platform
-      if [[ -n "${PLATFORM_SITE_DIR:-}" ]]; then
-        echo "==> [web-platform] 同步到站点目录 $PLATFORM_SITE_DIR"
-        rsync -az --delete -e "$RSH" \
-          "$ROOT/apps/web-platform/dist/" "$PROD_HOST:$PLATFORM_SITE_DIR/"
-        echo "    完成（静态文件，nginx 即时生效）"
+      rsync -az -e "$RSH" "$ROOT/apps/web-platform/Dockerfile" \
+        "$PROD_HOST:$PROD_DIR/apps/web-platform/Dockerfile"
+      rsync -az -e "$RSH" "$ROOT/apps/web-platform/nginx/default.conf" \
+        "$PROD_HOST:$PROD_DIR/apps/web-platform/nginx/default.conf"
+      remote "mkdir -p $PROD_DIR/deploy/single-node"
+      rsync -az -e "$RSH" "$ROOT/deploy/single-node/recreate-web-platform.sh" \
+        "$PROD_HOST:$PROD_DIR/deploy/single-node/"
+      if remote "sudo podman container exists tma-web-platform"; then
+        remote "sudo podman restart tma-web-platform >/dev/null"; sleep 3
+        health "http://127.0.0.1:${PLATFORM_PORT:-8090}/platform/" web-platform
       else
-        echo "    ⚠️ 未设置 PLATFORM_SITE_DIR：dist 已就位，但还没有 nginx 站点承载它。"
-        echo "       平台控制台必须用独立域名 + IP 白名单，不能与租户站点共用域名。"
+        echo "    ⚠️ 生产还没有 tma-web-platform 容器，dist 与配置已就位。创建它："
+        echo "       sudo bash $PROD_DIR/deploy/single-node/recreate-web-platform.sh"
+        echo "    公网入口还需 DNS + 证书 + IP 白名单，见 deploy/single-node/nginx-platform-prod.conf"
       fi
       ;;
     db)

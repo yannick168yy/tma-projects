@@ -40,11 +40,31 @@ DB_USER=${DB_USER:-$(env_val MYSQL_USER)}
 DB_PASS=$(env_val MYSQL_BETOGO_PASSWORD)
 DB_PASS=${DB_PASS:-$(env_val MYSQL_PASSWORD)}
 DB_USER=${DB_USER:-betogo}
-ROOT_PW=$(env_val MYSQL_ROOT_PASSWORD)
+
+# root 密码有两个来源，且生产上它们并不一致：.env 里那份与 MySQL 容器初始化时用的
+# 已经对不上（历史手工改过），只信 .env 会直接 Access denied 而看不出原因。
+# 两个候选都试一遍，谁连得通用谁 —— 容器自身的环境变量优先，它就是建库时的那把。
+resolve_root_pw() {
+  local from_ctr from_env cand
+  from_ctr=$($CTR inspect "$MYSQL_CTR" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+    | grep -m1 '^MYSQL_ROOT_PASSWORD=' | cut -d= -f2-)
+  from_env=$(env_val MYSQL_ROOT_PASSWORD)
+  for cand in "$from_ctr" "$from_env"; do
+    [ -n "$cand" ] || continue
+    if $CTR exec "$MYSQL_CTR" mysql -uroot -p"$cand" -e "SELECT 1" >/dev/null 2>&1; then
+      ROOT_PW="$cand"
+      return 0
+    fi
+  done
+  echo "  [db] 警告：容器环境变量与 .env 里的 root 密码都连不上 MySQL" >&2
+  ROOT_PW=""
+  return 1
+}
+resolve_root_pw
 
 run_platform() {
   if [ -z "$ROOT_PW" ]; then
-    echo "  [db] .env 缺少 MYSQL_ROOT_PASSWORD，无法建平台库" >&2
+    echo "  [db] 拿不到可用的 root 密码，无法建平台库（建库与授权只能用 root）" >&2
     exit 1
   fi
 

@@ -27,6 +27,8 @@ run() { if [[ "$CTR" == podman ]]; then podman "$@"; else docker "$@"; fi; }
 
 # P1-0d：固定 IP + hosts 注入，绕开 musl 并行 DNS 导致的 ENOTFOUND
 source "$DIR/deploy/single-node/peer-hosts.sh"
+# 必须在 rm 之前钉住：默认值是测试机的地址，拿到生产用会把容器钉错位置
+peer_pin_live_ips
 mapfile -t ADD_HOSTS < <(peer_host_args tma-bff-node)
 
 run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
