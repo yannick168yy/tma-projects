@@ -5,6 +5,7 @@ import type { Env } from '../config/env.js'
 import { getLevelThresholds, resolveLevel } from './rebate.service.js'
 import { usdtRateMap } from './marketing-bi.service.js'
 import { HOME_LAYOUT_KEYS, HOME_LAYOUT_SECTIONS, sanitizeSectionParams, type HomeSectionParams } from './sg-game.service.js'
+import { DEFAULT_AGGREGATOR } from '../lib/aggregators.js'
 
 export interface OrderSummary {
   usdt: number                                         // 全币种折 USDT 合计
@@ -1016,7 +1017,7 @@ export async function listWin568CoverCandidates(
     )
     const seen = new Set<string>()
     const candidates = rows
-      .map((r) => ({ source: String(r.provider || '568win'), url: String(r.icon_url), animUrl: null }))
+      .map((r) => ({ source: String(r.provider || DEFAULT_AGGREGATOR), url: String(r.icon_url), animUrl: null }))
       .filter((c) => {
         if (seen.has(c.url)) return false
         seen.add(c.url)
@@ -1041,11 +1042,11 @@ export async function listWin568CoverCandidates(
   const candidates = rows.map((r) => ({ source: String(r.source), url: String(r.url), animUrl: r.anim_url ? String(r.anim_url) : null }))
   const iconUrl = g?.icon_url ? String(g.icon_url) : ''
   // 568win 上游原图作为兜底候选（放最后）
-  if (iconUrl) candidates.push({ source: '568win', url: iconUrl, animUrl: null })
+  if (iconUrl) candidates.push({ source: DEFAULT_AGGREGATOR, url: iconUrl, animUrl: null })
 
   // 当前实际生效的封面：与 loadGamesCache 的 COALESCE 优先级一致
   // 手动override > playtime > fbmplay > bingoplus > 568win 上游原图
-  let currentSource = '568win', currentUrl = iconUrl
+  let currentSource: string = DEFAULT_AGGREGATOR, currentUrl = iconUrl
   if (g?.image_override) {
     currentSource = String(g.image_override_source || 'manual'); currentUrl = String(g.image_override)
   } else {

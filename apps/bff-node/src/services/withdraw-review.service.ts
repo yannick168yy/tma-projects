@@ -11,6 +11,7 @@ import { notifyWithdrawManual } from './admin-notify.js'
 import { recommendedUserReasonForRule } from './withdraw-reject-reason.service.js'
 import { compareKycNames } from './kyc.service.js'
 import { getRate } from './exchange-rate.service.js'
+import { DEFAULT_AGGREGATOR } from '../lib/aggregators.js'
 
 // ── 规则结果 / 上下文 ─────────────────────────────────────────────────────────
 
@@ -691,7 +692,7 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
      WHERE l.user_id = ? AND l.type = 'bonus' AND l.ref_type = 'game'
        AND NOT EXISTS (
          SELECT 1 FROM bg_bet_order o
-         WHERE o.aggregator_id = '568win' AND o.provider_txn_id = CONCAT('bonus:', l.ref_id)
+         WHERE o.aggregator_id = '${DEFAULT_AGGREGATOR}' AND o.provider_txn_id = CONCAT('bonus:', l.ref_id)
        )`,
     [sinceDate, usdRate, idrRate, usdRate, idrRate, userId],
   )

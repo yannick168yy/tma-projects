@@ -5,6 +5,7 @@ import { creditWalletTx } from './store/mysql-store.js'
 import { randomBytes } from 'node:crypto'
 import { getUserTotalTurnover, getLevelThresholds, resolveLevel } from './rebate.service.js'
 import { getLossRebateConfigByPool } from './promo-config.service.js'
+import { DEFAULT_AGGREGATOR } from '../lib/aggregators.js'
 
 export const MAX_VIP_LEVEL = 9
 
@@ -553,12 +554,12 @@ export async function runDailyLossRebate(
                   WHEN bo.bet_type IN ('win', 'refund') THEN -bo.amount
                   ELSE 0 END) AS net_loss
        FROM bg_bet_order bo
-       WHERE bo.aggregator_id = '568win'
+       WHERE bo.aggregator_id = '${DEFAULT_AGGREGATOR}'
          AND bo.created_at >= ? AND bo.created_at < ?
          AND EXISTS (
            SELECT 1 FROM bg_bet_order bb
            JOIN bg_turnover_logs tl ON tl.bet_order_id = bb.id AND tl.is_reversed = 0
-           WHERE bb.aggregator_id = '568win' AND bb.bet_type = 'bet'
+           WHERE bb.aggregator_id = '${DEFAULT_AGGREGATOR}' AND bb.bet_type = 'bet'
              AND bb.user_id = bo.user_id AND bb.round_id = bo.round_id
              AND tl.sort_category IN (${catPlaceholders})
          )
@@ -655,12 +656,12 @@ export async function getLossRebateStatus(env: Env, userId: string, currency: st
     `SELECT COALESCE(SUM(CASE WHEN bo.bet_type = 'bet' THEN bo.amount
                               WHEN bo.bet_type IN ('win','refund') THEN -bo.amount ELSE 0 END), 0) AS net_loss
      FROM bg_bet_order bo
-     WHERE bo.aggregator_id = '568win' AND bo.user_id = ? AND bo.currency_code = ?
+     WHERE bo.aggregator_id = '${DEFAULT_AGGREGATOR}' AND bo.user_id = ? AND bo.currency_code = ?
        AND bo.created_at >= ? AND bo.created_at < ?
        AND EXISTS (
          SELECT 1 FROM bg_bet_order bb
          JOIN bg_turnover_logs tl ON tl.bet_order_id = bb.id AND tl.is_reversed = 0
-         WHERE bb.aggregator_id = '568win' AND bb.bet_type = 'bet'
+         WHERE bb.aggregator_id = '${DEFAULT_AGGREGATOR}' AND bb.bet_type = 'bet'
            AND bb.user_id = bo.user_id AND bb.round_id = bo.round_id
            AND tl.sort_category IN (${catPlaceholders})
        )`,

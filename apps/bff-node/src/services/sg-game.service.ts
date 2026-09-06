@@ -2,6 +2,7 @@ import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getRedis } from '../clients/redis.client.js'
+import { DEFAULT_AGGREGATOR, type AggregatorId } from '../lib/aggregators.js'
 
 const GAMES_CACHE_KEY = 'games:all'
 const GAMES_CACHE_TTL = 30 * 60 // 30 分钟
@@ -20,7 +21,7 @@ const WIN568_SPORTSBOOK_DEFAULT = {
 
 export interface DbGame {
   uuid: string
-  aggregator?: '568win'
+  aggregator?: AggregatorId
   name: string
   nameId: string | null
   nameVi: string | null
@@ -122,7 +123,7 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
   const devices = String(r.device || '').split(/[,/]/).map((s) => s.trim())
   return {
     uuid: `568win:${String(r.game_provider_id)}:${String(r.game_id)}`,
-    aggregator: '568win',
+    aggregator: DEFAULT_AGGREGATOR,
     name: String(name),
     nameId: null,
     nameVi: null,
@@ -153,7 +154,7 @@ function win568SportsbookGame(row?: RowDataPacket | null): DbGame {
   const supportedCurrencies = parseJsonArray(row?.supported_currencies) ?? WIN568_SPORTSBOOK_DEFAULT.supportedCurrencies
   return {
     uuid: WIN568_SPORTSBOOK_UUID,
-    aggregator: '568win',
+    aggregator: DEFAULT_AGGREGATOR,
     name: row?.name ? String(row.name) : WIN568_SPORTSBOOK_DEFAULT.name,
     nameId: null,
     nameVi: null,

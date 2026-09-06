@@ -36,6 +36,7 @@ import { isMysqlEnabled } from '../../clients/mysql.client.js'
 import { getRedis } from '../../clients/redis.client.js'
 import type { Env } from '../../config/env.js'
 import { ok, fail } from '../../utils/response.js'
+import { DEFAULT_AGGREGATOR } from '../../lib/aggregators.js'
 
 const router = new Router({ prefix: '/games' })
 
@@ -216,7 +217,7 @@ async function runWin568SyncJob(
       adminUsername,
       action: 'win568.game.sync',
       targetType: 'game',
-      targetId: '568win',
+      targetId: DEFAULT_AGGREGATOR,
       ip,
     })
     await completeJob(redis, jobId, { synced: payload.syncedCount ?? 0 })

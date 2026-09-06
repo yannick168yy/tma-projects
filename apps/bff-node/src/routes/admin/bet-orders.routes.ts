@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { ok } from '../../utils/response.js'
+import { DEFAULT_AGGREGATOR } from '../../lib/aggregators.js'
 
 const router = new Router({ prefix: '/bet-orders' })
 
@@ -70,7 +71,7 @@ router.get('/', async (ctx) => {
          ORDER BY ${orderBy} LIMIT ? OFFSET ?
        ) p
        LEFT JOIN bg_568win_wallet_txn wt
-         ON p.aggregator_id = '568win'
+         ON p.aggregator_id = '${DEFAULT_AGGREGATOR}'
         AND wt.transfer_code = CASE
           WHEN LOCATE(':', p.provider_txn_id) > 0 THEN SUBSTRING_INDEX(p.provider_txn_id, ':', 1)
           ELSE p.provider_txn_id

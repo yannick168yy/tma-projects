@@ -4,6 +4,7 @@ import { env } from '../config/env.js'
 import { lgId } from '../utils/id.js'
 import { allocateBetTurnoverInTransaction, increaseBetTurnoverInTransaction, reverseBetTurnover } from './turnover.service.js'
 import { getWin568SwCompanyKey } from './win568-key-settings.service.js'
+import { DEFAULT_AGGREGATOR } from '../lib/aggregators.js'
 
 type CallbackBody = Record<string, unknown>
 
@@ -180,7 +181,7 @@ export class Win568WalletService {
       `SELECT ap.user_id, ap.external_username, ap.currency, u.status
        FROM bg_aggregator_player ap
        JOIN bg_user u ON u.id = ap.user_id
-       WHERE ap.aggregator_id = '568win' AND ap.external_username = ?
+       WHERE ap.aggregator_id = '${DEFAULT_AGGREGATOR}' AND ap.external_username = ?
        LIMIT 1`,
       [username],
     )
@@ -312,11 +313,11 @@ export class Win568WalletService {
         [amount, JSON.stringify(body), bet.id],
       )
       await conn.execute(
-        `UPDATE bg_bet_order SET amount = ?, original_amount = ? WHERE aggregator_id = '568win' AND provider_txn_id = ? AND bet_type = 'bet'`,
+        `UPDATE bg_bet_order SET amount = ?, original_amount = ? WHERE aggregator_id = '${DEFAULT_AGGREGATOR}' AND provider_txn_id = ? AND bet_type = 'bet'`,
         [amount, amount, transferKey(body)],
       )
       const [[order]] = await conn.query<RowDataPacket[]>(
-        `SELECT id FROM bg_bet_order WHERE aggregator_id = '568win' AND provider_txn_id = ? AND bet_type = 'bet' LIMIT 1`,
+        `SELECT id FROM bg_bet_order WHERE aggregator_id = '${DEFAULT_AGGREGATOR}' AND provider_txn_id = ? AND bet_type = 'bet' LIMIT 1`,
         [transferKey(body)],
       )
       if (order) {
@@ -445,7 +446,7 @@ export class Win568WalletService {
       const [result] = await conn.execute<ResultSetHeader>(
         `INSERT INTO bg_bet_order
          (user_id, aggregator_id, provider_id, provider_txn_id, round_id, bet_type, amount, currency_code, original_amount, exchange_rate, status)
-         VALUES (?, '568win', ?, ?, ?, 'bet', ?, ?, ?, 1, 'pending')`,
+         VALUES (?, '${DEFAULT_AGGREGATOR}', ?, ?, ?, 'bet', ?, ?, ?, 1, 'pending')`,
         [player.userId, String(body.GameId ?? body.Gpid ?? ''), transferKey(body), text(body, 'GameRoundId') || transferCode, amount, player.currency, amount],
       )
       await allocateBetTurnoverInTransaction(conn, player.userId, Number(result.insertId), amount,
@@ -517,7 +518,7 @@ export class Win568WalletService {
           [currentStake, JSON.stringify(body), bet.id],
         )
         await conn.execute(
-          `UPDATE bg_bet_order SET amount = ?, original_amount = ? WHERE aggregator_id = '568win' AND provider_txn_id = ? AND bet_type = 'bet'`,
+          `UPDATE bg_bet_order SET amount = ?, original_amount = ? WHERE aggregator_id = '${DEFAULT_AGGREGATOR}' AND provider_txn_id = ? AND bet_type = 'bet'`,
           [currentStake, currentStake, transferKey(body)],
         )
         await this.addLedger(conn, player, 'adjust', refund, newBalance, text(body, 'TransferCode'), '568Win return stake')
@@ -577,13 +578,13 @@ export class Win568WalletService {
       )
       await conn.execute(
         `UPDATE bg_bet_order SET status = 'settled', settled_at = NOW(3)
-         WHERE aggregator_id = '568win' AND provider_txn_id = ? AND bet_type = 'bet'`,
+         WHERE aggregator_id = '${DEFAULT_AGGREGATOR}' AND provider_txn_id = ? AND bet_type = 'bet'`,
         [bet.transaction_id ? `${bet.transfer_code}:${bet.transaction_id}` : bet.transfer_code],
       )
       await conn.execute(
         `INSERT IGNORE INTO bg_bet_order
          (user_id, aggregator_id, provider_id, provider_txn_id, round_id, bet_type, amount, currency_code, original_amount, exchange_rate, status, settled_at)
-         VALUES (?, '568win', ?, ?, ?, 'win', ?, ?, ?, 1, 'settled', NOW(3))`,
+         VALUES (?, '${DEFAULT_AGGREGATOR}', ?, ?, ?, 'win', ?, ?, ?, 1, 'settled', NOW(3))`,
         [player.userId, text(body, 'GameCode') || bet.provider_id, `settle:${bet.id}`, bet.round_id ?? bet.transfer_code, winLoss, player.currency, winLoss],
       )
       await this.addLedger(conn, player, 'win', winLoss, newBalance, bet.transfer_code, '568Win settle')
@@ -678,7 +679,7 @@ export class Win568WalletService {
       await conn.execute(
         `INSERT IGNORE INTO bg_bet_order
          (user_id, aggregator_id, provider_id, provider_txn_id, round_id, bet_type, amount, currency_code, original_amount, exchange_rate, status, settled_at)
-         VALUES (?, '568win', ?, ?, ?, ?, ?, ?, ?, 1, 'settled', NOW(3))`,
+         VALUES (?, '${DEFAULT_AGGREGATOR}', ?, ?, ?, ?, ?, ?, ?, 1, 'settled', NOW(3))`,
         [player.userId, String(body.GameId ?? body.Gpid ?? ''), `${mode}:${transferKey(body)}`, reverseRoundId, mode === 'cancel' ? 'cancel' : 'refund', adjustment, player.currency, adjustment],
       )
       await this.addLedger(conn, player, adjustment >= 0 ? 'adjust' : 'bet', adjustment, newBalance, text(body, 'TransferCode'), `568Win ${mode}`)
@@ -805,7 +806,7 @@ export class Win568WalletService {
     await conn.execute(
       `INSERT IGNORE INTO bg_bet_order
        (user_id, aggregator_id, provider_id, provider_txn_id, round_id, bet_type, amount, currency_code, original_amount, exchange_rate, status, settled_at)
-       VALUES (?, '568win', ?, ?, ?, 'win', ?, ?, ?, 1, 'settled', NOW(3))`,
+       VALUES (?, '${DEFAULT_AGGREGATOR}', ?, ?, ?, 'win', ?, ?, ?, 1, 'settled', NOW(3))`,
       [
         player.userId, String(betRows[0].provider_id ?? body.GameId ?? ''),
         `bonus:${text(body, 'TransferCode')}`, roundId, amount, player.currency, amount,

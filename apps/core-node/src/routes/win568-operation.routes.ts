@@ -5,6 +5,7 @@ import { Win568Client } from '../clients/win568.client.js'
 import { getWin568OperationCompanyKey, getWin568ServerId } from '../services/win568-key-settings.service.js'
 import { probePendingGameIcons } from '../services/game-icon-probe.service.js'
 import { normalizeWin568Provider } from '../services/win568-provider-canon.js'
+import { DEFAULT_AGGREGATOR } from '../lib/aggregators.js'
 
 function validUsername(username: string) {
   return /^[A-Za-z0-9_]{6,40}$/.test(username)
@@ -289,7 +290,7 @@ async function resolveWin568Player(app: FastifyInstance, userId: string, currenc
   // 映射按「钱包币种」维度存取：一个用户每种钱包币种一条，回调据此读对应 bg_wallet
   const [[mapped]] = await app.mysql.query<RowDataPacket[]>(
     `SELECT external_username FROM bg_aggregator_player
-     WHERE aggregator_id = '568win' AND user_id = ? AND currency = ? LIMIT 1`,
+     WHERE aggregator_id = '${DEFAULT_AGGREGATOR}' AND user_id = ? AND currency = ? LIMIT 1`,
     [userId, walletCcy],
   )
   if (mapped) return String(mapped.external_username)
@@ -299,7 +300,7 @@ async function resolveWin568Player(app: FastifyInstance, userId: string, currenc
 
   const [[used]] = await app.mysql.query<RowDataPacket[]>(
     `SELECT user_id FROM bg_aggregator_player
-     WHERE aggregator_id = '568win' AND external_username = ? LIMIT 1`,
+     WHERE aggregator_id = '${DEFAULT_AGGREGATOR}' AND external_username = ? LIMIT 1`,
     [username],
   )
   if (used && String(used.user_id) !== userId) throw new Error('568Win username already mapped')
@@ -326,7 +327,7 @@ async function resolveWin568Player(app: FastifyInstance, userId: string, currenc
   await app.mysql.execute(
     `INSERT INTO bg_aggregator_player
      (aggregator_id, user_id, external_username, agent_username, currency, raw_response)
-     VALUES ('568win', ?, ?, ?, ?, ?)
+     VALUES ('${DEFAULT_AGGREGATOR}', ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE external_username = VALUES(external_username),
        agent_username = VALUES(agent_username), currency = VALUES(currency),
        raw_response = VALUES(raw_response), updated_at = NOW(3)`,
@@ -469,7 +470,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
     if (!/^[a-z]$/.test(req.body.userGroup ?? 'a')) return reply.status(400).send({ error: 'invalid userGroup' })
     const [[mapped]] = await app.mysql.query<RowDataPacket[]>(
       `SELECT user_id FROM bg_aggregator_player
-       WHERE aggregator_id = '568win' AND external_username = ? LIMIT 1`,
+       WHERE aggregator_id = '${DEFAULT_AGGREGATOR}' AND external_username = ? LIMIT 1`,
       [username],
     )
     if (mapped && String(mapped.user_id) !== req.body.userId) {
@@ -485,7 +486,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
       await app.mysql.execute(
         `INSERT INTO bg_aggregator_player
          (aggregator_id, user_id, external_username, agent_username, currency, raw_response)
-         VALUES ('568win', ?, ?, ?, ?, ?)
+         VALUES ('${DEFAULT_AGGREGATOR}', ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE external_username = VALUES(external_username),
            agent_username = VALUES(agent_username), currency = VALUES(currency),
            raw_response = VALUES(raw_response), updated_at = NOW(3)`,
