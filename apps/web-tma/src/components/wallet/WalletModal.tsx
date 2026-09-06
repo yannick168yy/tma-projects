@@ -420,7 +420,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     : null
   const selectedBonus = firstDepEligible ? matchTierBonus(depositTierList, Number(amount)) : redepBonusFor(Number(amount))
   const displayedBonus = selectedBonus || regularRedepBonusFor(Number(amount))
-  const receiveAmount = Math.max(0, Number(amount) || 0) + selectedBonus
+  const receiveAmount = Math.max(0, Number(amount) || 0) + displayedBonus
 
   // 充值：切换分类（或渠道加载完成）时自动选中该分类首个可用渠道
   useEffect(() => {
