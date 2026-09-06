@@ -6,10 +6,16 @@
 #
 # 用法：
 #   bash deploy/single-node/deploy-prod.sh <目标...>
-#   目标：core | bff | web-tma | web-admin | all
+#   目标：core | bff | web-tma | web-admin | web-platform | db | all
+#         all = core bff web-tma web-admin（db 与 web-platform 必须点名，不进 all）
+#         db  = 平台库 + 各租户库迁移，逻辑见 remote-migrate.sh
 #
 # 可选环境变量：
-#   FORCE=1                跳过交互确认
+#   FORCE=1                跳过交互确认（db 目标不吃这个，见下）
+#   RECREATE=1             core 目标改为重建容器而非 restart —— .env 里新增的变量
+#                          只有重建才带得进去，restart 不重读 env-file
+#   PLATFORM_SITE_DIR=…    web-platform 的 nginx 站点目录（未设置则只同步 dist）
+#   SYNC_ENV_KEYS="A B"    重建时从 .env 补进容器的变量白名单（默认见 inject_env_keys）
 #   REBUILD_ADMIN_IMAGE=1  改了 web-admin 的 nginx/default.conf 时，重建其镜像使 nginx 配置生效
 #                          （只 rsync dist 不会更新 nginx conf——conf 在镜像内）
 #
@@ -27,7 +33,7 @@ KEY="${PROD_SSH_KEY:-/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/betogo-a
 SSH=(ssh -i "$KEY" -o StrictHostKeyChecking=no)
 RSH="ssh -i $KEY -o StrictHostKeyChecking=no"
 
-[[ $# -eq 0 ]] && { echo "用法: $0 core|bff|web-tma|web-admin|all"; exit 1; }
+[[ $# -eq 0 ]] && { echo "用法: $0 core|bff|web-tma|web-admin|web-platform|db|all"; exit 1; }
 
 TARGETS=("$@")
 [[ "${1:-}" == all ]] && TARGETS=(core bff web-tma web-admin)
@@ -68,7 +74,7 @@ health() {  # <url> <标签>
 # 这里把白名单内的键从 .env 补进重放命令。SYNC_ENV_KEYS 可覆盖，空格分隔。
 inject_env_keys() {  # <容器名>
   local c="$1"
-  "${SSH[@]}" "$PROD_HOST" "sudo python3 - '$PROD_DIR/.env' '/tmp/cc_$c.json' ${SYNC_ENV_KEYS:-APP_ROUTE_SIGNING_KEY}" <<'PYEOF'
+  "${SSH[@]}" "$PROD_HOST" "sudo python3 - '$PROD_DIR/.env' '/tmp/cc_$c.json' ${SYNC_ENV_KEYS:-APP_ROUTE_SIGNING_KEY PLATFORM_CREDENTIAL_KEY PLATFORM_ROOT_DOMAIN RISK_FEDERATION_PEPPER SERVER_PUBLIC_IP TENANT_RESOLVE_STRICT MYSQL_PLATFORM_DATABASE MYSQL_PLATFORM_POOL_SIZE PLATFORM_ADMIN_USERNAME PLATFORM_ADMIN_PASSWORD MYSQL_PROVISION_USER MYSQL_PROVISION_PASSWORD}" <<'PYEOF'
 import json, sys
 env_path, cc_path, *keys = sys.argv[1:]
 cc = json.load(open(cc_path))
@@ -88,7 +94,8 @@ print('    补入 env:', ','.join(added) if added else '（无需补入）')
 PYEOF
 }
 
-rebuild_bff_node() {  # <容器名> <health端口>
+# 复用 CreateCommand 重建容器：podman restart 不重读 --env-file，也带不进 .env 新增的变量
+rebuild_container() {  # <容器名> <health端口>
   local c="$1" port="$2"
   echo "==> [$c] 复用 CreateCommand 重建（重读 --env-file）"
   # 必须 root 建 root 写：fs.protected_regular=2 下 root 不能写 ubuntu 拥有的 /tmp 文件，
@@ -110,8 +117,14 @@ for t in "${TARGETS[@]}"; do
       echo "### core-node"
       (cd "$ROOT/apps/core-node" && npm run build >/dev/null)
       sync_dist core-node
-      remote "sudo podman restart tma-core-node >/dev/null"; sleep 6
-      health "http://127.0.0.1:4000/health" core-node
+      # 默认 restart（快）。但 restart 既不重读 env-file 也带不进 .env 新增的变量 ——
+      # 包网升级这类要注入平台层变量的发布，必须 RECREATE=1 走重建。
+      if [[ "${RECREATE:-}" == 1 ]]; then
+        rebuild_container tma-core-node 4000
+      else
+        remote "sudo podman restart tma-core-node >/dev/null"; sleep 6
+        health "http://127.0.0.1:4000/health" core-node
+      fi
       ;;
     bff)
       echo "### bff-node（逐节点，保持另一节点在线）"
@@ -119,8 +132,8 @@ for t in "${TARGETS[@]}"; do
       sync_dist bff-node
       sync_bff_runtime_files
       remote "IMG=\$(sudo podman inspect tma-bff-node --format '{{.ImageName}}'); cd $PROD_DIR/apps/bff-node && sudo podman build -t \"\$IMG\" . >/dev/null"
-      rebuild_bff_node tma-bff-node-2 3001
-      rebuild_bff_node tma-bff-node   3000
+      rebuild_container tma-bff-node-2 3001
+      rebuild_container tma-bff-node   3000
       ;;
     web-tma)
       echo "### web-tma"
@@ -141,6 +154,35 @@ for t in "${TARGETS[@]}"; do
         sleep 5
       fi
       health "http://127.0.0.1:8085/" web-admin
+      ;;
+    web-platform)
+      echo "### web-platform（平台控制台）"
+      (cd "$ROOT/apps/web-platform" && npm run build >/dev/null)
+      remote "mkdir -p $PROD_DIR/apps/web-platform/dist"
+      sync_dist web-platform
+      if [[ -n "${PLATFORM_SITE_DIR:-}" ]]; then
+        echo "==> [web-platform] 同步到站点目录 $PLATFORM_SITE_DIR"
+        rsync -az --delete -e "$RSH" \
+          "$ROOT/apps/web-platform/dist/" "$PROD_HOST:$PLATFORM_SITE_DIR/"
+        echo "    完成（静态文件，nginx 即时生效）"
+      else
+        echo "    ⚠️ 未设置 PLATFORM_SITE_DIR：dist 已就位，但还没有 nginx 站点承载它。"
+        echo "       平台控制台必须用独立域名 + IP 白名单，不能与租户站点共用域名。"
+      fi
+      ;;
+    db)
+      echo "### 数据库迁移（平台库 + 各租户库）"
+      # DDL 变更属于「改生产数据」。按 CLAUDE.md 铁律，这一步不吃 FORCE=1，每次都要人手确认。
+      read -r -p "确认在生产执行数据库迁移？输入 MIGRATE 继续: " mans
+      [[ "$mans" == MIGRATE ]] || { echo "已取消"; exit 1; }
+      echo "==> [db] 同步迁移文件与执行脚本"
+      rsync -az -e "$RSH" "$ROOT/infra/database/betogo/"   "$PROD_HOST:$PROD_DIR/infra/database/betogo/"
+      rsync -az -e "$RSH" "$ROOT/infra/database/platform/" "$PROD_HOST:$PROD_DIR/infra/database/platform/"
+      remote "mkdir -p $PROD_DIR/deploy/single-node"
+      rsync -az -e "$RSH" "$ROOT/deploy/single-node/remote-migrate.sh" \
+        "$PROD_HOST:$PROD_DIR/deploy/single-node/"
+      # 生产 .env 是 root:root 600，容器是 rootful：整段以 root 跑，root 下 podman 即 rootful
+      remote "sudo env APP_DIR=$PROD_DIR CTR=podman MYSQL_CTR=tma-mysql bash $PROD_DIR/deploy/single-node/remote-migrate.sh all"
       ;;
     *) echo "未知目标: $t"; exit 1 ;;
   esac

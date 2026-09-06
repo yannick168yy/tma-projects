@@ -11,6 +11,9 @@
 #
 # 目标（可多个）：db | web-tma | web-tma-tenant | web-admin | web-platform | bff-node | core-node | all
 #   db = 只跑平台库+租户库迁移，不构建不重启
+#
+# 可选：REMOTE_CTR（远端容器命令，默认自动探测 podman/docker）
+#       MYSQL_CTR（MySQL 容器名，默认 tma-mysql）
 
 set -euo pipefail
 
@@ -31,170 +34,32 @@ restart_container() {
      else echo "未找到 podman/docker" >&2; exit 1; fi'
 }
 
+# 迁移逻辑在 remote-migrate.sh 里（测试与生产共用一份）。此处只负责把文件送过去再触发。
+sync_migrator() {
+  ssh "${SSH_ARGS[@]}" "$HOST" "mkdir -p '$DIR/deploy/single-node'"
+  RSYNC_RSH="$RSYNC_RSH" rsync -az \
+    "$ROOT/deploy/single-node/remote-migrate.sh" "$HOST:$DIR/deploy/single-node/"
+}
+
+remote_migrate() {  # <platform|tenants>
+  ssh "${SSH_ARGS[@]}" "$HOST" \
+    "APP_DIR='$DIR' CTR='${REMOTE_CTR:-}' MYSQL_CTR='${MYSQL_CTR:-tma-mysql}' bash '$DIR/deploy/single-node/remote-migrate.sh' $1"
+}
+
 run_platform_migrations() {
   echo "==> [db] 同步并执行平台库迁移..."
   RSYNC_RSH="$RSYNC_RSH" rsync -az \
     "$ROOT/infra/database/platform/" "$HOST:$DIR/infra/database/platform/"
-  ssh "${SSH_ARGS[@]}" "$HOST" "bash -s" <<'REMOTE'
-cd /root/workspace/tma-projects
-ROOT_PW=$(grep -m1 '^MYSQL_ROOT_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
-APP_USER=$(grep -m1 '^MYSQL_BETOGO_USER=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
-APP_USER=${APP_USER:-betogo}
-PF_DB=betogo_platform
-CTR=$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)
-
-if [ -z "$ROOT_PW" ]; then
-  echo "  [db] .env 缺少 MYSQL_ROOT_PASSWORD，无法建平台库" >&2
-  exit 1
-fi
-
-# root 建库并给应用账号授权（应用账号同时要访问平台库与租户库）
-# 注意：不能加 -i，否则 docker/podman exec 会吞掉 heredoc 剩余脚本
-$CTR exec tma-mysql mysql -uroot -p"$ROOT_PW" -e "
-CREATE DATABASE IF NOT EXISTS \`$PF_DB\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-GRANT ALL PRIVILEGES ON \`$PF_DB\`.* TO '$APP_USER'@'%';
-FLUSH PRIVILEGES;" 2>/dev/null
-
-pq() { $CTR exec tma-mysql mysql -uroot -p"$ROOT_PW" "$PF_DB" -sN -e "$1" 2>/dev/null; }
-pe() { $CTR exec tma-mysql mysql -uroot -p"$ROOT_PW" "$PF_DB" -e "$1" 2>/dev/null; }
-
-pe "CREATE TABLE IF NOT EXISTS schema_migrations (
-  version     VARCHAR(64) NOT NULL,
-  executed_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (version)
-)"
-
-# 平台库是新库，不做"已有库标记全部已执行"的兜底 —— 必须从 001 老老实实跑
-# 已执行版本一次性取回本地比对：每文件一次 SQL 往返在多租户下会放大成上万次，部署要跑几小时
-PF_APPLIED=$(pq "SELECT version FROM schema_migrations")
-PF_SKIP=0
-for f in $(ls infra/database/platform/[0-9]*.sql 2>/dev/null | sort); do
-  [ -f "$f" ] || continue
-  ver=$(basename "$f" .sql)
-  if echo "$PF_APPLIED" | grep -qx "$ver"; then
-    PF_SKIP=$((PF_SKIP+1))
-    continue
-  fi
-  OUT=$($CTR exec -i tma-mysql \
-    mysql --default-character-set=utf8mb4 -uroot -p"$ROOT_PW" "$PF_DB" < "$f" 2>&1)
-  if [ $? -eq 0 ]; then
-    pe "INSERT INTO schema_migrations (version) VALUES ('$ver')"
-    echo "  ran(platform): $f"
-  else
-    echo "  failed(platform): $f — $(echo "$OUT" | grep -v Warning)" >&2
-    exit 1
-  fi
-done
-[ "$PF_SKIP" -gt 0 ] && echo "  [db] 平台库跳过 $PF_SKIP 个已执行迁移"
-echo "  [db] 平台库租户数: $(pq 'SELECT COUNT(*) FROM pf_tenant')"
-REMOTE
+  sync_migrator
+  remote_migrate platform
 }
 
 run_db_migrations() {
   echo "==> [db] 同步并执行迁移..."
   RSYNC_RSH="$RSYNC_RSH" rsync -az \
     "$ROOT/infra/database/betogo/" "$HOST:$DIR/infra/database/betogo/"
-  ssh "${SSH_ARGS[@]}" "$HOST" "bash -s" <<'REMOTE'
-cd /root/workspace/tma-projects
-DB_USER=$(grep -m1 '^MYSQL_BETOGO_USER=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
-DB_USER=${DB_USER:-$(grep -m1 '^MYSQL_USER=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")}
-DB_PASS=$(grep -m1 '^MYSQL_BETOGO_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
-DB_PASS=${DB_PASS:-$(grep -m1 '^MYSQL_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")}
-ROOT_PW=$(grep -m1 '^MYSQL_ROOT_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
-PF_DB=betogo_platform
-CTR=$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)
-
-# 租户库清单来自平台库。读不到就退回只打 betogo —— 宁可少打一个新租户库，
-# 也不能因为平台库一时不可用把自营站的迁移也跳过。
-TENANT_DBS=$($CTR exec tma-mysql mysql -uroot -p"$ROOT_PW" "$PF_DB" -sN \
-  -e "SELECT db_name FROM pf_tenant WHERE status <> 'closed' ORDER BY id" 2>/dev/null)
-if [ -z "$TENANT_DBS" ]; then
-  echo "  [db] 警告：读不到平台库租户清单，本次只对 betogo 执行迁移" >&2
-  TENANT_DBS=betogo
-fi
-echo "  [db] 目标库: $(echo $TENANT_DBS | tr '\n' ' ')"
-
-TOTAL_RAN=0
-for DB_NAME in $TENANT_DBS; do
-  # 辅助：静默查询/执行（屏蔽密码警告）。注意不能加 -i，否则 exec 会吞掉 heredoc 剩余脚本
-  mq() { $CTR exec tma-mysql mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "$1" 2>/dev/null; }
-  me() { $CTR exec tma-mysql mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "$1" 2>/dev/null; }
-
-  if [ -z "$(mq 'SELECT 1')" ]; then
-    echo "  [db] 失败：库 $DB_NAME 不可访问（不存在或无权限）" >&2
-    exit 1
-  fi
-
-  # 空库 = 新开的租户库：用结构基线建表，而不是重放迁移。
-  # 历史迁移链已无法从 001 重放（008 起就依赖后续才补上的列），只能走基线。
-  # 基线自带 schema_migrations 数据，之后的新迁移照常增量执行。
-  TBLCOUNT=$(mq "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()")
-  if [ "${TBLCOUNT:-0}" -eq 0 ]; then
-    if [ ! -f infra/database/betogo/schema_baseline.sql ]; then
-      echo "  [db][$DB_NAME] 失败：空库但找不到 schema_baseline.sql" >&2
-      exit 1
-    fi
-    echo "  [db][$DB_NAME] 空库，应用结构基线..."
-    OUT=$($CTR exec -i tma-mysql \
-      mysql --default-character-set=utf8mb4 -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" \
-      < infra/database/betogo/schema_baseline.sql 2>&1)
-    if [ $? -ne 0 ]; then
-      echo "  [db][$DB_NAME] 基线应用失败 — $(echo "$OUT" | grep -v Warning)" >&2
-      exit 1
-    fi
-    echo "  [db][$DB_NAME] 基线已应用，建表 $(mq "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()") 张"
-  fi
-
-  me "CREATE TABLE IF NOT EXISTS schema_migrations (
-    version     VARCHAR(64) NOT NULL,
-    executed_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (version)
-  )"
-
-  # 只有「已有业务表但没有迁移记录」的老库才批量标记为已执行。
-  # 新开的空库必须从 001 老老实实跑完，否则开出来的站是个没有表的空壳。
-  MC=$(mq "SELECT COUNT(*) FROM schema_migrations")
-  BG=$(mq "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bg_user'")
-  if [ "${MC:-0}" -eq 0 ] && [ "${BG:-0}" -gt 0 ]; then
-    echo "  [db][$DB_NAME] 已有数据库，初始化迁移版本记录..."
-    MARK_VALUES=""
-    for f in $(ls infra/database/betogo/[0-9]*.sql 2>/dev/null | sort); do
-      ver=$(basename "$f" .sql)
-      MARK_VALUES="${MARK_VALUES}('$ver'),"
-    done
-    [ -n "$MARK_VALUES" ] && me "INSERT IGNORE INTO schema_migrations (version) VALUES ${MARK_VALUES%,}"
-    echo "  [db][$DB_NAME] 已标记 $(mq 'SELECT COUNT(*) FROM schema_migrations') 个迁移为已执行"
-  fi
-
-  # 已执行版本一次性取回本地比对：每文件一次 SQL 往返在多租户下会放大成上万次
-  APPLIED=$(mq "SELECT version FROM schema_migrations")
-  SKIP=0
-  RAN=0
-  for f in $(ls infra/database/betogo/[0-9]*.sql 2>/dev/null | sort); do
-    [ -f "$f" ] || continue
-    ver=$(basename "$f" .sql)
-    if echo "$APPLIED" | grep -qx "$ver"; then
-      SKIP=$((SKIP+1))
-      continue
-    fi
-    OUT=$($CTR exec -i tma-mysql \
-      mysql --default-character-set=utf8mb4 -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$f" 2>&1)
-    RC=$?
-    if [ $RC -eq 0 ]; then
-      me "INSERT INTO schema_migrations (version) VALUES ('$ver')"
-      echo "  ran[$DB_NAME]: $f"
-      RAN=$((RAN+1))
-    else
-      # 中止整个部署并指明是哪个租户库，不允许跳过继续
-      echo "  failed[$DB_NAME]: $f — $(echo "$OUT" | grep -v Warning)" >&2
-      exit 1
-    fi
-  done
-  TOTAL_RAN=$((TOTAL_RAN+RAN))
-  echo "  [db][$DB_NAME] 执行 $RAN，跳过 $SKIP"
-done
-echo "  [db] 全部租户库完成，共执行 $TOTAL_RAN 个迁移"
-REMOTE
+  sync_migrator
+  remote_migrate tenants
 }
 
 TARGETS=("${@:-all}")
