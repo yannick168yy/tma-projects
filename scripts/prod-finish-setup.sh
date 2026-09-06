@@ -24,28 +24,13 @@ remote() { "${SSH[@]}" "$PROD_HOST" "$@"; }
 echo "🔴 目标生产：$PROD_HOST:$PROD_DIR"
 echo
 
-# ── 步骤 1：回填 schema_migrations ─────────────────────────────────
-echo "━━ 1/3 回填 schema_migrations ━━"
-remote "mkdir -p $PROD_DIR/scripts"
-rsync -az -e "$RSH" "$ROOT/scripts/prod-seed-schema-migrations.sh" "$PROD_HOST:$PROD_DIR/scripts/"
-
-ROWS=$(remote "sudo bash -c 'cd $PROD_DIR; BU=\$(grep -m1 ^MYSQL_BETOGO_USER= .env | cut -d= -f2-); BP=\$(grep -m1 ^MYSQL_BETOGO_PASSWORD= .env | cut -d= -f2-); podman exec tma-mysql mysql -u\$BU -p\$BP betogo -sN -e \"SELECT COUNT(*) FROM schema_migrations\" 2>/dev/null'" || echo "?")
-
-if [[ "$ROWS" == "0" ]]; then
-  echo "   当前 0 行，预览将要回填的内容："
-  echo
-  remote "sudo env APP_DIR=$PROD_DIR bash $PROD_DIR/scripts/prod-seed-schema-migrations.sh" | sed 's/^/   /'
-  echo
-  echo "   ⚠️  多标一个 = 该迁移永远不会执行；少标一个 = 重跑 DDL 会直接报错中断部署。"
-  read -r -p "   确认按上面的清单回填？(yes/no) " ans
-  if [[ "$ans" == yes ]]; then
-    remote "sudo env APP_DIR=$PROD_DIR APPLY=1 bash $PROD_DIR/scripts/prod-seed-schema-migrations.sh" | sed 's/^/   /'
-  else
-    echo "   已跳过回填。注意：不做这一步就跑租户库迁移，216/217/219/220/221 会被误标为已执行。"
-  fi
-else
-  echo "   已有 $ROWS 行，跳过（本步只处理空表的首次回填）"
-fi
+# ── 步骤 1：核对迁移记录 ───────────────────────────────────────────
+# 只读核对，不写。生产的 schema_migrations 一直是正常维护的（244 行），
+# 待执行的只有包网新增的 219/220/221 —— 它们随代码发布时由 deploy-prod.sh db 执行。
+echo "━━ 1/3 核对迁移记录 ━━"
+remote "sudo bash -c 'cd $PROD_DIR; BU=\$(grep -m1 ^MYSQL_BETOGO_USER= .env | cut -d= -f2-); BP=\$(grep -m1 ^MYSQL_BETOGO_PASSWORD= .env | cut -d= -f2-);
+echo \"   已执行迁移: \$(podman exec tma-mysql mysql -u\$BU -p\$BP betogo -sN -e \"SELECT COUNT(*) FROM schema_migrations\" 2>/dev/null) 条\";
+echo \"   最近一条:   \$(podman exec tma-mysql mysql -u\$BU -p\$BP betogo -sN -e \"SELECT CONCAT(version, ' @ ' , executed_at) FROM schema_migrations ORDER BY executed_at DESC LIMIT 1\" 2>/dev/null)\"'"
 echo
 
 # ── 步骤 2：补登记 origin.betogo.games ────────────────────────────
