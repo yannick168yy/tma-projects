@@ -353,11 +353,15 @@ export function createApp(env: Env): Koa {
     await next()
   })
 
-  // 全站维护模式：放行后台(/admin)与支付回调(/webhooks)，其余用户接口 503
+  // 全站维护模式：放行后台(/admin)、平台控制台(/platform)与支付回调(/webhooks)，
+  // 其余用户接口 503。豁免口径与 tenantGateMiddleware 保持一致 —— 平台接口不属于
+  // 任何租户，维护期间更要能进去处理问题；且它没有租户上下文，
+  // 不豁免的话每次调用都会触发 getMaintenanceMode 的「无租户上下文」回落告警。
   app.use(async (ctx, next) => {
     const p = ctx.path
     const exempt = !p.startsWith('/api/v1')
       || p.startsWith('/api/v1/admin')
+      || p.startsWith('/api/v1/platform')
       || p.startsWith('/api/v1/webhooks')
     if (!exempt && await getMaintenanceMode(ctx.state.redis, ctx.state.env)) {
       ctx.status = 503
