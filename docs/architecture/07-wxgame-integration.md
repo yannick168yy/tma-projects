@@ -381,6 +381,24 @@ TADA 104 款游戏的 icon 都是 `https://file.wxgame99.com/assets/jili/<id>.pn
 **约定要求**：这两项配置如需调整，对方须提前通知 —— 否则对方后台改一下，
 我方账就静默错了。目前均为「不限制」，不阻塞开发。
 
+### 我方需提供给对方的资料（对方已催，2026-09-07 整理）
+
+| 项 | 值 | 依据 |
+|---|---|---|
+| **回调地址（测试）** | `https://www.188facai.com/api/v1/wxgame/{verify,balance,bet,win,refund}` | 与 568win 回调同一 server_name，nginx 转 `core-node:4000/wxgame/<action>` |
+| **回调地址（生产）** | `https://betogo.games/api/v1/wxgame/{...}` | 生产域名，开站前确认 |
+| **我方出口 IP（测试）** | `47.84.34.139` | 需向对方报备，用于调 `get_game_url` 等 |
+| **币种** | 主用 **PHP**；另有 IDR / USDT / USDC | 对方 152 币种列表全部覆盖，无需换算 |
+| **地区** | 菲律宾为主，另有印尼、越南 | `bg_user.locale` 取值 `en/id/vi/zh-CN`，钱包币种 PHP/IDR |
+| **默认 RTP** | **95** | 接近正规厂商行业标准（老虎机通常 95–97），与 568win 玩家体感一致；毛利靠点控个别玩家与低价点位拿 |
+
+⚠️ **语言缺口**：对方只支持 `en / es / id / pt / ru / th / vi`（部分厂商多 `hi`），**没有中文**。
+我方 `zh-CN` 用户起游戏时只能回落 `en`。
+
+nginx 已加 location（`deploy/nginx/bff-api.conf`），**白名单留空 + `deny all`** ——
+拿到对方出口 IP 前不开放。宁可对方联调报 403 让我们加白，也不先裸奔：
+这套签名不覆盖 body，nginx 是第一道闸。
+
 ### 待答复（第二批，非阻塞）
 
 | # | 事项 | 不解决的后果 |
@@ -391,8 +409,20 @@ TADA 104 款游戏的 icon 都是 `https://file.wxgame99.com/assets/jili/<id>.pn
 | 7 | **TADA 与 jili 的关系** | icon 路径与 gameId 双重重叠，不问清会图片错配 + 主键冲突 |
 | 8 | **对方回调我方的出口 IP 段** | 配置页已确认有 IP 白名单机制，双向都要报备 |
 
-另需商务提供：生产域名、`AccessKeyId` / `AccessKeySecret`、正式服开放厂商范围
-（测试服只开 pg / jili / spribe / inout 四家）、确认支持 PHP 结算。
+### 实现中新发现、文档未写（拿到测试密钥后多数可自测）
+
+| # | 事项 | 影响 |
+|---|---|---|
+| 9 | `get_game_list` **有无分页** | 已按一次全返实现。若实际有分页而未传页码，会**静默只拿到第一页**，目录缺一大半且无报错。错误码有 `1020 已达最大请求限制`，说明存在限流，多半也有分页 |
+| 10 | **token 长度与字符集限制** | 文档示例是 `"33445566"`（8 位数字），我方用 32 位 hex。有上限则起游戏直接失败 |
+| 11 | `playerId` **长度上限** | 只说「数字字母」未说长度。我方 `bg_user.id` 是 varchar(32) |
+| 12 | `/verify` 的 `gameId` **是否与 token 绑定校验** | 🔴 安全项，**测不出来**，必须问：若上游不校验，玩家可拿 A 游戏的 token 起 B 游戏 |
+| 13 | `gameType` 完整取值与是否支持逗号多选 | 清单实际有 slot/table/fish/poker 四种，接口文档只出现 slot，请求示例却写 `"slot,table"` |
+
+第 9–11、13 项拿到测试密钥后我方自测即可，不必占用对方响应时间；第 12 项是设计问题需对方书面确认。
+
+另需商务提供：**测试环境 `AccessKeyId` / `AccessKeySecret`（当前最卡）**、生产域名、
+正式服开放厂商范围（测试服只开 pg / jili / spribe / inout 四家）。
 
 ---
 
