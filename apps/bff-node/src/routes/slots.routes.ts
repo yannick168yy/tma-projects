@@ -76,6 +76,40 @@ async function launchWin568GameUrl(input: {
   return payload.url
 }
 
+// uuid 形如 wxgame:<brand>:<gameId>。不能 split(':')：上游 gameId 自身含冒号
+// （如 TombstoneSlaughter:ElGordo'sRevenge），split 会切出不存在的 id。
+function parseWxgameUuid(uuid: string): { gameBrand: string; gameId: string } | null {
+  const first = uuid.indexOf(':')
+  if (first < 0 || uuid.slice(0, first) !== 'wxgame') return null
+  const second = uuid.indexOf(':', first + 1)
+  if (second < 0) return null
+  const gameBrand = uuid.slice(first + 1, second)
+  const gameId = uuid.slice(second + 1)
+  return gameBrand && gameId ? { gameBrand, gameId } : null
+}
+
+async function launchWxgameGameUrl(input: {
+  env: Env
+  userId: string
+  userLocale?: string
+  gameUuid: string
+  currency?: string
+}) {
+  const ref = parseWxgameUuid(input.gameUuid)
+  if (!ref) throw new Error('invalid WXGame game uuid')
+  const res = await fetch(`${input.env.CORE_NODE_URL}/internal/wxgame/game/launch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Internal-Token': input.env.INTERNAL_TOKEN },
+    body: JSON.stringify({
+      userId: input.userId, gameBrand: ref.gameBrand, gameId: ref.gameId,
+      language: input.userLocale, currency: input.currency,
+    }),
+  })
+  const payload = await res.json() as { url?: string; error?: string }
+  if (!res.ok || !payload.url) throw new Error(payload.error || 'Failed to launch WXGame game')
+  return payload.url
+}
+
 // GET /slots/homepage — 首页推荐（服务器每 30 分钟刷新一次）
 router.get('/homepage', async (ctx) => {
   const env = ctx.state.env
@@ -238,6 +272,17 @@ router.post('/init', async (ctx) => {
       ok(ctx, { url })
     } catch (e) {
       fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win Sports')
+    }
+    return
+  }
+
+  if (body.gameUuid.startsWith('wxgame:')) {
+    try {
+      const url = await launchWxgameGameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, currency: body.currency })
+      void recordGameLaunch(env, userId, body.gameUuid)
+      ok(ctx, { url })
+    } catch (e) {
+      fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch WXGame game')
     }
     return
   }
