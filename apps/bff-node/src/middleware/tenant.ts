@@ -57,9 +57,15 @@ function warnOnce(host: string): void {
 // strict 模式下不放行会把健康检查打成 404，容器被判定不健康反复重启
 const TENANT_FREE_PATHS = new Set(['/health'])
 
+// 平台控制台的接口本身就是跨租户的：它读的是平台库，会话走无前缀 Redis，
+// 全程不碰租户连接池。而平台域名（platform.betogo.games）不是任何租户的站点，
+// 不会登记进 pf_tenant_domain —— strict=true 时会被解析失败打成 404，
+// 也就是说「切 strict」会顺手把平台后台自己关掉。所以这里按路径前缀放行。
+const TENANT_FREE_PREFIX = '/api/v1/platform/'
+
 export function tenantMiddleware(redis: Redis, strict: boolean): Middleware {
   return async (ctx, next) => {
-    if (TENANT_FREE_PATHS.has(ctx.path)) {
+    if (TENANT_FREE_PATHS.has(ctx.path) || ctx.path.startsWith(TENANT_FREE_PREFIX)) {
       await next()
       return
     }

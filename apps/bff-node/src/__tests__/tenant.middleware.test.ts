@@ -41,6 +41,35 @@ describe('租户中间件', () => {
     expect(ctx.state.tenant).toEqual(self)
   })
 
+  // 平台域名不是任何租户的站点，不会登记进 pf_tenant_domain。
+  // 不放行的话，「切 strict」会顺手把平台后台自己打成 404。
+  it('平台控制台接口在 strict 下也放行，且不做租户解析', async () => {
+    resolveTenantByHost.mockResolvedValue(null)
+    const ctx = fakeCtx('/api/v1/platform/auth/login', 'platform.betogo.games')
+    let called = false
+    await tenantMiddleware(redisStub, true)(ctx, async () => { called = true })
+    expect(called).toBe(true)
+    expect(ctx.status).toBe(200)
+    expect(resolveTenantByHost).not.toHaveBeenCalled()
+  })
+
+  it('平台接口放行后不带租户上下文，Redis 键因此不加前缀', async () => {
+    const ctx = fakeCtx('/api/v1/platform/tenants', 'platform.betogo.games')
+    let seen: unknown = 'unset'
+    await tenantMiddleware(redisStub, true)(ctx, async () => { seen = currentTenantOrNull() })
+    expect(seen).toBeNull()
+  })
+
+  // 放行只认平台接口前缀，别的路径在 strict 下该 404 还是要 404
+  it('非平台接口在 strict 下未登记域名仍然 404', async () => {
+    resolveTenantByHost.mockResolvedValue(null)
+    const ctx = fakeCtx('/api/v1/site/config', 'unknown.example.com')
+    let called = false
+    await tenantMiddleware(redisStub, true)(ctx, async () => { called = true })
+    expect(called).toBe(false)
+    expect(ctx.status).toBe(404)
+  })
+
   // 探针以 IP 直连，永远匹配不到域名；strict 下不放行会把容器打成不健康反复重启
   it('健康检查不做租户解析，直接放行', async () => {
     const ctx = fakeCtx('/health', '127.0.0.1:3000')
