@@ -214,6 +214,21 @@ export class WxgameWalletService {
     try {
       await conn.beginTransaction()
       const balance = await lockedBalance(conn, player)
+
+      // 查重必须排在余额检查前。否则重复的下注回调在钱已扣掉、余额不够再扣一次时，
+      // 会返回 1011「余额不足」而不是 1018「重复交易」——上游会当成玩家没钱，
+      // 可能重试或把注单标失败，两边账就对不上。
+      // 这里的「先查再插」有并发窗口，但兜底仍是下面 INSERT 的 uk_provider_txn，
+      // 这条 SELECT 只为把错误码判对。
+      const [[dup]] = await conn.query<RowDataPacket[]>(
+        `SELECT id FROM bg_bet_order WHERE aggregator_id = ? AND provider_txn_id = ? LIMIT 1`,
+        [WXGAME_AGGREGATOR_ID, transactionId],
+      )
+      if (dup) {
+        await conn.commit()
+        return { ...fail(WX.DUP_TXN, 'Transaction already exists'), data: { balance, currency: player.currency } }
+      }
+
       if (opts.sign < 0 && balance < amount) {
         await conn.commit()
         return fail(WX.NO_BALANCE, 'Insufficient balance')

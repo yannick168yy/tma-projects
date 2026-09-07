@@ -149,7 +149,7 @@ describe('WXGame balance', () => {
 })
 
 describe('WXGame 记账', () => {
-  function ledgerApp(over: { balance?: number; dup?: boolean } = {}) {
+  function ledgerApp(over: { balance?: number; dup?: boolean; exists?: boolean } = {}) {
     const calls: Array<{ sql: string; params: unknown[] }> = []
     const conn = {
       async beginTransaction() {}, async commit() {}, async rollback() {}, release() {},
@@ -164,6 +164,7 @@ describe('WXGame 记账', () => {
         calls.push({ sql, params })
         if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: over.balance ?? 1000 }], undefined]
         if (sql.includes('bg_game_turnover_rates')) return [[{ rate: 1 }], undefined]
+        if (sql.includes('SELECT id FROM bg_bet_order')) return [over.exists ? [{ id: 7 }] : [], undefined]
         return [[], undefined]
       },
     }
@@ -227,6 +228,15 @@ describe('WXGame 记账', () => {
     const res = await new WxgameWalletService(app).bet(signedReq(), { ...base, transactionId: 't1', bet: 10 })
     assert.equal(res.code, WX.DUP_TXN)
     assert.equal((res.data as { currency: string }).currency, 'PHP')
+  })
+
+  // 真机联调抓到的：钱已扣掉后重复回调，余额不足以再扣一次，
+  // 查重若排在余额检查后就会返 1011，上游会当成玩家没钱而不是重复交易。
+  it('重复回调即使余额不足也返 1018 而不是 1011', async () => {
+    const { app } = ledgerApp({ balance: 5, exists: true })
+    const res = await new WxgameWalletService(app).bet(signedReq(), { ...base, transactionId: 't1', bet: 100 })
+    assert.equal(res.code, WX.DUP_TXN)
+    assert.equal((res.data as { balance: number }).balance, 5)
   })
 
   it('币种与我方钱包不一致直接拒绝，不做换算', async () => {
