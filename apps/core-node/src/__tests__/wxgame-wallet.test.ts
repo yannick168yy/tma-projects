@@ -245,11 +245,18 @@ describe('WXGame 记账', () => {
     assert.equal(res.code, WX.BAD_CURRENCY)
   })
 
-  it('撤销返回 status 字段', async () => {
-    const { app } = ledgerApp()
+  it('撤销返回 status 字段，且钱包流水类型用 adjust', async () => {
+    const { app, calls } = ledgerApp()
     const res = await new WxgameWalletService(app).refund(signedReq(), { ...base, transactionId: 'rf1', bet: 100 })
     assert.equal(res.code, WX.OK)
     assert.equal((res.data as { status: string }).status, 'CANCELED')
+
+    // bg_wallet_ledger.type 是 ENUM，没有 refund 这个值，写进去会 Data truncated。
+    // 注单侧记 refund，钱包流水侧记 adjust（与 568win 退回 stake 一致）。
+    const ledger = calls.find((c) => c.sql.includes('bg_wallet_ledger'))
+    assert.equal(ledger?.params[3], 'adjust')
+    const order = calls.find((c) => c.sql.includes('INSERT INTO bg_bet_order'))
+    assert.equal(order?.params[5], 'refund')
   })
 
   it('缺 transactionId 或 roundId 返回 1005', async () => {

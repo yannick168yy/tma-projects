@@ -295,7 +295,10 @@ export class WxgameWalletService {
   }
 
   async refund(req: FastifyRequest, body: CallbackBody) {
-    const res = await this.apply(req, body, { betType: 'refund', amountKey: 'bet', sign: 1, ledgerType: 'refund', description: 'WXGame refund' })
+    // ledger type 用 adjust：bg_wallet_ledger.type 的 ENUM 里没有 refund，
+    // 568win 的退回 stake 也是记 adjust，两家保持一致，不为此改表。
+    // （bg_bet_order.bet_type 有 refund，那边照常记 refund。）
+    const res = await this.apply(req, body, { betType: 'refund', amountKey: 'bet', sign: 1, ledgerType: 'adjust', description: 'WXGame refund' })
     // 上游要求 refund 的 data 除余额外还带处理状态
     if (res.code === WX.OK && res.data) return { ...res, data: { ...res.data, status: 'CANCELED' } }
     return res
