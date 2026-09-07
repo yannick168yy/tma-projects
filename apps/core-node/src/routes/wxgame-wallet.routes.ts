@@ -6,4 +6,7 @@ export async function wxgameWalletRoutes(app: FastifyInstance) {
 
   app.post('/verify', async (req) => svc.verify(req, req.body as Record<string, unknown>))
   app.post('/balance', async (req) => svc.balance(req, req.body as Record<string, unknown>))
+  app.post('/bet', async (req) => svc.bet(req, req.body as Record<string, unknown>))
+  app.post('/win', async (req) => svc.win(req, req.body as Record<string, unknown>))
+  app.post('/refund', async (req) => svc.refund(req, req.body as Record<string, unknown>))
 }

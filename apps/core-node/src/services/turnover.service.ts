@@ -60,14 +60,23 @@ export async function allocateBetTurnoverInTransaction(
   userId: string,
   betOrderId: number,
   betAmount: number,
-  game: { gpid: number | null; gameId: number | null },
+  // sortCategory：聚合商自己解析好的大类。568win 走下面按 bg_568win_game 的查法，
+  // 第二家（WXGame）游戏表结构不同、gameId 也不是数字，所以由调用方直接给结论。
+  game: { gpid: number | null; gameId: number | null; sortCategory?: string | null },
   currency = 'PHP',
 ): Promise<void> {
   if (betAmount <= 0) return
 
   let sortCategory: string | null = null
   let rate = 1.0
-  if (game.gameId != null) {
+  if (game.sortCategory) {
+    sortCategory = game.sortCategory
+    const [[rateRow]] = await conn.query<RowDataPacket[]>(
+      `SELECT COALESCE(rate, 1.0) AS rate FROM bg_game_turnover_rates WHERE sort_category = ?`,
+      [sortCategory],
+    )
+    if (rateRow) rate = Number(rateRow.rate)
+  } else if (game.gameId != null) {
     const [[gameRow]] = await conn.query<RowDataPacket[]>(
       `SELECT sc.sort_category, COALESCE(r.rate, 1.0) AS rate
        FROM (

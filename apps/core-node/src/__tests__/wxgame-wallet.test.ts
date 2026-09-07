@@ -147,3 +147,105 @@ describe('WXGame balance', () => {
     assert.equal(res.code, WX.NO_PLAYER)
   })
 })
+
+describe('WXGame 记账', () => {
+  function ledgerApp(over: { balance?: number; dup?: boolean } = {}) {
+    const calls: Array<{ sql: string; params: unknown[] }> = []
+    const conn = {
+      async beginTransaction() {}, async commit() {}, async rollback() {}, release() {},
+      async execute(sql: string, params: unknown[] = []) {
+        calls.push({ sql, params })
+        if (over.dup && sql.includes('bg_bet_order')) {
+          throw Object.assign(new Error('dup'), { code: 'ER_DUP_ENTRY' })
+        }
+        return [{ insertId: 42, affectedRows: 1 }, undefined]
+      },
+      async query(sql: string, params: unknown[] = []) {
+        calls.push({ sql, params })
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: over.balance ?? 1000 }], undefined]
+        if (sql.includes('bg_game_turnover_rates')) return [[{ rate: 1 }], undefined]
+        return [[], undefined]
+      },
+    }
+    const app = {
+      mysql: {
+        async query(sql: string) {
+          if (sql.includes('bg_aggregator_player')) {
+            return [[{ user_id: 'BG-1', external_username: 'BG1', currency: 'PHP', status: 'active' }], undefined]
+          }
+          if (sql.includes('bg_wxgame_game')) return [[{ game_type: 'fish' }], undefined]
+          return [[], undefined]
+        },
+        async getConnection() { return conn },
+      },
+      redis: fakeRedis(),
+      log: { error() {}, warn() {}, info() {} },
+    } as unknown as FastifyInstance
+    return { app, calls }
+  }
+
+  const base = { playerId: 'BG1', roundId: 'r1', gameBrand: 'jili', gameId: '171', currency: 'PHP' }
+
+  it('下注扣款并写注单', async () => {
+    const { app, calls } = ledgerApp({ balance: 1000 })
+    const res = await new WxgameWalletService(app).bet(signedReq(), { ...base, transactionId: 't1', bet: 100 })
+    assert.equal(res.code, WX.OK)
+    const order = calls.find((c) => c.sql.includes('INSERT INTO bg_bet_order'))
+    assert.ok(order)
+    assert.equal(order.params[5], 'bet')
+    // 无缝钱包钱已经动了，注单直接 settled —— 挂 pending 会让提现风控看不见这些输赢
+    assert.match(order.sql, /'settled'/)
+  })
+
+  it('余额不足返回 1011 且不写注单', async () => {
+    const { app, calls } = ledgerApp({ balance: 50 })
+    const res = await new WxgameWalletService(app).bet(signedReq(), { ...base, transactionId: 't2', bet: 100 })
+    assert.equal(res.code, WX.NO_BALANCE)
+    assert.equal(calls.filter((c) => c.sql.includes('INSERT INTO bg_bet_order')).length, 0)
+  })
+
+  // 官方「特殊逻辑说明」：捕鱼按 3 秒批次结算，净值为正时直接回调 /win，
+  // 该局可能根本没有前置 /bet。要求先有 bet 会把捕鱼第一笔派奖拒掉。
+  it('派奖不要求存在对应的下注行（捕鱼可能先回调 win）', async () => {
+    const { app, calls } = ledgerApp({ balance: 0 })
+    const res = await new WxgameWalletService(app).win(signedReq(), { ...base, transactionId: 'w1', win: 250 })
+    assert.equal(res.code, WX.OK)
+    const order = calls.find((c) => c.sql.includes('INSERT INTO bg_bet_order'))
+    assert.equal(order?.params[5], 'win')
+  })
+
+  it('同一 roundId 多次派奖都入账（PG 1 bet 多 win）', async () => {
+    const { app, calls } = ledgerApp()
+    const svc = new WxgameWalletService(app)
+    assert.equal((await svc.win(signedReq(), { ...base, transactionId: 'w1', win: 10, isEnd: false })).code, WX.OK)
+    assert.equal((await svc.win(signedReq(), { ...base, transactionId: 'w2', win: 20, isEnd: true })).code, WX.OK)
+    assert.equal(calls.filter((c) => c.sql.includes('INSERT INTO bg_bet_order')).length, 2)
+  })
+
+  it('重复 transactionId 返回 1018 并带当前余额', async () => {
+    const { app } = ledgerApp({ dup: true })
+    const res = await new WxgameWalletService(app).bet(signedReq(), { ...base, transactionId: 't1', bet: 10 })
+    assert.equal(res.code, WX.DUP_TXN)
+    assert.equal((res.data as { currency: string }).currency, 'PHP')
+  })
+
+  it('币种与我方钱包不一致直接拒绝，不做换算', async () => {
+    const { app } = ledgerApp()
+    const res = await new WxgameWalletService(app).bet(signedReq(), { ...base, currency: 'USD', transactionId: 't9', bet: 10 })
+    assert.equal(res.code, WX.BAD_CURRENCY)
+  })
+
+  it('撤销返回 status 字段', async () => {
+    const { app } = ledgerApp()
+    const res = await new WxgameWalletService(app).refund(signedReq(), { ...base, transactionId: 'rf1', bet: 100 })
+    assert.equal(res.code, WX.OK)
+    assert.equal((res.data as { status: string }).status, 'CANCELED')
+  })
+
+  it('缺 transactionId 或 roundId 返回 1005', async () => {
+    const { app } = ledgerApp()
+    const svc = new WxgameWalletService(app)
+    assert.equal((await svc.bet(signedReq(), { ...base, bet: 1 })).code, WX.BAD_PARAMS)
+    assert.equal((await svc.bet(signedReq(), { ...base, transactionId: 'x', roundId: '', bet: 1 })).code, WX.BAD_PARAMS)
+  })
+})
