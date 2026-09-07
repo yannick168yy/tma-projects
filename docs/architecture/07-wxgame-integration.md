@@ -250,31 +250,58 @@ TADA 104 款游戏的 icon 都是 `https://file.wxgame99.com/assets/jili/<id>.pn
 且 gameId 与 JILI 表大量重叠。要么表格填错，要么 TADA 是 jili 的马甲厂牌。
 **接入前必须问清楚**，否则 TADA 的图会全部错配。
 
-### 图片必须落地到自己的 OSS
-2386 款的图源分布：
+### 🔴 图片：官方给了第二份专门的图标表，但 32% 的图现在就拉不到
 
-| 图源 | 数量 | 风险 |
-|---|---|---|
-| `file.wxgame99.com`（上游自建 CDN） | 1984 | 可控 |
-| `rb.thefanz.net` / `static-r2-bng.thefanz.net` | 237 | 第三方 |
-| `common.ibcsfaqcha.net` | 52 | 第三方 |
-| `nolimitcity.com` | 44 | **厂商官网直链**，随时防盗链 |
-| `rmpiconcdn.kaga88.com`（动态生成接口） | 43 | **接口非静态图** |
-| `www.popiplay.com` / `playson.com` / 其他 | 21 | 厂商官网直链 |
-| 空 | 5 | 需人工补 |
+对方另给了一份图标表（25 sheet / 2341 款，列为 `游戏ID / 游戏名称 / 游戏图标 / 游戏类型`）。
+**它与游戏清单表的 icon 列是同一批 URL**，没有做落地托管，只是把图源整理得更干净。
+逐个图源实测（2026-09-07）：
 
-**约 400 张外链第三方站点**，包括厂商官网直链和动态生成接口。这些必须一次性抓回
-自己 OSS，不能直接在前端引用（防盗链 + 跨境加载慢 + 随时 404）。
+| 图源 | 数量 | 实测结果 |
+|---|---:|---|
+| `file.wxgame99.com`（上游自建） | 1392 | ✅ 200 |
+| `prgassets.bd88fgabh.com`（pragmatic 全部） | 567 | 🔴 **DNS 解析失败，域名已死** |
+| `static-r2-bng.thefanz.net`（booongo 全部） | 118 | 🔴 **HTTP 500** |
+| `rb.thefanz.net`（rubyplay/wg） | 102 | ✅ 200 |
+| `common.ibcsfaqcha.net`（evoplay 全部） | 52 | 🔴 **DNS 解析失败，域名已死** |
+| `nolimitcity.com` | 44 | ⚠️ 200，但厂商官网直链 |
+| `rmpiconcdn.kaga88.com` | 43 | ⚠️ 200，动态生成接口非静态图 |
+| `image.91clubss.xyz`（yono 全部） | 34 | ✅ 200 |
+| `www.popiplay.com` | 13 | ⚠️ 200，厂商官网直链 |
+| `playson.com` | 3 | 🔴 **403 防盗链** |
+| `images.jiamengweiquan.com` | 2 | 🔴 **DNS 解析失败** |
+| 其他 | 5 | ✅ 200 |
+
+**不可用合计 742 张（约 32%）**，且不是我方网络问题 —— 三个域名是全球 DNS 无记录，
+即域名已过期或被弃用。受影响的是**整厂**：pragmatic 615 款、booongo 118 款、evoplay 53 款
+——正好是游戏数最多的几家。
+
+体积也是问题：抽样 8 张，范围 7 KB – 1.4 MB，中位数约 150 KB。
+一屏 100 个游戏格子就是 15 MB，必须转 WebP 并压到 ~20 KB 量级。
+
+**所以结论不变，反而更硬：图必须全部抓回自己 OSS**，且要在签约前就让对方补齐那 742 张。
 可复用现有 `game-icon-probe.service.ts` 与 `cover_candidate` 那套。
 
+### 两份表的数量对不上
+| | 游戏清单表 | 图标表 |
+|---|---:|---:|
+| 总数 | 2386 | 2341 |
+| jili | 114 | 109 |
+| rubyplay | 102 | 85 |
+| hacksaw | 146 | 147 |
+| popiplay | 13 | 14 |
+| pragmatic 图源 | `file.wxgame99.com` | `prgassets.bd88fgabh.com`（已死） |
+
+两份表版本不一致。**以 `get_game_list` 接口返回的为准**，表格只用来补图和中文名，
+入库时对不上的要落日志而不是静默丢弃。
+
 ### 目录规模
-| 类型 | 数量 |
-|---|---|
-| slot | 2303 |
-| table | 70 |
-| fish | 10 |
-| poker | 3 |
-| **合计** | **2386**（其中 **133 款维护中**） |
+| 类型 | 游戏清单表 | 图标表 |
+|---|---:|---:|
+| slot | 2303 | 2287 |
+| table | 70 | 47 |
+| fish | 10 | 5 |
+| poker | 3 | 2 |
+| **合计** | **2386**（133 款维护中） | **2341** |
 
 厂商 25 家。**测试服只开放 4 家**（pg / jili / spribe / inout），正式服全开。
 所以联调阶段只能验 pg/jili/spribe/inout。
@@ -371,6 +398,6 @@ web-admin                                          点控 RTP 页面
 - [ ] `bg_bet_round` JOIN 按 `aggregator_id` 分流
 - [ ] Nonce 去重 + IP 白名单（签名不覆盖 body）
 - [ ] 密钥轮换留空实现（不删接口）
-- [ ] 图片 400 张外链落地 OSS
+- [ ] 图片全量落地 OSS + 转 WebP 压缩；**先让对方补齐 742 张失效图**
 - [ ] 洗码 / 返水 / 佣金三条口径确认含 WXGame 注单
 - [ ] 一轮完整回归
