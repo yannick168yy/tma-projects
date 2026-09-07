@@ -49,21 +49,23 @@ export async function saveWxgameGames(app: FastifyInstance, games: WxgameGame[])
       g.gameName ?? null,
       g.gameFullName ?? null,
       g.gameType ?? null,
+      g.gameIcon ?? null,
+      g.status === 'ENABLE' ? 1 : 0,
       RTP_SUPPORTED_BRANDS.has(gameBrand) ? 1 : 0,
       JSON.stringify(g),
     ]
   }).filter((r) => r[0] && r[1])
 
   if (rows.length === 0) return 0
-  // icon_url / icon_local 不在这里写：上游 get_game_list 不返回图，图另有来源（官方表格
-  // 与我方抓取落 OSS）。用 VALUES 覆盖会把已抓好的图刷成 NULL。
+  // icon_local 不在这里写：那是我方把图抓回 OSS 后的地址，用 VALUES 覆盖会把已抓好的刷成 NULL。
   const [res] = await app.mysql.query<ResultSetHeader>(
     `INSERT INTO bg_wxgame_game
-       (game_brand, game_id, name_en, name_full, game_type, supports_rtp, raw_game)
+       (game_brand, game_id, name_en, name_full, game_type, icon_url, is_enabled, supports_rtp, raw_game)
      VALUES ?
      ON DUPLICATE KEY UPDATE
        name_en = VALUES(name_en), name_full = VALUES(name_full),
-       game_type = VALUES(game_type), supports_rtp = VALUES(supports_rtp),
+       game_type = VALUES(game_type), icon_url = VALUES(icon_url),
+       is_enabled = VALUES(is_enabled), supports_rtp = VALUES(supports_rtp),
        raw_game = VALUES(raw_game), synced_at = NOW(3)`,
     [rows],
   )

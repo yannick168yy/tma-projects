@@ -14,6 +14,30 @@ export interface WxgameGame {
   gameFullName: string
   gameType: string
   gameBrand: string
+  // 官方文档字段表里没写这两个，但接口实测确实返回（2026-09-07 测试环境 288 款，287 款有图）
+  gameIcon?: string
+  status?: 'ENABLE' | 'DISABLE'
+}
+
+export interface WxgameHistoryRow {
+  id: number
+  playerId: string
+  gameId: string
+  gameBrand: string
+  gameType: string
+  roundId: string
+  preRoundId: string
+  transactionId: string
+  currency: string
+  rtp: string
+  bet: number
+  win: number
+  status: 'INIT' | 'BET' | 'SETTLED' | 'CANCELED' | 'ERROR'
+  betTime: string
+  winTime: string
+  statusTime: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface WxgamePlayerRtp {
@@ -54,8 +78,9 @@ export class WxgameClient {
     return await res.json() as WxgameResponse<T>
   }
 
-  // token 是我方签发的一次性令牌，上游拿它回调我方 /verify 换玩家信息
-  getGameUrl(input: { token: string; gameId: string; gameBrand: string; language: string }) {
+  // token 是我方签发的一次性令牌，上游拿它回调我方 /verify 换玩家信息。
+  // data 是链接字符串本身，不是对象。
+  getGameUrl(input: { token: string; gameId: string; gameBrand: string; language?: string; homeUrl?: string }) {
     return this.post<string>('/v1/api/get_game_url', input)
   }
 
@@ -70,5 +95,18 @@ export class WxgameClient {
 
   getPlayerRtp(input: { playerIds: string[] }) {
     return this.post<{ playerRtps: WxgamePlayerRtp[] }>('/v1/api/get_player_rtp', input)
+  }
+
+  unsetPlayerRtp(input: { playerIds: string[] }) {
+    return this.post<{ playerIds: string[] }>('/v1/api/unset_player_rtp', input)
+  }
+
+  // 对账用。含 transactionId 与注单状态，正是逐笔 diff 需要的——对方口头说"只有后台导出
+  // CSV"，实际是有接口的。单页最大 1000，限流 60 次/分钟（超限返 1020）。
+  getGameHistoryList(input: {
+    gameBrand?: string; gameId?: string; playerId?: string; roundId?: string
+    page?: { nextID?: number; nextTimeAtUTC?: number; pageSize?: number }
+  }) {
+    return this.post<{ list: WxgameHistoryRow[]; pageToken?: string }>('/v1/api/get_game_history_list', input)
   }
 }
