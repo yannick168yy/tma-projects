@@ -2,6 +2,8 @@
 
 Telegram Mini App（竞彩聚合）MVP 单体部署、逻辑解耦的可扩展架构。
 
+包网相关：[后台使用手册](docs/ops/WHITELABEL-ADMIN-GUIDE.md)（运营侧怎么操作）、[可定制范围与套餐说明](docs/ops/WHITELABEL-CUSTOMIZATION-MATRIX.md)（销售能承诺什么）。
+
 ## 仓库结构
 
 ```
