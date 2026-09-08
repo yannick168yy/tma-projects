@@ -11,7 +11,11 @@
  * 而改造面是注单与钱包链路。第二家要实现什么见
  * docs/architecture/06-aggregator-integration.md。
  */
-export const AGGREGATOR_IDS = ['568win'] as const
+export const AGGREGATOR_IDS = ['568win', 'wxgame'] as const
 export type AggregatorId = (typeof AGGREGATOR_IDS)[number]
 
 export const DEFAULT_AGGREGATOR: AggregatorId = '568win'
+
+/** SQL 里按「全部游戏聚合商」过滤用。注单表还混着别的来源，不能省掉这个 IN 直接不过滤。 */
+export const AGGREGATOR_IDS_SQL = AGGREGATOR_IDS.map((id) => `'${id}'`).join(', ')
+
