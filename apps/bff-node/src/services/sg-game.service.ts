@@ -190,6 +190,47 @@ async function loadWin568SportsbookGame(db: ReturnType<typeof getMysqlPool>): Pr
 
 // ── 全量缓存 ──────────────────────────────────────────────────────────────────
 
+// WXGame 没有 568win 那套 override / 封面候选 / 排名体系，字段少得多：
+// 上游 get_game_list 只给 5 个字段（含实测才发现的 gameIcon 与 status）。
+// 权重给固定值而不是照抄 568win 的 3999-rank：这边没有 rank_no，
+// 编一个假排名会让两家的排序混在一起没法解释。
+const WXGAME_SORT_CATEGORY: Record<string, string> = {
+  slot: 'slots', fish: 'fishing', table: 'table', poker: 'table',
+}
+
+function rowToWxgameGame(r: RowDataPacket): DbGame {
+  const gameBrand = String(r.game_brand)
+  const gameId = String(r.game_id)
+  const image = (r.icon_local ?? r.icon_url) as string | null
+  return {
+    uuid: `wxgame:${gameBrand}:${gameId}`,
+    aggregator: 'wxgame',
+    name: String(r.name_full || r.name_en || `${gameBrand} ${gameId}`),
+    nameId: null,
+    nameVi: null,
+    nameZh: null,
+    provider: gameBrand,
+    category: null,
+    subCategory: null,
+    sortCategory: WXGAME_SORT_CATEGORY[String(r.game_type)] ?? 'other',
+    siteCategory: null,
+    rtp: null,
+    imageUrl: cdnImg(image),
+    imageHqUrl: cdnImg(image),
+    imageAnim: null,
+    imageSource: null,
+    imageWidth: null,
+    imageHeight: null,
+    hasLobby: false,
+    isMobile: true,
+    weight: 1,
+    isFeatured: false,
+    isAvailable: Boolean(r.is_enabled) && !Boolean(r.is_maintain),
+    createdAt: r.created_at ? new Date(r.created_at as Date).toISOString() : null,
+    supportedCurrencies: null,
+  }
+}
+
 export async function loadGamesCache(env: Env): Promise<number> {
   const db = getMysqlPool(env)
   const redis = getRedis(env)
@@ -240,10 +281,17 @@ export async function loadGamesCache(env: Env): Promise<number> {
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USDC')))
        AND (g.device IS NULL OR FIND_IN_SET('m', REPLACE(REPLACE(g.device, ' ', ''), '/', ',')) > 0)`,
   )
+  const [wxgameRows] = await db.query<RowDataPacket[]>(
+    `SELECT game_brand, game_id, name_en, name_full, game_type, icon_url, icon_local,
+            is_enabled, is_maintain, created_at
+     FROM bg_wxgame_game
+     WHERE is_enabled = 1 AND is_maintain = 0`,
+  )
   const sportsbookGame = await loadWin568SportsbookGame(db)
   const games = [
     ...(sportsbookGame ? [sportsbookGame] : []),
     ...(win568Rows as RowDataPacket[]).map(rowToWin568Game),
+    ...(wxgameRows as RowDataPacket[]).map(rowToWxgameGame),
   ]
   // Cashback 精选档位角标（elite=2%/pro=1.5%，纯展示不参与结算）
   const [featRows] = await db.query<RowDataPacket[]>(

@@ -61,8 +61,9 @@ router.get('/', async (ctx) => {
     const [items] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
       `SELECT p.round_id, p.user_id, p.currency_code,
               p.bet_amount, p.win_amount, p.first_at, p.updated_at,
-              COALESCE(o.name_override, g.name_en, g.name_zh) AS game_name,
-              COALESCE(g.provider, '568Win') AS provider_name
+              COALESCE(o.name_override, g.name_en, g.name_zh, xg.name_full, xg.name_en) AS game_name,
+              -- 兜底不能写死 568Win：WXGame 的局在 g 上 JOIN 不到，会被标成 568Win
+              COALESCE(g.provider, xg.game_brand, p.aggregator_id) AS provider_name
        FROM (
          SELECT br.round_id, br.user_id, br.currency_code, br.provider_txn_id,
                 br.bet_amount, br.win_amount, br.first_at, br.updated_at, br.aggregator_id, br.last_id
@@ -85,6 +86,10 @@ router.get('/', async (ctx) => {
         AND g.game_id = CAST(wt.provider_id AS UNSIGNED)
        LEFT JOIN bg_568win_game_override o
          ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+       LEFT JOIN bg_wxgame_wallet_txn xt
+         ON p.aggregator_id = 'wxgame' AND xt.transaction_id = p.provider_txn_id
+       LEFT JOIN bg_wxgame_game xg
+         ON xg.game_brand = xt.game_brand AND xg.game_id = xt.game_id
        ORDER BY ${orderBy.replaceAll('br.', 'p.')}`,
       [...roundParams, pageSize, offset],
     )

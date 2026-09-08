@@ -4,6 +4,10 @@ import { getMysqlPool } from '../clients/mysql.client.js'
 import { ok } from '../utils/response.js'
 import { DEFAULT_AGGREGATOR } from '../lib/aggregators.js'
 
+// 两家的游戏名/图各自从自己的表取：568win 走 gpid+gameId 数字键，
+// WXGame 走 transactionId → (game_brand, game_id)。同一条 SQL 里并行 LEFT JOIN，
+// 按 aggregator_id 各自只命中一边，再 COALESCE 取到非空的那个。
+
 const router = new Router({ prefix: '/bets' })
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
@@ -47,13 +51,14 @@ router.get('/', async (ctx) => {
        sub.win_amount,
        sub.currency_code,
        sub.created_at,
-       COALESCE(wo.name_override, wg.name_en, wg.name_zh, IF(wg.game_id IS NULL, NULL, CONCAT('568Win ', wg.game_id))) AS game_name,
+       COALESCE(wo.name_override, wg.name_en, wg.name_zh, IF(wg.game_id IS NULL, NULL, CONCAT('568Win ', wg.game_id)),
+                xg.name_full, xg.name_en) AS game_name,
        wg.name_zh AS game_name_zh,
        NULL AS game_name_vi,
        NULL AS game_name_id,
-       COALESCE(wg.provider, IF(wg.game_id IS NULL, NULL, '568Win')) AS game_provider,
-       COALESCE(wo.image_override, wg.icon_url) AS game_image,
-       COALESCE(wo.image_override, wg.icon_url) AS game_image_hq
+       COALESCE(wg.provider, IF(wg.game_id IS NULL, NULL, '568Win'), xg.game_brand) AS game_provider,
+       COALESCE(wo.image_override, wg.icon_url, xg.icon_local, xg.icon_url) AS game_image,
+       COALESCE(wo.image_override, wg.icon_url, xg.icon_local, xg.icon_url) AS game_image_hq
      FROM (
        SELECT round_id, bet_amount, win_amount, currency_code,
               first_at AS created_at, provider_txn_id, aggregator_id, last_id
@@ -78,6 +83,10 @@ router.get('/', async (ctx) => {
      LEFT JOIN bg_568win_game_override wo
        ON wo.game_provider_id = wg.game_provider_id
       AND wo.game_id = wg.game_id
+     LEFT JOIN bg_wxgame_wallet_txn xt
+       ON sub.aggregator_id = 'wxgame' AND xt.transaction_id = sub.provider_txn_id
+     LEFT JOIN bg_wxgame_game xg
+       ON xg.game_brand = xt.game_brand AND xg.game_id = xt.game_id
      ORDER BY sub.last_id DESC`,
     [...baseParams, pageSize, offset],
   )
