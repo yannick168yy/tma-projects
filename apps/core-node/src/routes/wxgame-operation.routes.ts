@@ -4,6 +4,7 @@ import { env } from '../config/env.js'
 import { WxgameClient } from '../clients/wxgame.client.js'
 import { issueLaunchToken } from '../services/wxgame-launch.service.js'
 import { ensureWxgamePlayer } from '../services/wxgame-player.service.js'
+import { saveWxgameGames } from '../services/wxgame-game.service.js'
 import { getPlayerRtp, isValidRtpTier, setPlayerRtp, unsetPlayerRtp, WXGAME_RTP_TIERS } from '../services/wxgame-rtp.service.js'
 
 // 上游只支持这几种语言（官方游戏表），没有中文。我方 bg_user.locale 是 en/id/vi/zh-CN，
@@ -65,6 +66,14 @@ export async function wxgameOperationRoutes(app: FastifyInstance) {
   })
 
   app.get('/rtp/tiers', async () => ({ tiers: WXGAME_RTP_TIERS, merchantType: 'regular' }))
+
+  app.post('/games/sync', async (_req, reply) => {
+    const result = await new WxgameClient().getGameList()
+    if (result.code !== 0) return reply.status(502).send({ error: result.msg || '游戏目录同步失败' })
+    const games = result.data?.gameList ?? []
+    await saveWxgameGames(app, games)
+    return { received: games.length }
+  })
 
   app.post<{ Body: { userIds: string[]; rtp: string; operatorId: string; reason?: string } }>(
     '/rtp/set', async (req, reply) => {

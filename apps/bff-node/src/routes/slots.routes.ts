@@ -16,6 +16,7 @@ import { isMysqlEnabled } from '../clients/mysql.client.js'
 import { getBettingActivity, type BetTab } from '../services/betting-activity.service.js'
 import type { Env } from '../config/env.js'
 import { getTenantFeatures } from '../services/tenant-feature.service.js'
+import { resolveGameRoute } from '../services/game-routing.service.js'
 
 const router = new Router({ prefix: '/slots' })
 
@@ -275,7 +276,18 @@ router.post('/init', async (ctx) => {
     return
   }
 
-  if (!(await isGameAvailable(env, body.gameUuid))) {
+  let canonicalUuid = body.gameUuid
+  let managed = false
+  try {
+    const resolved = await resolveGameRoute(env, body.gameUuid, body.currency, body.device, userId)
+    body.gameUuid = resolved.uuid
+    canonicalUuid = resolved.canonicalUuid
+    managed = resolved.managed
+  } catch (e) {
+    fail(ctx, 409, e instanceof Error ? e.message : 'Game unavailable')
+    return
+  }
+  if (!managed && !(await isGameAvailable(env, body.gameUuid))) {
     fail(ctx, 409, 'This game is under maintenance')
     return
   }
@@ -283,7 +295,7 @@ router.post('/init', async (ctx) => {
   if (body.gameUuid === WIN568_SPORTSBOOK_UUID) {
     try {
       const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency, prefix: tenantPrefix(ctx) })
-      void recordGameLaunch(env, userId, body.gameUuid)
+      void recordGameLaunch(env, userId, canonicalUuid)
       ok(ctx, { url })
     } catch (e) {
       fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win Sports')
@@ -294,7 +306,7 @@ router.post('/init', async (ctx) => {
   if (body.gameUuid.startsWith('wxgame:')) {
     try {
       const url = await launchWxgameGameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, currency: body.currency, prefix: tenantPrefix(ctx) })
-      void recordGameLaunch(env, userId, body.gameUuid)
+      void recordGameLaunch(env, userId, canonicalUuid)
       ok(ctx, { url })
     } catch (e) {
       fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch WXGame game')
@@ -305,7 +317,7 @@ router.post('/init', async (ctx) => {
   if (body.gameUuid.startsWith('568win:')) {
     try {
       const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency, prefix: tenantPrefix(ctx) })
-      void recordGameLaunch(env, userId, body.gameUuid)
+      void recordGameLaunch(env, userId, canonicalUuid)
       ok(ctx, { url })
     } catch (e) {
       fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win game')

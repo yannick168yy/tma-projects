@@ -3,6 +3,7 @@ import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getRedis } from '../clients/redis.client.js'
 import { DEFAULT_AGGREGATOR, type AggregatorId } from '../lib/aggregators.js'
+import { projectGameCatalog, gameAliasIndex, readRoutingConfig } from './game-routing.service.js'
 
 const GAMES_CACHE_KEY = 'games:all'
 const GAMES_CACHE_TTL = 30 * 60 // 30 分钟
@@ -21,6 +22,7 @@ const WIN568_SPORTSBOOK_DEFAULT = {
 
 export interface DbGame {
   uuid: string
+  aliases?: string[]
   aggregator?: AggregatorId
   name: string
   nameId: string | null
@@ -74,6 +76,7 @@ function supportsCurrency(game: DbGame, currency?: string): boolean {
   const normalized = normalizeGameCurrency(currency)
   if (!normalized) return true
   const supported = game.supportedCurrencies
+  if (game.aliases) return !!supported?.includes(normalized)
   if (!supported || supported.length === 0) return true
   const set = new Set(supported.map((c) => normalizeGameCurrency(c) ?? c.toUpperCase()))
   return set.has(normalized)
@@ -322,6 +325,10 @@ function setMemGames(games: DbGame[]) {
 }
 
 export async function getGamesFromCache(env: Env): Promise<DbGame[]> {
+  return projectGameCatalog(env, await getRawGamesFromCache(env))
+}
+
+export async function getRawGamesFromCache(env: Env): Promise<DbGame[]> {
   if (memGames && Date.now() - memGamesAt < MEM_GAMES_TTL) return memGames
   const redis = getRedis(env)
   const raw = await redis.get(GAMES_CACHE_KEY)
@@ -615,7 +622,11 @@ export function buildSectionList(rows: HomeSectionLayoutRow[], cur: string): Hom
 // 不跑算法(维护游戏保留在名单里、前端置灰)；其余板块不受影响。
 // hidden: 本币种被后台隐藏的板块 key，只写进 hiddenSections 供前端跳过渲染，不影响选品本身。
 function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOverrides, frozen: Map<string, string[]> = new Map(), hidden: string[] = []): HomepageSelection {
-  const gameByUuid = new Map(all.map((g) => [g.uuid, g]))
+  const gameByUuid = gameAliasIndex(all)
+  if (all.some((g) => g.aliases)) {
+    overrides = new Map([...overrides].map(([key, entries]) => [key, entries.map((e) => ({ ...e, gameUuid: gameByUuid.get(e.gameUuid)?.uuid ?? e.gameUuid }))]))
+    frozen = new Map([...frozen].map(([key, uuids]) => [key, [...new Set(uuids.map((u) => gameByUuid.get(u)?.uuid ?? u))]]))
+  }
   // 冻结名单 → 游戏对象(保序，缓存里已不存在的uuid跳过)，并登记 seen 供其它板块跨块去重
   const frozenList = (key: string): DbGame[] | null => {
     const f = frozen.get(key)
@@ -873,9 +884,18 @@ export function scheduleCacheRefresh(env: Env, delayMs = 2000): void {
 // 需最多等 3 小时才反映。这里按实时游戏缓存(25 分钟重载)重新校准每款游戏的可用状态，
 // 使置灰/复亮在缓存周期内生效，达成「不可用立刻置灰、恢复及时变亮」。缓存里已不存在的游戏(下架)保持置灰。
 async function hydrateAvailability(env: Env, selection: HomepageSelection): Promise<HomepageSelection> {
-  const liveByUuid = new Map((await getGamesFromCache(env)).map((g) => [g.uuid, g.isAvailable !== false]))
-  const rehydrate = (games: DbGame[]) =>
-    games.map((g) => ({ ...g, isAvailable: liveByUuid.get(g.uuid) ?? false }))
+  const liveByUuid = gameAliasIndex(await getGamesFromCache(env))
+  const rehydrate = (games: DbGame[]) => {
+    const seen = new Set<string>()
+    return games.map((g) => {
+      const live = liveByUuid.get(g.uuid)
+      return live?.aliases ? live : { ...g, isAvailable: live?.isAvailable !== false && !!live }
+    }).filter((g) => {
+      if (seen.has(g.uuid)) return false
+      seen.add(g.uuid)
+      return true
+    })
+  }
   const out = { ...selection } as Record<string, unknown>
   for (const [k, v] of Object.entries(out)) {
     if (k !== 'hiddenSections' && k !== 'sections' && Array.isArray(v)) out[k] = rehydrate(v as DbGame[])
@@ -1024,7 +1044,12 @@ export async function listGames(
     // 让 2%/1.5%/1% 三档在整列表里持续穿插露出，而非纯热度把 basic 全顶到前面
     games = orderByCashbackQuota(games)
   } else if (pinnedOrder && pinnedOrder.length) {
-    const posByUuid = new Map(pinnedOrder.map((u, i) => [u, i]))
+    const aliases = gameAliasIndex(games)
+    const posByUuid = new Map<string, number>()
+    pinnedOrder.forEach((u, i) => {
+      const uuid = aliases.get(u)?.uuid ?? u
+      if (!posByUuid.has(uuid)) posByUuid.set(uuid, i)
+    })
     games = [...games].sort((a, b) => {
       const pa = posByUuid.get(a.uuid)
       const pb = posByUuid.get(b.uuid)
@@ -1078,6 +1103,28 @@ export async function getUserGameHistory(
   limit = 10,
 ): Promise<GameHistoryItem[]> {
   const db = getMysqlPool(env)
+  const config = await readRoutingConfig(db)
+  if (config.games.some((g) => g.enabled)) {
+    const [history] = await db.query<RowDataPacket[]>(`SELECT COALESCE(g.uuid, l.game_uuid) AS uuid, MAX(l.last_launched_at) AS last_played_at
+      FROM bg_game_launch l LEFT JOIN bg_game_source s ON s.source_uuid = l.game_uuid
+      LEFT JOIN bg_game_catalog g ON g.id = s.game_id AND g.enabled = 1
+      WHERE l.user_id = ? GROUP BY COALESCE(g.uuid, l.game_uuid) ORDER BY last_played_at DESC LIMIT ?`, [userId, limit])
+    const byUuid = gameAliasIndex(await getGamesFromCache(env))
+    return history.flatMap((r) => {
+      const g = byUuid.get(String(r.uuid))
+      return g ? [{
+        uuid: g.uuid,
+        name: g.name,
+        nameId: g.nameId,
+        nameVi: g.nameVi,
+        nameZh: g.nameZh,
+        provider: g.provider,
+        imageUrl: g.imageUrl,
+        imageHqUrl: g.imageHqUrl,
+        lastPlayedAt: new Date(r.last_played_at as Date).toISOString(),
+      }] : []
+    })
+  }
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT l.game_uuid,
             COALESCE(o.name_override, w.name_en, w.name_zh) AS name,

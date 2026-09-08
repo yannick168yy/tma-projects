@@ -4,6 +4,7 @@ import { startWin568SyncGames, getGameJob, type AdminGameJob } from '../api'
 import GameJobModal, { type JobModalState } from './games/GameJobModal'
 import Win568GameList from './games/Win568GameList'
 import Win568Providers from './games/Win568Providers'
+import GameRouting from './games/GameRouting'
 
 function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)) }
 
@@ -53,14 +54,16 @@ export default function Games() {
     <div>
       <Space style={{ marginBottom: 12, width: '100%', justifyContent: 'space-between' }} align="center">
         <h2 style={{ margin: 0 }}>游戏管理</h2>
-        <Button type="primary" loading={syncing} onClick={runSyncJob}>同步 568Win 游戏库</Button>
+        {activeTab !== 'routing' && <Button type="primary" loading={syncing} onClick={runSyncJob}>同步 568Win 游戏库</Button>}
       </Space>
       <Tabs activeKey={activeTab} onChange={setActiveTab} style={{ marginBottom: 0 }} items={[
         { key: 'win568', label: '568Win 游戏' },
         { key: 'win568-providers', label: '568Win 厂商' },
+        { key: 'routing', label: '多聚合商管理' },
       ]} />
       {activeTab === 'win568' && <Win568GameList refreshKey={refreshKey} />}
       {activeTab === 'win568-providers' && <Win568Providers />}
+      {activeTab === 'routing' && <GameRouting />}
       <GameJobModal state={jobModal} onClose={() => setJobModal((m) => ({ ...m, visible: false }))} />
     </div>
   )
