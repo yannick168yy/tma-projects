@@ -116,4 +116,72 @@ router.post('/verify', guard, async (ctx) => {
   ok(ctx, payload)
 })
 
+// ── 对账差异 ────────────────────────────────────────────────
+// 只读 + 标记已处理，不提供"自动补账"：金额对不上时以谁为准要人判断，
+// 自动补在对账逻辑本身有 bug 时会放大损失。
+
+router.get('/recon/diffs', async (ctx) => {
+  const q = ctx.query as { resolved?: string; type?: string; page?: string; pageSize?: string }
+  const pageSize = Math.min(Number(q.pageSize) || 20, 100)
+  const offset = (Math.max(Number(q.page) || 1, 1) - 1) * pageSize
+  const where: string[] = []
+  const params: unknown[] = []
+  where.push(q.resolved === '1' ? 'resolved_at IS NOT NULL' : 'resolved_at IS NULL')
+  if (q.type) { where.push('diff_type = ?'); params.push(q.type) }
+  const clause = `WHERE ${where.join(' AND ')}`
+
+  const pool = getMysqlPool(ctx.state.env)
+  const [[{ total }]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM bg_wxgame_recon_diff ${clause}`, params,
+  )
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, round_id, transaction_id, player_id, user_id, diff_type,
+            upstream_bet, upstream_win, upstream_status, local_bet, local_win,
+            resolved_at, resolved_note, created_at
+     FROM bg_wxgame_recon_diff ${clause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [...params, pageSize, offset],
+  )
+  const [[cursor]] = await pool.query<RowDataPacket[]>(
+    `SELECT last_run_at, last_scanned, last_error FROM bg_wxgame_recon_cursor WHERE id = 1`,
+  )
+  ok(ctx, {
+    total: Number(total),
+    lastRunAt: cursor?.last_run_at ? new Date(cursor.last_run_at as Date).toISOString() : null,
+    lastScanned: cursor?.last_scanned == null ? null : Number(cursor.last_scanned),
+    lastError: cursor?.last_error ? String(cursor.last_error) : null,
+    items: rows.map((r) => ({
+      id: Number(r.id),
+      roundId: String(r.round_id),
+      transactionId: r.transaction_id ? String(r.transaction_id) : null,
+      playerId: r.player_id ? String(r.player_id) : null,
+      userId: r.user_id ? String(r.user_id) : null,
+      diffType: String(r.diff_type),
+      upstream: { bet: r.upstream_bet == null ? null : Number(r.upstream_bet), win: r.upstream_win == null ? null : Number(r.upstream_win), status: r.upstream_status ? String(r.upstream_status) : null },
+      local: { bet: r.local_bet == null ? null : Number(r.local_bet), win: r.local_win == null ? null : Number(r.local_win) },
+      resolvedAt: r.resolved_at ? new Date(r.resolved_at as Date).toISOString() : null,
+      resolvedNote: r.resolved_note ? String(r.resolved_note) : null,
+      createdAt: r.created_at ? new Date(r.created_at as Date).toISOString() : null,
+    })),
+  })
+})
+
+router.post('/recon/diffs/:id/resolve', guard, async (ctx) => {
+  const body = ctx.request.body as { note?: string }
+  if (!body.note) { fail(ctx, 400, 'note is required'); return }
+  const pool = getMysqlPool(ctx.state.env)
+  const [res] = await pool.execute(
+    `UPDATE bg_wxgame_recon_diff SET resolved_at = NOW(3), resolved_note = ?
+     WHERE id = ? AND resolved_at IS NULL`,
+    [body.note, ctx.params.id],
+  )
+  const affected = (res as { affectedRows: number }).affectedRows
+  if (affected === 0) { fail(ctx, 404, 'diff not found or already resolved'); return }
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!, adminUsername: ctx.state.adminUsername!,
+    action: 'wxgame_recon_resolve', targetType: 'recon_diff', targetId: String(ctx.params.id),
+    detail: { note: body.note }, ip: ctx.ip,
+  })
+  ok(ctx, { resolved: true })
+})
+
 export default router

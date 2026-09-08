@@ -9,6 +9,7 @@ import { startCallbackConsumer } from './consumers/callback.consumer.js'
 import { startSettlementCron } from './cron/settlement.cron.js'
 import { startWin568GameSyncCron } from './cron/win568-game-sync.cron.js'
 import { startWxgameGameSyncCron } from './cron/wxgame-game-sync.cron.js'
+import { startWxgameReconcileCron } from './cron/wxgame-reconcile.cron.js'
 import { startWin568KeyRotationCron } from './cron/win568-key-rotation.cron.js'
 import { startWin568ReportSyncCron } from './cron/win568-report-sync.cron.js'
 import { startSegmentRefreshCron } from './cron/segment-refresh.cron.js'
@@ -47,6 +48,7 @@ export async function buildApp() {
     startWin568KeyRotationCron(app)
     startWin568GameSyncCron(app)
     startWxgameGameSyncCron(app)
+    startWxgameReconcileCron(app)
     startWin568ReportSyncCron(app)
     startSegmentRefreshCron(app)
     startRiskSignalRefreshCron(app)
