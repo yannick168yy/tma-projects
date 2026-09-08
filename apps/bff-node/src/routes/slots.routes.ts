@@ -36,6 +36,18 @@ async function blockedCategories(ctx: import('koa').Context): Promise<string[]> 
   return CATEGORY_FEATURE.filter(([, key]) => features[key] === false).map(([cat]) => cat)
 }
 
+/**
+ * core-node 内部接口的租户前缀。
+ *
+ * core-node 从 URL 里的 :tenantCode 解析归属，不看 Host。不带租户段时它会回落自营站
+ * 并打警告——包网租户的玩家起游戏会落到自营站的库上，拿错人的账号和余额。
+ * 自营站返回空串，路径与改造前逐字相同，所以现有流量行为不变。
+ */
+function tenantPrefix(ctx: import('koa').Context): string {
+  const tenant = ctx.state.tenant
+  return !tenant || tenant.selfOperated ? '' : `/t/${tenant.code}`
+}
+
 async function launchWin568GameUrl(input: {
   env: Env
   userId: string
@@ -43,12 +55,13 @@ async function launchWin568GameUrl(input: {
   gameUuid: string
   device?: string
   currency?: string
+  prefix: string
 }) {
   const device = input.device === 'desktop' ? 'desktop' : 'mobile'
   const language = input.userLocale ?? 'en'
 
   if (input.gameUuid === WIN568_SPORTSBOOK_UUID) {
-    const res = await fetch(`${input.env.CORE_NODE_URL}/internal/win568/sports/launch`, {
+    const res = await fetch(`${input.env.CORE_NODE_URL}${input.prefix}/internal/win568/sports/launch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Internal-Token': input.env.INTERNAL_TOKEN },
       body: JSON.stringify({ userId: input.userId, device, language, currency: input.currency }),
@@ -65,7 +78,7 @@ async function launchWin568GameUrl(input: {
   if (!Number.isInteger(gameId) || (gpId !== undefined && !Number.isInteger(gpId))) {
     throw new Error('invalid 568Win game id')
   }
-  const res = await fetch(`${input.env.CORE_NODE_URL}/internal/win568/game/launch`, {
+  const res = await fetch(`${input.env.CORE_NODE_URL}${input.prefix}/internal/win568/game/launch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Internal-Token': input.env.INTERNAL_TOKEN },
     body: JSON.stringify({ userId: input.userId, gpId, gameId, device, language, currency: input.currency }),
@@ -94,10 +107,11 @@ async function launchWxgameGameUrl(input: {
   userLocale?: string
   gameUuid: string
   currency?: string
+  prefix: string
 }) {
   const ref = parseWxgameUuid(input.gameUuid)
   if (!ref) throw new Error('invalid WXGame game uuid')
-  const res = await fetch(`${input.env.CORE_NODE_URL}/internal/wxgame/game/launch`, {
+  const res = await fetch(`${input.env.CORE_NODE_URL}${input.prefix}/internal/wxgame/game/launch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Internal-Token': input.env.INTERNAL_TOKEN },
     body: JSON.stringify({
@@ -234,6 +248,7 @@ router.get('/win568-test-launch', async (ctx) => {
       userLocale: 'en',
       gameUuid,
       device: typeof ctx.query.device === 'string' ? ctx.query.device : 'mobile',
+      prefix: tenantPrefix(ctx),
     })
     ctx.redirect(url)
   } catch (e) {
@@ -267,7 +282,7 @@ router.post('/init', async (ctx) => {
 
   if (body.gameUuid === WIN568_SPORTSBOOK_UUID) {
     try {
-      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency })
+      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency, prefix: tenantPrefix(ctx) })
       void recordGameLaunch(env, userId, body.gameUuid)
       ok(ctx, { url })
     } catch (e) {
@@ -278,7 +293,7 @@ router.post('/init', async (ctx) => {
 
   if (body.gameUuid.startsWith('wxgame:')) {
     try {
-      const url = await launchWxgameGameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, currency: body.currency })
+      const url = await launchWxgameGameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, currency: body.currency, prefix: tenantPrefix(ctx) })
       void recordGameLaunch(env, userId, body.gameUuid)
       ok(ctx, { url })
     } catch (e) {
@@ -289,7 +304,7 @@ router.post('/init', async (ctx) => {
 
   if (body.gameUuid.startsWith('568win:')) {
     try {
-      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency })
+      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency, prefix: tenantPrefix(ctx) })
       void recordGameLaunch(env, userId, body.gameUuid)
       ok(ctx, { url })
     } catch (e) {
