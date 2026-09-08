@@ -7,6 +7,7 @@ import depositsRoutes from './deposits.routes.js'
 import withdrawalsRoutes from './withdrawals.routes.js'
 import auditRoutes from './audit.routes.js'
 import gamesRoutes from './games.routes.js'
+import wxgameRtpRoutes from './wxgame-rtp.routes.js'
 import settingsRoutes from './settings.routes.js'
 import csRoutes from './cs.routes.js'
 import betOrdersRoutes from './bet-orders.routes.js'
@@ -64,7 +65,7 @@ export function createAdminRouter(): Router {
       features: tenant ? await getTenantFeatures(ctx.state.env, tenant.id) : {},
     })
   })
-  for (const r of [dashboardRoutes, usersRoutes, depositsRoutes, withdrawalsRoutes, auditRoutes, gamesRoutes, settingsRoutes, securityRoutes, csRoutes, betOrdersRoutes, teamRoutes, agentRoutes, promotionsRoutes, rebateRoutes, vipRoutes, spinRoutes, homeContentRoutes, announcementRoutes, reviewRoutes, kycRoutes, paymentRoutes, ledgerRoutes, deviceLookupRoutes, checkinRoutes, taskRoutes, riskRoutes, communityRoutes, broadcastRoutes, biRoutes, marketingRoutes, dbBackupRoutes, growthRoutes, platformBillingRoutes, selfServiceRoutes]) {
+  for (const r of [dashboardRoutes, usersRoutes, depositsRoutes, withdrawalsRoutes, auditRoutes, gamesRoutes, wxgameRtpRoutes, settingsRoutes, securityRoutes, csRoutes, betOrdersRoutes, teamRoutes, agentRoutes, promotionsRoutes, rebateRoutes, vipRoutes, spinRoutes, homeContentRoutes, announcementRoutes, reviewRoutes, kycRoutes, paymentRoutes, ledgerRoutes, deviceLookupRoutes, checkinRoutes, taskRoutes, riskRoutes, communityRoutes, broadcastRoutes, biRoutes, marketingRoutes, dbBackupRoutes, growthRoutes, platformBillingRoutes, selfServiceRoutes]) {
     admin.use(guard, r.routes(), r.allowedMethods())
   }
 

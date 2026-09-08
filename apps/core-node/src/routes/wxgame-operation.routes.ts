@@ -4,6 +4,7 @@ import { env } from '../config/env.js'
 import { WxgameClient } from '../clients/wxgame.client.js'
 import { issueLaunchToken } from '../services/wxgame-launch.service.js'
 import { ensureWxgamePlayer } from '../services/wxgame-player.service.js'
+import { getPlayerRtp, isValidRtpTier, setPlayerRtp, unsetPlayerRtp, WXGAME_RTP_TIERS } from '../services/wxgame-rtp.service.js'
 
 // 上游只支持这几种语言（官方游戏表），没有中文。我方 bg_user.locale 是 en/id/vi/zh-CN，
 // zh-CN 只能落到 en。映射不到一律 en，而不是把原值透传上去让对方报错。
@@ -61,5 +62,41 @@ export async function wxgameOperationRoutes(app: FastifyInstance) {
       return reply.status(502).send({ error: result.msg || 'failed to get game url', code: result.code })
     }
     return reply.send({ url: result.data, playerId: player.playerId })
+  })
+
+  app.get('/rtp/tiers', async () => ({ tiers: WXGAME_RTP_TIERS, merchantType: 'regular' }))
+
+  app.post<{ Body: { userIds: string[]; rtp: string; operatorId: string; reason?: string } }>(
+    '/rtp/set', async (req, reply) => {
+      const { userIds, rtp, operatorId } = req.body ?? {}
+      if (!Array.isArray(userIds) || userIds.length === 0 || !operatorId) {
+        return reply.status(400).send({ error: 'userIds and operatorId are required' })
+      }
+      if (!isValidRtpTier(rtp)) {
+        // 常规户传 100 以上上游会返 1021，这里先挡住并把原因说清楚
+        return reply.status(400).send({ error: `invalid rtp tier; allowed: ${WXGAME_RTP_TIERS.join(', ')} (regular merchant)` })
+      }
+      const result = await setPlayerRtp(app, userIds, rtp, operatorId, req.body.reason ?? null)
+      return reply.send(result)
+    })
+
+  app.post<{ Body: { userIds: string[] } }>('/rtp/unset', async (req, reply) => {
+    const { userIds } = req.body ?? {}
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return reply.status(400).send({ error: 'userIds is required' })
+    }
+    return reply.send(await unsetPlayerRtp(app, userIds))
+  })
+
+  app.post<{ Body: { userIds: string[] } }>('/rtp/query', async (req, reply) => {
+    const { userIds } = req.body ?? {}
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return reply.status(400).send({ error: 'userIds is required' })
+    }
+    try {
+      return reply.send({ items: await getPlayerRtp(app, userIds) })
+    } catch (e) {
+      return reply.status(502).send({ error: e instanceof Error ? e.message : 'query failed' })
+    }
   })
 }
