@@ -32,6 +32,8 @@ import ReviewManualQueue from './views/review/ManualQueue'
 import WithdrawRecords from './views/review/WithdrawRecords'
 import AuditLog from './views/AuditLog'
 import Games from './views/Games'
+import WxgameRtp from './views/WxgameRtp'
+import WxgameRecon from './views/WxgameRecon'
 import Settings from './views/Settings'
 import SystemParams from './views/SystemParams'
 import SiteDomains from './views/SiteDomains'
@@ -155,6 +157,8 @@ export default function App() {
           <Route path="cs-tickets" element={<CustomerService ticketMode />} />
           <Route path="cs-faq" element={<CsFaq />} />
           <Route path="bet-orders" element={<BetOrders />} />
+          <Route path="wxgame-rtp" element={<WxgameRtp />} />
+          <Route path="wxgame-recon" element={<WxgameRecon />} />
           <Route path="team-referral" element={<Navigate to="/team-referral/agents" replace />} />
           <Route path="team-referral/agents" element={<TeamReferral tab="agents" />} />
           <Route path="team-referral/commissions" element={<TeamReferral tab="commissions" />} />

@@ -2142,3 +2142,47 @@ export const createApiKey = (body: {
 }) => post<{ key: string; items: ApiKeyRow[] }>('/admin/self-service/api-keys', body)
 export const revokeApiKey = (id: number) =>
   del<{ items: ApiKeyRow[] }>(`/admin/self-service/api-keys/${id}`)
+
+// ── WXGame 点控 RTP 与对账 ───────────────────────────────────
+export interface WxgameRtpRecord {
+  userId: string
+  playerId: string | null
+  rtp: string
+  operatorId: string | null
+  reason: string | null
+  /** false = 上游没确认成功，界面必须标出来，否则运营会以为已生效 */
+  synced: boolean
+  updatedAt: string | null
+}
+export interface WxgameReconDiff {
+  id: number
+  roundId: string
+  transactionId: string | null
+  playerId: string | null
+  userId: string | null
+  diffType: 'missing_local' | 'amount_mismatch' | 'missing_upstream' | 'status_mismatch'
+  upstream: { bet: number | null; win: number | null; status: string | null }
+  local: { bet: number | null; win: number | null }
+  resolvedAt: string | null
+  resolvedNote: string | null
+  createdAt: string
+}
+
+export const getWxgameRtpTiers = () =>
+  get<{ tiers: string[]; merchantType: string }>('/admin/wxgame-rtp/tiers')
+export const getWxgameRtpList = (params: { userId?: string; page?: number; pageSize?: number }) =>
+  get<{ total: number; items: WxgameRtpRecord[] }>('/admin/wxgame-rtp', params)
+export const setWxgameRtp = (data: { userIds: string[]; rtp: string; reason?: string; opPassword: string }) =>
+  post<{ applied: string[]; failed: string[] }>('/admin/wxgame-rtp/set', data)
+export const unsetWxgameRtp = (data: { userIds: string[]; opPassword: string }) =>
+  post<{ applied: string[]; failed: string[] }>('/admin/wxgame-rtp/unset', data)
+export const verifyWxgameRtp = (userIds: string[]) =>
+  post<{ items: Array<{ userId: string; playerId: string; upstreamRtp: string | null }> }>('/admin/wxgame-rtp/verify', { userIds })
+
+export const getWxgameReconDiffs = (params: { resolved?: string; type?: string; page?: number; pageSize?: number }) =>
+  get<{
+    total: number; lastRunAt: string | null; lastScanned: number | null; lastError: string | null
+    items: WxgameReconDiff[]
+  }>('/admin/wxgame-rtp/recon/diffs', params)
+export const resolveWxgameReconDiff = (id: number, note: string) =>
+  post<{ resolved: boolean }>(`/admin/wxgame-rtp/recon/diffs/${id}/resolve`, { note })
