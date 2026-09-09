@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Env } from '../config/env.js'
-import { createDeposit, generateSign, getBalance, queryDeposit } from '../services/wzpay.service.js'
+import { createDeposit, generateSign, generateWzpayContact, getBalance, queryDeposit } from '../services/wzpay.service.js'
 
 const env = {
   WZPAY_BASE_URL: 'https://api.wzpay.club',
@@ -9,6 +9,14 @@ const env = {
 } as Env
 
 describe('WZPAY 服务', () => {
+  it('根据用户 ID 稳定生成符合格式的虚拟联系方式', () => {
+    const first = generateWzpayContact('BG-10001')
+    expect(first).toEqual(generateWzpayContact('BG-10001'))
+    expect(first).not.toEqual(generateWzpayContact('BG-10002'))
+    expect(first.phone).toMatch(/^0812\d{8}$/)
+    expect(first.email).toMatch(/^wzpay-[a-f0-9]{16}@188facai\.com$/)
+  })
+
   it('按 ASCII 顺序生成 MD5 小写签名并排除空值', () => {
     expect(generateSign({ merchantId: '10114', currency: 'IDR', empty: '', sign: 'ignored' }, 'secret'))
       .toBe('c19e69638574a4691f1fd78cbfdc321d')

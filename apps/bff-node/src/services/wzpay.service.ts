@@ -23,6 +23,15 @@ export function verifySign(params: Record<string, unknown>, apiKey: string): boo
   return timingSafeEqual(Buffer.from(received), Buffer.from(expected))
 }
 
+export function generateWzpayContact(userId: string): { phone: string; email: string } {
+  const digest = createHash('sha256').update(`wzpay:${userId}`).digest()
+  const phoneSuffix = Array.from(digest.subarray(0, 8), (value) => String(value % 10)).join('')
+  return {
+    phone: `0812${phoneSuffix}`,
+    email: `wzpay-${digest.toString('hex').slice(0, 16)}@188facai.com`,
+  }
+}
+
 async function request<T>(
   path: string,
   required: Record<string, unknown>,

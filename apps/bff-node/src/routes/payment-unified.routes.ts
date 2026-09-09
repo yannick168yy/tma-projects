@@ -23,13 +23,14 @@ import {
 } from '../services/unispay.service.js'
 import {
   createDeposit as wzpayCreateDeposit,
+  generateWzpayContact,
   queryDeposit as wzpayQueryDeposit,
   WzpayError,
 } from '../services/wzpay.service.js'
 import { syncQueriedDepositStatus } from '../services/deposit-status-sync.service.js'
 import {
   getWalletBalances, getDeposit, getWithdraw, saveDeposit, saveWithdraw,
-  creditWallet, listDeposits, listWithdrawals, getUser, getKyc, listUserIdentities,
+  creditWallet, listDeposits, listWithdrawals, getUser,
 } from '../services/store/index.js'
 import { isKycApproved } from '../services/kyc.service.js'
 import { checkWithdrawPhoneAccount } from '../services/auth.service.js'
@@ -46,27 +47,11 @@ const router = new Router()
 // 收款账号=手机号的电子钱包渠道（GoTyme 是银行卡号，不在此列）
 const PHONE_WALLET_WITHDRAW_CHANNELS = new Set(['gcash', 'maya'])
 
-function normalizeWzpayPhone(raw: string): string {
-  let digits = raw.replace(/\D/g, '')
-  if (digits.startsWith('0062')) digits = `0${digits.slice(4)}`
-  else if (digits.startsWith('62')) digits = `0${digits.slice(2)}`
-  return /^\d{10,13}$/.test(digits) ? digits : ''
-}
-
 async function getWzpayCustomer(redis: Redis, userId: string) {
-  const [user, kyc, identities] = await Promise.all([
-    getUser(redis, userId),
-    getKyc(redis, userId),
-    listUserIdentities(redis, userId),
-  ])
-  const identityPhone = identities.find((item) => item.provider === 'phone' && item.verifiedAt)?.identifier ?? ''
-  const phone = normalizeWzpayPhone(kyc?.phone || identityPhone)
-  const name = String(kyc?.fullName ?? user?.displayName ?? '').trim()
-  const email = String(user?.email ?? '').trim()
-  if (!phone) throw new WzpayError(400, 'WZPAY 要求绑定有效的印尼手机号')
+  const user = await getUser(redis, userId)
+  const name = String(user?.displayName ?? '').trim()
   if (!name) throw new WzpayError(400, 'WZPAY 要求填写付款人姓名')
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new WzpayError(400, 'WZPAY 要求绑定有效邮箱')
-  return { phone, name, email }
+  return { ...generateWzpayContact(userId), name }
 }
 
 function depositOrderState(status: OrderDeposit['status']): number {
