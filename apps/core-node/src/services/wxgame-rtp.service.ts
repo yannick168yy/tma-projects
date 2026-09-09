@@ -18,14 +18,19 @@ export function isValidRtpTier(v: unknown): v is WxgameRtpTier {
 // 上游单次最多 1000 个 playerId
 const BATCH = 1000
 
-async function playerIdsOf(app: FastifyInstance, userIds: string[]): Promise<Map<string, string>> {
+async function playerIdsOf(app: FastifyInstance, userIds: string[]): Promise<Map<string, string[]>> {
   if (userIds.length === 0) return new Map()
   const [rows] = await app.mysql.query<RowDataPacket[]>(
     `SELECT user_id, external_username FROM bg_aggregator_player
      WHERE aggregator_id = ? AND user_id IN (?)`,
     [WXGAME_AGGREGATOR_ID, userIds],
   )
-  return new Map(rows.map((r) => [String(r.user_id), String(r.external_username)]))
+  const result = new Map<string, string[]>()
+  for (const row of rows) {
+    const userId = String(row.user_id)
+    result.set(userId, [...(result.get(userId) ?? []), String(row.external_username)])
+  }
+  return result
 }
 
 export interface RtpApplyResult {
@@ -52,7 +57,8 @@ export async function setPlayerRtp(
   const mapping = await playerIdsOf(app, userIds)
 
   const applied: string[] = []
-  const targets = [...mapping.entries()]
+  const targets = [...mapping.entries()].flatMap(([userId, playerIds]) => playerIds.map((playerId) => [userId, playerId] as const))
+  const appliedPlayerIds = new Set<string>()
   for (let i = 0; i < targets.length; i += BATCH) {
     const chunk = targets.slice(i, i + BATCH)
     const res = await new WxgameClient().setPlayerRtp({ playerIds: chunk.map(([, pid]) => pid), rtp })
@@ -61,7 +67,11 @@ export async function setPlayerRtp(
       continue
     }
     const okIds = new Set(res.data?.playerIds ?? [])
-    for (const [userId, pid] of chunk) if (okIds.has(pid)) applied.push(userId)
+    for (const [, pid] of chunk) if (okIds.has(pid)) appliedPlayerIds.add(pid)
+  }
+  for (const userId of userIds) {
+    const playerIds = mapping.get(userId) ?? []
+    if (playerIds.length > 0 && playerIds.every((id) => appliedPlayerIds.has(id))) applied.push(userId)
   }
 
   // 全部入库（含未确认的），后台要能看到"想设成什么"，同步状态由 synced_at 区分
@@ -83,7 +93,8 @@ export async function setPlayerRtp(
 export async function unsetPlayerRtp(app: FastifyInstance, userIds: string[]): Promise<RtpApplyResult> {
   const mapping = await playerIdsOf(app, userIds)
   const applied: string[] = []
-  const targets = [...mapping.entries()]
+  const targets = [...mapping.entries()].flatMap(([userId, playerIds]) => playerIds.map((playerId) => [userId, playerId] as const))
+  const appliedPlayerIds = new Set<string>()
   for (let i = 0; i < targets.length; i += BATCH) {
     const chunk = targets.slice(i, i + BATCH)
     const res = await new WxgameClient().unsetPlayerRtp({ playerIds: chunk.map(([, pid]) => pid) })
@@ -92,7 +103,11 @@ export async function unsetPlayerRtp(app: FastifyInstance, userIds: string[]): P
       continue
     }
     const okIds = new Set(res.data?.playerIds ?? [])
-    for (const [userId, pid] of chunk) if (okIds.has(pid)) applied.push(userId)
+    for (const [, pid] of chunk) if (okIds.has(pid)) appliedPlayerIds.add(pid)
+  }
+  for (const userId of userIds) {
+    const playerIds = mapping.get(userId) ?? []
+    if (playerIds.length > 0 && playerIds.every((id) => appliedPlayerIds.has(id))) applied.push(userId)
   }
   if (applied.length > 0) {
     await app.mysql.query(`DELETE FROM bg_wxgame_player_rtp WHERE user_id IN (?)`, [applied])
@@ -104,10 +119,13 @@ export async function unsetPlayerRtp(app: FastifyInstance, userIds: string[]): P
 export async function getPlayerRtp(app: FastifyInstance, userIds: string[]) {
   const mapping = await playerIdsOf(app, userIds)
   if (mapping.size === 0) return []
-  const res = await new WxgameClient().getPlayerRtp({ playerIds: [...mapping.values()] })
+  const playerIds = [...mapping.values()].flat()
+  const res = await new WxgameClient().getPlayerRtp({ playerIds })
   if (res.code !== 0) throw new Error(res.msg || 'get_player_rtp failed')
   const byPlayerId = new Map((res.data?.playerRtps ?? []).map((p) => [p.playerId, p.rtp]))
-  return [...mapping.entries()].map(([userId, pid]) => ({
-    userId, playerId: pid, upstreamRtp: byPlayerId.get(pid) ?? null,
-  }))
+  return [...mapping.entries()].map(([userId, ids]) => {
+    const accounts = ids.map((playerId) => ({ playerId, upstreamRtp: byPlayerId.get(playerId) ?? null }))
+    const values = [...new Set(accounts.map((a) => a.upstreamRtp))]
+    return { userId, playerId: ids.join(','), upstreamRtp: values.length === 1 ? values[0] : null, accounts }
+  })
 }

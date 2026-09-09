@@ -157,10 +157,16 @@ export class WxgameWalletService {
     const player = await resolveWxgamePlayer(this.app, payload.playerId)
     if (!player) return fail(WX.NO_PLAYER, 'Player not found')
 
+    const [[rtp]] = await this.db.query<RowDataPacket[]>(
+      `SELECT rtp FROM bg_wxgame_player_rtp WHERE user_id = ? LIMIT 1`,
+      [player.userId],
+    )
+
     return ok({
       playerId: player.playerId,
       balance: await this.balanceOf(player),
       currency: player.currency,
+      ...(rtp ? { rtp: Number(rtp.rtp) } : {}),
     })
   }
 

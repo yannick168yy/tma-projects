@@ -30,7 +30,7 @@ const schema = z.object({
   WXGAME_ACCESS_KEY_ID: z.string().default(''),
   WXGAME_ACCESS_KEY_SECRET: z.string().default(''),
   WXGAME_ALLOWED_IPS: z.string().default(''),
-  WXGAME_DEFAULT_CURRENCY: z.enum(['PHP', 'IDR', 'USDT']).default('PHP'),
+  WXGAME_DEFAULT_CURRENCY: z.enum(['PHP', 'IDR']).default('PHP'),
   WXGAME_LAUNCH_TOKEN_TTL_SEC: z.coerce.number().default(300),
 
   // feature/免费旋转彩金薅羊毛闸：非平台活动派彩(IsGameProviderPromotion=false)中，

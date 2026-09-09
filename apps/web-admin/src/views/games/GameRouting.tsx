@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Checkbox, Form, Input, InputNumber, Modal, Select, Space, Switch, Table, Tabs, Tag, Typography, message } from 'antd'
 import { useAuthStore } from '../../stores/auth'
-import { applyChange, getCandidates, getRouting, getSources, previewChange, syncWxgame, type Aggregator, type Change, type Config, type Game, type Preview, type Provider, type Rule, type SourceGame } from './game-routing-api'
+import { applyChange, getCandidates, getRouting, getSources, previewChange, syncWxgame, type Aggregator, type Change, type Config, type Game, type Preview, type Provider, type RouteCurrency, type Rule, type SourceGame } from './game-routing-api'
 
 const aggregatorOptions = [{ value: '568win', label: '568Win' }, { value: 'wxgame', label: 'WXGame' }]
+const routeCurrencyOptions = [{ value: 'PHP', label: 'PHP' }, { value: 'IDR', label: 'IDR' }, { value: 'USDT', label: 'USDT' }, { value: '', label: '全部币种（兜底规则）' }]
 const levels: Record<string, string> = { global: '全局', provider: '厂商', game: '单游戏', original: '展示来源' }
 const errorMessage = (e: unknown) => message.error(e instanceof Error ? e.message : '操作失败')
 
@@ -72,9 +73,9 @@ export default function GameRouting() {
     form.setFieldsValue({ ...provider, winAliases: provider?.aliases['568win'] ?? [], wxAliases: provider?.aliases.wxgame ?? [] })
     setEditor({ kind: 'provider', record: provider })
   }
-  function editRule(scope: Rule['scope'], targetId: number) {
+  function editRule(scope: Rule['scope'], targetId: number, currency: RouteCurrency = 'PHP') {
     form.resetFields()
-    form.setFieldsValue({ aggregator: config?.rules.find((r) => r.scope === scope && r.targetId === targetId)?.aggregator ?? 'inherit' })
+    form.setFieldsValue({ currency, aggregator: config?.rules.find((r) => r.scope === scope && r.targetId === targetId && r.currency === currency)?.aggregator ?? 'inherit' })
     setEditor({ kind: 'rule', scope, targetId })
   }
   async function requestPreview() {
@@ -83,7 +84,7 @@ export default function GameRouting() {
       const v = await form.validateFields()
       let change: Change
       if (editor.kind === 'provider') change = { kind: 'provider', id: editor.record?.id, code: v.code, name: v.name, aliases: { '568win': v.winAliases ?? [], wxgame: v.wxAliases ?? [] } }
-      else if (editor.kind === 'rule') change = { kind: 'rule', scope: editor.scope, targetId: editor.targetId, aggregator: v.aggregator === 'inherit' ? null : v.aggregator }
+      else if (editor.kind === 'rule') change = { kind: 'rule', scope: editor.scope, targetId: editor.targetId, currency: v.currency, aggregator: v.aggregator === 'inherit' ? null : v.aggregator }
       else {
         const sources = [
           ...(v.winUuid ? [{ aggregator: '568win' as const, uuid: v.winUuid, currencies: v.winCurrencies ?? [] }] : []),
@@ -108,10 +109,13 @@ export default function GameRouting() {
       setPreview(null); setEditor(null); setRefresh((v) => v + 1)
     } catch (e) { errorMessage(e) } finally { setBusy(false) }
   }
-  const ruleText = (scope: Rule['scope'], id: number) => config?.rules.find((r) => r.scope === scope && r.targetId === id)?.aggregator ?? '继承'
+  const ruleText = (scope: Rule['scope'], id: number) => {
+    const rules = config?.rules.filter((r) => r.scope === scope && r.targetId === id) ?? []
+    return rules.length ? rules.map((r) => `${r.currency || '全部'}→${r.aggregator}`).join('；') : '继承'
+  }
 
   return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-    <Alert showIcon type="info" message="新建映射默认只保存草稿；人工启用后才接管目录和旧入口。未配置游戏保持原行为。" description="切换只影响新的游戏启动。原始注单、回调和正在进行的游戏仍归属原聚合商。WXGame 路由目前仅开放已确认的 PHP 币种。" />
+    <Alert showIcon type="info" message="新建映射默认只保存草稿；人工启用后才接管目录和旧入口。未配置游戏保持原行为。" description="路由按币种独立生效，优先级为单游戏 > 厂商 > 全局 > 展示来源。WXGame 开放 PHP/IDR，USDT 继续使用 568Win。切换只影响新的游戏启动。" />
     {!canEdit && <Alert type="warning" message="当前角色只读；super_admin 和 ops 可编辑。" />}
     <Tabs activeKey={tab} onChange={setTab} items={[{ key: 'games', label: '统一游戏与映射' }, { key: 'providers', label: '统一厂商与路由' }, { key: 'sources', label: '聚合商来源目录' }]} />
     {tab === 'games' && <>
@@ -158,7 +162,8 @@ export default function GameRouting() {
           <Form.Item name="wxAliases" label="WXGame 厂商原始名称（精确匹配）"><Select mode="tags" tokenSeparators={[',']} /></Form.Item>
         </>}
         {editor?.kind === 'rule' && <>
-          <Alert type="info" message="单游戏 > 厂商 > 全局 > 展示来源；缺少目标映射不会自动换家。" style={{ marginBottom: 16 }} />
+          <Alert type="info" message="同一币种按单游戏 > 厂商 > 全局 > 展示来源；全部币种规则只作同层级兜底。缺少目标映射不会自动换家。" style={{ marginBottom: 16 }} />
+          <Form.Item name="currency" label="生效币种"><Select options={routeCurrencyOptions} onChange={(currency: RouteCurrency) => form.setFieldValue('aggregator', config?.rules.find((r) => r.scope === editor.scope && r.targetId === editor.targetId && r.currency === currency)?.aggregator ?? 'inherit')} /></Form.Item>
           <Form.Item name="aggregator" label="主来源"><Select options={[{ value: 'inherit', label: editor.scope === 'global' ? '不设置（保持展示来源）' : '继承上级规则' }, ...aggregatorOptions]} /></Form.Item>
         </>}
         {editor?.kind === 'game' && <>
@@ -167,7 +172,7 @@ export default function GameRouting() {
           <Form.Item name="winUuid" label="568Win 来源（按名称搜索候选，再核对版本）"><SourceSelect aggregator="568win" /></Form.Item>
           <Form.Item name="winCurrencies" label="568Win 已确认币种"><Select mode="multiple" options={['PHP', 'USDT', 'IDR'].map((v) => ({ value: v }))} /></Form.Item>
           <Form.Item name="wxUuid" label="WXGame 来源（按名称搜索候选，再核对版本）"><SourceSelect aggregator="wxgame" /></Form.Item>
-          <Form.Item name="wxCurrencies" label="WXGame 已确认币种"><Select mode="multiple" options={[{ value: 'PHP' }]} /></Form.Item>
+          <Form.Item name="wxCurrencies" label="WXGame 已确认币种"><Select mode="multiple" options={['PHP', 'IDR'].map((value) => ({ value }))} /></Form.Item>
           <Form.Item shouldUpdate={(a, b) => a.winUuid !== b.winUuid || a.wxUuid !== b.wxUuid}>{() => <Form.Item name="uuid" label="公开 ID / 展示继承来源（创建后固定）" rules={[{ required: true }]}><Select disabled={!!editor.record} options={[form.getFieldValue('winUuid'), form.getFieldValue('wxUuid')].filter(Boolean).map((v) => ({ value: v, label: v }))} /></Form.Item>}</Form.Item>
           <Form.Item name="imageUrl" label="统一封面（留空继承）"><Input /></Form.Item>
           <Space align="start" wrap>
@@ -184,11 +189,11 @@ export default function GameRouting() {
     </Modal>
     <Modal width={1000} open={!!preview} title="变更影响预览" onCancel={() => setPreview(null)} onOk={save} okText="确认保存配置" confirmLoading={busy} okButtonProps={{ disabled: !reason.trim() || !!preview?.data.blocking }}>
       {preview && <>
-        <Alert type={preview.data.blocking ? 'error' : 'info'} showIcon message={`行为变化 ${preview.data.changed} 款；缺少映射 ${preview.data.missing} 款；维护或映射问题 ${preview.data.unavailable} 款；未映射来源 ${preview.data.unmapped} 条`} description="草稿不会改变实际流量。已启用游戏切换到不可用来源时不能保存；未映射来源保持原行为。" />
-        <Table rowKey="id" size="small" dataSource={preview.data.rows} pagination={{ pageSize: 8 }} scroll={{ x: 800 }} columns={[
-          { title: '游戏', dataIndex: 'name' }, { title: '接管', render: (_, r) => r.enabled ? '已启用' : '草稿' },
+        <Alert type={preview.data.blocking ? 'error' : 'info'} showIcon message={`路由变化 ${preview.data.changed} 条（游戏×币种）；缺少映射 ${preview.data.missing} 条；维护或映射问题 ${preview.data.unavailable} 条；未映射来源 ${preview.data.unmapped} 条`} description="草稿不会改变实际流量。已启用游戏切换到不可用来源时不能保存；未映射来源保持原行为。" />
+        <Table rowKey={(r) => `${r.id}:${r.currency}`} size="small" dataSource={preview.data.rows} pagination={{ pageSize: 8 }} scroll={{ x: 800 }} columns={[
+          { title: '游戏', dataIndex: 'name' }, { title: '币种', dataIndex: 'currency' }, { title: '接管', render: (_, r) => r.enabled ? '已启用' : '草稿' },
           { title: '原来源', dataIndex: 'before' }, { title: '新来源', dataIndex: 'after' }, { title: '规则层级', render: (_, r) => levels[r.level] },
-          { title: '币种', render: (_, r) => r.currencies.join('/') }, { title: '问题', dataIndex: 'issue' },
+          { title: '来源支持币种', render: (_, r) => r.currencies.join('/') }, { title: '问题', dataIndex: 'issue' },
         ]} />
         {!!preview.data.unmappedItems.length && <details><summary>未映射来源（不会被此次切换接管）</summary>{preview.data.unmappedItems.map((s) => <div key={s.uuid}>{s.name} · {s.uuid}</div>)}</details>}
         <Input.TextArea value={reason} maxLength={255} onChange={(e) => setReason(e.target.value)} placeholder="请输入操作原因，将与变更前后配置一起记录审计" />

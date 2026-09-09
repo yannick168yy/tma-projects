@@ -230,7 +230,7 @@ function rowToWxgameGame(r: RowDataPacket): DbGame {
     isFeatured: false,
     isAvailable: Boolean(r.is_enabled) && !Boolean(r.is_maintain),
     createdAt: r.created_at ? new Date(r.created_at as Date).toISOString() : null,
-    supportedCurrencies: null,
+    supportedCurrencies: ['PHP', 'IDR'],
   }
 }
 
@@ -278,6 +278,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
        AND COALESCE(o.site_category, g.site_category_auto, 'other') <> 'lobby'
        AND (g.supported_currencies IS NULL
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('PHP'))
+         OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('IDR'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USDT'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('UCC'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USD'))
@@ -324,8 +325,8 @@ function setMemGames(games: DbGame[]) {
   memGamesAt = Date.now()
 }
 
-export async function getGamesFromCache(env: Env): Promise<DbGame[]> {
-  return projectGameCatalog(env, await getRawGamesFromCache(env))
+export async function getGamesFromCache(env: Env, currency?: string): Promise<DbGame[]> {
+  return projectGameCatalog(env, await getRawGamesFromCache(env), currency)
 }
 
 export async function getRawGamesFromCache(env: Env): Promise<DbGame[]> {
@@ -496,10 +497,11 @@ function serverWeightedSample(
 // 首页选品按币种预生成：板块内容不因上游维护而变动——维护/下线的游戏(is_maintain / provider 离线)
 // 仍进选品池、按原选品结果占位返回，由客户端置灰(能看见、点不动)。避免 568Win 同步状态临时改变
 // 首页板块(整块塌缩/消失)。仅按币种拆池：切币种后不支持该币种的游戏排到末尾并标 unavailable。
-const HOMEPAGE_CURRENCIES = ['PHP', 'USDT'] as const
+const HOMEPAGE_CURRENCIES = ['PHP', 'IDR', 'USDT'] as const
 
 function homepageBucket(currency?: string): string {
-  return normalizeGameCurrency(currency) === 'USDT' ? 'USDT' : 'PHP'
+  const normalized = normalizeGameCurrency(currency)
+  return normalized === 'IDR' ? 'IDR' : normalized === 'USDT' ? 'USDT' : 'PHP'
 }
 
 // 同款游戏系列键：去掉商标符与结尾的代数记号（数字/罗马数字/Deluxe），
@@ -840,13 +842,13 @@ function frozenForCurrency(frozenAll: Map<string, string[]>, cur: string): Map<s
 
 export async function refreshHomepageSelection(env: Env): Promise<void> {
   const redis = getRedis(env)
-  const allGames = await getGamesFromCache(env)
-  if (!allGames.length) return
   const overrides = await loadSectionOverrides(env)
   const frozenAll = await loadFrozenBoards(env)
   const layoutRows = await loadSectionLayout(env)
 
   for (const cur of HOMEPAGE_CURRENCIES) {
+    const allGames = await getGamesFromCache(env, cur)
+    if (!allGames.length) continue
     const pool = allGames.filter((g) => supportsCurrency(g, cur))
     const hidden = layoutRows.filter((r) => r.currency === cur && r.hidden).map((r) => r.sectionKey)
     const selection = buildHomepageSelection(pool, cur, overrides, frozenForCurrency(frozenAll, cur), hidden)
@@ -859,7 +861,7 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
 // 生成某板块某币种的「冻结快照」：用纯算法(空 frozen)重算当前 popular/recommended/highRebate 的实际内容，
 // 返回有序 uuid 列表供写入冻结表。运营点「(重新)生成并冻结」时调用——这样每次都吃当前钉/权重的最新结果。
 export async function computeFrozenSnapshot(env: Env, sectionKey: string, currency: string): Promise<string[]> {
-  const allGames = await getGamesFromCache(env)
+  const allGames = await getGamesFromCache(env, currency)
   const overrides = await loadSectionOverrides(env)
   const pool = allGames.filter((g) => supportsCurrency(g, currency))
   const selection = buildHomepageSelection(pool, currency, overrides, new Map())
@@ -867,7 +869,7 @@ export async function computeFrozenSnapshot(env: Env, sectionKey: string, curren
   return Array.isArray(board) ? (board as DbGame[]).map((g) => g.uuid) : []
 }
 
-// 后台单游戏改动后的缓存重建去抖：全量重建(大 JOIN + 双币种选品)代价高，
+// 后台单游戏改动后的缓存重建去抖：全量重建(大 JOIN + 多币种选品)代价高，
 // 批量操作时合并触发、不阻塞管理端响应；配置类操作(板块保存/手动刷新)仍走同步路径
 let cacheRefreshTimer: ReturnType<typeof setTimeout> | null = null
 export function scheduleCacheRefresh(env: Env, delayMs = 2000): void {
@@ -883,8 +885,8 @@ export function scheduleCacheRefresh(env: Env, delayMs = 2000): void {
 // 选品快照 3 小时才重算，但 isAvailable 会被烤进快照——上游维护/恢复(is_maintain 变化)
 // 需最多等 3 小时才反映。这里按实时游戏缓存(25 分钟重载)重新校准每款游戏的可用状态，
 // 使置灰/复亮在缓存周期内生效，达成「不可用立刻置灰、恢复及时变亮」。缓存里已不存在的游戏(下架)保持置灰。
-async function hydrateAvailability(env: Env, selection: HomepageSelection): Promise<HomepageSelection> {
-  const liveByUuid = gameAliasIndex(await getGamesFromCache(env))
+async function hydrateAvailability(env: Env, selection: HomepageSelection, currency?: string): Promise<HomepageSelection> {
+  const liveByUuid = gameAliasIndex(await getGamesFromCache(env, currency))
   const rehydrate = (games: DbGame[]) => {
     const seen = new Set<string>()
     return games.map((g) => {
@@ -907,11 +909,11 @@ export async function getHomepageSelection(env: Env, currency?: string): Promise
   const redis = getRedis(env)
   const key = `${HOMEPAGE_KEY}:${homepageBucket(currency)}`
   const raw = await redis.get(key)
-  if (raw) return hydrateAvailability(env, JSON.parse(raw) as HomepageSelection)
+  if (raw) return hydrateAvailability(env, JSON.parse(raw) as HomepageSelection, currency)
   // 缓存不存在则立即生成
   await refreshHomepageSelection(env)
   const raw2 = await redis.get(key)
-  return raw2 ? hydrateAvailability(env, JSON.parse(raw2) as HomepageSelection) : null
+  return raw2 ? hydrateAvailability(env, JSON.parse(raw2) as HomepageSelection, currency) : null
 }
 
 export function applyHomepageCurrency(selection: HomepageSelection, currency?: string): HomepageSelection {
@@ -991,7 +993,7 @@ export async function listGames(
 ): Promise<GameListResult> {
   const { page = 1, limit = 30, search, provider, category, sortCategory, siteCategory, cashbackTier, rtpMin, sortBy = 'weight', currency, blockedSortCategories } = opts
 
-  let games = await getGamesFromCache(env)
+  let games = await getGamesFromCache(env, currency)
 
   // 品类屏蔽放在所有过滤之前：关掉的品类不该出现在任何列表、任何计数里
   if (blockedSortCategories && blockedSortCategories.length > 0) {
@@ -1176,7 +1178,7 @@ export async function getProviderWeights(env: Env): Promise<Map<string, number>>
 
 /** Returns distinct provider codes from cached games, optionally filtered by sortCategory / siteCategory (comma-separated) */
 export async function listProviders(env: Env, sortCategory?: string, siteCategory?: string, rtpMin?: number, currency?: string): Promise<string[]> {
-  let games = await getGamesFromCache(env)
+  let games = await getGamesFromCache(env, currency)
   if (sortCategory && sortCategory !== 'all') {
     const cats = new Set(sortCategory.split(',').map((s) => s.trim()).filter(Boolean))
     games = games.filter((g) => g.sortCategory !== null && cats.has(g.sortCategory))

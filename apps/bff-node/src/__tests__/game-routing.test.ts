@@ -15,15 +15,15 @@ const config: RoutingConfig = {
   providers: [{ id: 1, code: 'pg', name: 'PG', aliases: { '568win': ['PG Soft'], wxgame: ['pg'] } }],
   games: [{ id: 1, providerId: 1, uuid: '568win:10:20', name: '麻将胡了', enabled: true, isActive: true, presentation: { weight: 9000 } }],
   sources: [
-    { gameId: 1, aggregator: '568win', uuid: '568win:10:20', currencies: ['PHP', 'USDT'] },
-    { gameId: 1, aggregator: 'wxgame', uuid: 'wxgame:pg:mahjong-ways', currencies: ['PHP'] },
+    { gameId: 1, aggregator: '568win', uuid: '568win:10:20', currencies: ['PHP', 'IDR', 'USDT'] },
+    { gameId: 1, aggregator: 'wxgame', uuid: 'wxgame:pg:mahjong-ways', currencies: ['PHP', 'IDR'] },
   ],
   rules: [],
 }
 
 const upstream: SourceGame[] = [
-  { uuid: '568win:10:20', aggregator: '568win', provider: 'PG Soft', name: 'Mahjong Ways', imageUrl: 'a', available: true, currencies: ['PHP', 'USDT'], mobile: true, desktop: true, supportsRtp: false, rtp: 96, category: 'slots', syncedAt: '' },
-  { uuid: 'wxgame:pg:mahjong-ways', aggregator: 'wxgame', provider: 'pg', name: 'Mahjong Ways', imageUrl: 'b', available: true, currencies: ['PHP'], mobile: true, desktop: true, supportsRtp: true, rtp: null, category: 'slots', syncedAt: '' },
+  { uuid: '568win:10:20', aggregator: '568win', provider: 'PG Soft', name: 'Mahjong Ways', imageUrl: 'a', available: true, currencies: ['PHP', 'IDR', 'USDT'], mobile: true, desktop: true, supportsRtp: false, rtp: 96, category: 'slots', syncedAt: '' },
+  { uuid: 'wxgame:pg:mahjong-ways', aggregator: 'wxgame', provider: 'pg', name: 'Mahjong Ways', imageUrl: 'b', available: true, currencies: ['PHP', 'IDR'], mobile: true, desktop: true, supportsRtp: true, rtp: null, category: 'slots', syncedAt: '' },
 ]
 
 const rawGames: DbGame[] = upstream.map((g) => ({
@@ -45,11 +45,34 @@ describe('统一游戏路由', () => {
 
   it('单游戏规则覆盖厂商和全局规则', () => {
     const changed = { ...config, rules: [
-      { scope: 'global' as const, targetId: 0, aggregator: '568win' as const },
-      { scope: 'provider' as const, targetId: 1, aggregator: '568win' as const },
-      { scope: 'game' as const, targetId: 1, aggregator: 'wxgame' as const },
+      { scope: 'global' as const, targetId: 0, currency: 'PHP' as const, aggregator: '568win' as const },
+      { scope: 'provider' as const, targetId: 1, currency: 'PHP' as const, aggregator: '568win' as const },
+      { scope: 'game' as const, targetId: 1, currency: 'PHP' as const, aggregator: 'wxgame' as const },
     ] }
-    expect(routeFor(changed, changed.games[0]).source?.uuid).toBe('wxgame:pg:mahjong-ways')
+    expect(routeFor(changed, changed.games[0], 'PHP').source?.uuid).toBe('wxgame:pg:mahjong-ways')
+  })
+
+  it('PHP/IDR 可切到 WXGame，USDT 仍走 568Win', () => {
+    const changed = { ...config, rules: [
+      { scope: 'provider' as const, targetId: 1, currency: 'PHP' as const, aggregator: 'wxgame' as const },
+      { scope: 'provider' as const, targetId: 1, currency: 'IDR' as const, aggregator: 'wxgame' as const },
+      { scope: 'provider' as const, targetId: 1, currency: 'USDT' as const, aggregator: '568win' as const },
+    ] }
+    expect(routeFor(changed, changed.games[0], 'PHP').source?.aggregator).toBe('wxgame')
+    expect(routeFor(changed, changed.games[0], 'IDR').source?.aggregator).toBe('wxgame')
+    expect(routeFor(changed, changed.games[0], 'USDT').source?.aggregator).toBe('568win')
+    expect(routeFor(changed, changed.games[0], 'USDC').source?.aggregator).toBe('568win')
+    expect(projectCatalog(rawGames, changed, upstream, 'IDR')[0].aggregator).toBe('wxgame')
+    expect(projectCatalog(rawGames, changed, upstream, 'USDT')[0].aggregator).toBe('568win')
+  })
+
+  it('旧的全币种规则继续作为同层级兜底', () => {
+    const changed = { ...config, rules: [
+      { scope: 'provider' as const, targetId: 1, currency: '' as const, aggregator: '568win' as const },
+      { scope: 'provider' as const, targetId: 1, currency: 'IDR' as const, aggregator: 'wxgame' as const },
+    ] }
+    expect(routeFor(changed, changed.games[0], 'PHP').source?.aggregator).toBe('568win')
+    expect(routeFor(changed, changed.games[0], 'IDR').source?.aggregator).toBe('wxgame')
   })
 
   it('启用统一游戏后只展示一张稳定卡，并保留两个旧 ID 别名', () => {
@@ -67,10 +90,19 @@ describe('统一游戏路由', () => {
 
   it('切换到维护来源时预览阻止已启用游戏保存', () => {
     const unavailable = upstream.map((g) => g.aggregator === 'wxgame' ? { ...g, available: false } : g)
-    const next = applyRoutingChange(config, { kind: 'rule', scope: 'provider', targetId: 1, aggregator: 'wxgame' }, unavailable)
+    const next = applyRoutingChange(config, { kind: 'rule', scope: 'provider', targetId: 1, currency: 'PHP', aggregator: 'wxgame' }, unavailable)
     const preview = previewRouting(config, next, unavailable)
     expect(preview.blocking).toBe(1)
-    expect(preview.rows[0].issue).toBe('上游维护或下线')
+    expect(preview.rows.find((r) => r.currency === 'PHP')?.issue).toBe('上游维护或下线')
+  })
+
+  it('目标来源未确认 IDR 时不允许切换 IDR 流量', () => {
+    const phpOnly = { ...config, sources: config.sources.map((s) => s.aggregator === 'wxgame' ? { ...s, currencies: ['PHP'] } : s) }
+    const next = applyRoutingChange(phpOnly, { kind: 'rule', scope: 'game', targetId: 1, currency: 'IDR', aggregator: 'wxgame' }, upstream)
+    const preview = previewRouting(phpOnly, next, upstream)
+    const idr = preview.rows.find((r) => r.currency === 'IDR')
+    expect(idr?.issue).toBe('目标来源不支持 IDR')
+    expect(preview.blocking).toBe(1)
   })
 
   it('未确认的来源、错误厂商和超出上游币种均不能建立映射', () => {

@@ -10,11 +10,13 @@ import type { DbGame } from './sg-game.service.js'
 export interface CatalogProvider { id: number; code: string; name: string; aliases: Record<AggregatorId, string[]> }
 export interface CatalogGame { id: number; providerId: number; uuid: string; name: string; enabled: boolean; isActive: boolean; presentation: Partial<Pick<DbGame, 'imageUrl' | 'sortCategory' | 'siteCategory' | 'weight' | 'isFeatured'>> }
 export interface CatalogSource { gameId: number; aggregator: AggregatorId; uuid: string; currencies: string[] }
-export interface CatalogRule { scope: 'global' | 'provider' | 'game'; targetId: number; aggregator: AggregatorId }
+export type RouteCurrency = '' | 'PHP' | 'IDR' | 'USDT'
+export interface CatalogRule { scope: 'global' | 'provider' | 'game'; targetId: number; currency: RouteCurrency; aggregator: AggregatorId }
 export interface RoutingConfig { providers: CatalogProvider[]; games: CatalogGame[]; sources: CatalogSource[]; rules: CatalogRule[] }
 export interface SourceGame { uuid: string; aggregator: AggregatorId; provider: string; name: string; imageUrl: string | null; available: boolean; currencies: string[] | null; mobile: boolean; desktop: boolean; supportsRtp: boolean; rtp: number | null; category: string; syncedAt: string }
 
 const aggregator = z.enum(['568win', 'wxgame'])
+const routeCurrency = z.enum(['', 'PHP', 'IDR', 'USDT'])
 const sourceSchema = z.object({ aggregator, uuid: z.string().min(1).max(191), currencies: z.array(z.enum(['PHP', 'USDT', 'IDR'])).min(1).max(3) }).strict()
 const presentationSchema = z.object({
   imageUrl: z.string().max(512).refine((v) => !v || v.startsWith('/api/') || /^https?:\/\//.test(v), '封面须为站内路径或 HTTP 地址').optional(),
@@ -25,7 +27,7 @@ const presentationSchema = z.object({
 export const routingChangeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('provider'), id: z.number().int().positive().optional(), code: z.string().regex(/^[a-z0-9_-]{1,64}$/), name: z.string().trim().min(1).max(128), aliases: z.object({ '568win': z.array(z.string().trim().min(1).max(128)).max(50), wxgame: z.array(z.string().trim().min(1).max(32)).max(50) }).strict() }).strict(),
   z.object({ kind: z.literal('game'), id: z.number().int().positive().optional(), providerId: z.number().int().positive(), uuid: z.string().min(1).max(191), name: z.string().trim().min(1).max(255), enabled: z.boolean(), isActive: z.boolean(), presentation: presentationSchema, sources: z.array(sourceSchema).min(1).max(2), confirmed: z.literal(true) }).strict(),
-  z.object({ kind: z.literal('rule'), scope: z.enum(['global', 'provider', 'game']), targetId: z.number().int().min(0), aggregator: aggregator.nullable() }).strict(),
+  z.object({ kind: z.literal('rule'), scope: z.enum(['global', 'provider', 'game']), targetId: z.number().int().min(0), currency: routeCurrency.optional().default(''), aggregator: aggregator.nullable() }).strict(),
 ])
 export type RoutingChange = z.infer<typeof routingChangeSchema>
 const json = <T>(v: unknown): T => (typeof v === 'string' ? JSON.parse(v) : v) as T
@@ -61,12 +63,12 @@ export async function readRoutingConfig(db: Pool | PoolConnection): Promise<Rout
   const [providers] = await db.query<RowDataPacket[]>('SELECT * FROM bg_game_provider ORDER BY id')
   const [games] = await db.query<RowDataPacket[]>('SELECT * FROM bg_game_catalog ORDER BY id')
   const [sources] = await db.query<RowDataPacket[]>('SELECT * FROM bg_game_source ORDER BY game_id, aggregator_id')
-  const [rules] = await db.query<RowDataPacket[]>('SELECT * FROM bg_game_route_rule ORDER BY scope, target_id')
+  const [rules] = await db.query<RowDataPacket[]>('SELECT * FROM bg_game_route_rule ORDER BY scope, target_id, currency')
   return {
     providers: providers.map((r) => ({ id: Number(r.id), code: String(r.code), name: String(r.name), aliases: json(r.aliases) })),
     games: games.map((r) => ({ id: Number(r.id), providerId: Number(r.provider_id), uuid: String(r.uuid), name: String(r.name), enabled: Boolean(r.enabled), isActive: Boolean(r.is_active), presentation: json(r.presentation) })),
     sources: sources.map((r) => ({ gameId: Number(r.game_id), aggregator: r.aggregator_id, uuid: String(r.source_uuid), currencies: json(r.currencies) })),
-    rules: rules.map((r) => ({ scope: r.scope, targetId: Number(r.target_id), aggregator: r.aggregator_id })),
+    rules: rules.map((r) => ({ scope: r.scope, targetId: Number(r.target_id), currency: String(r.currency ?? '') as RouteCurrency, aggregator: r.aggregator_id })),
   }
 }
 
@@ -100,8 +102,7 @@ function winSource(r: RowDataPacket): SourceGame {
 function wxSource(r: RowDataPacket): SourceGame {
   return { uuid: `wxgame:${r.game_brand}:${r.game_id}`, aggregator: 'wxgame', provider: String(r.game_brand), name: String(r.name_full || r.name_en || r.game_id), imageUrl: r.icon_local || r.icon_url || null,
     available: Boolean(r.is_enabled) && !r.is_maintain,
-    // 当前接入已确认 PHP，其他币种在支持开户/账号币种约束后再开放路由。
-    currencies: ['PHP'], mobile: true, desktop: true, supportsRtp: Boolean(r.supports_rtp), rtp: null,
+    currencies: ['PHP', 'IDR'], mobile: true, desktop: true, supportsRtp: Boolean(r.supports_rtp), rtp: null,
     category: r.game_type === 'fish' ? 'fishing' : r.game_type === 'slot' ? 'slots' : 'table', syncedAt: String(r.synced_at ?? '') }
 }
 
@@ -128,10 +129,14 @@ async function readSourceGame(db: Pool | PoolConnection, source: CatalogSource):
   return row ? wxSource(row) : null
 }
 
-export function routeFor(config: RoutingConfig, game: CatalogGame) {
-  const rule = config.rules.find((r) => r.scope === 'game' && r.targetId === game.id)
-    ?? config.rules.find((r) => r.scope === 'provider' && r.targetId === game.providerId)
-    ?? config.rules.find((r) => r.scope === 'global')
+export function routeFor(config: RoutingConfig, game: CatalogGame, currency?: string) {
+  const selectedCurrency = normalizeCurrency((currency ?? '').toUpperCase()) as RouteCurrency
+  const findRule = (scope: CatalogRule['scope'], targetId: number) =>
+    config.rules.find((r) => r.scope === scope && r.targetId === targetId && r.currency === selectedCurrency)
+    ?? config.rules.find((r) => r.scope === scope && r.targetId === targetId && r.currency === '')
+  const rule = findRule('game', game.id)
+    ?? findRule('provider', game.providerId)
+    ?? findRule('global', 0)
   const selected = rule?.aggregator ?? config.sources.find((s) => s.gameId === game.id && s.uuid === game.uuid)?.aggregator
   return { source: config.sources.find((s) => s.gameId === game.id && s.aggregator === selected), level: rule?.scope ?? 'original', aggregator: selected }
 }
@@ -163,8 +168,8 @@ export function applyRoutingChange(config: RoutingConfig, change: RoutingChange,
     next.sources = [...next.sources.filter((s) => s.gameId !== id), ...sources.map((s) => ({ ...s, gameId: id }))].sort((a, b) => a.gameId - b.gameId || a.aggregator.localeCompare(b.aggregator))
   } else {
     if ((change.scope === 'global' && change.targetId !== 0) || (change.scope === 'provider' && !next.providers.some((p) => p.id === change.targetId)) || (change.scope === 'game' && !next.games.some((g) => g.id === change.targetId))) throw new Error('路由目标不存在')
-    next.rules = next.rules.filter((r) => r.scope !== change.scope || r.targetId !== change.targetId)
-    if (change.aggregator) next.rules.push({ scope: change.scope, targetId: change.targetId, aggregator: change.aggregator })
+    next.rules = next.rules.filter((r) => r.scope !== change.scope || r.targetId !== change.targetId || r.currency !== change.currency)
+    if (change.aggregator) next.rules.push({ scope: change.scope, targetId: change.targetId, currency: change.currency, aggregator: change.aggregator })
   }
   const rawByUuid = new Map(upstream.map((s) => [s.uuid, s]))
   const claimed = new Set<string>()
@@ -182,21 +187,29 @@ export function applyRoutingChange(config: RoutingConfig, change: RoutingChange,
 
 export function previewRouting(before: RoutingConfig, after: RoutingConfig, upstream: SourceGame[]) {
   const raw = new Map(upstream.map((s) => [s.uuid, s]))
-  const rows = after.games.map((game) => {
+  const rows = after.games.flatMap((game) => {
     const previous = before.games.find((g) => g.id === game.id)
-    const old = previous && routeFor(before, previous)
-    const route = routeFor(after, game)
-    const origin = route.source && raw.get(route.source.uuid)
-    return { id: game.id, name: game.name, enabled: game.enabled, isActive: game.isActive, before: old?.source?.uuid ?? null, after: route.source?.uuid ?? null, level: route.level,
-      changed: !!(previous?.enabled || game.enabled) && (previous?.enabled !== game.enabled || previous?.isActive !== game.isActive || old?.source?.uuid !== route.source?.uuid),
-      issue: !route.source ? '缺少目标聚合商映射' : !origin?.available ? '上游维护或下线' : null,
-      currencies: route.source?.currencies ?? [], aliases: after.sources.filter((s) => s.gameId === game.id).map((s) => s.uuid) }
+    const currencies = [...new Set([
+      ...after.sources.filter((s) => s.gameId === game.id).flatMap((s) => s.currencies),
+      ...after.rules.filter((r) => r.currency && ((r.scope === 'game' && r.targetId === game.id) || (r.scope === 'provider' && r.targetId === game.providerId) || r.scope === 'global')).map((r) => r.currency),
+    ])].sort()
+    return currencies.map((currency) => {
+      const old = previous && routeFor(before, previous, currency)
+      const route = routeFor(after, game, currency)
+      const origin = route.source && raw.get(route.source.uuid)
+      const changed = !!(previous?.enabled || game.enabled) && (previous?.enabled !== game.enabled || previous?.isActive !== game.isActive || old?.source?.uuid !== route.source?.uuid)
+      const issue = !route.source ? '缺少目标聚合商映射'
+        : !route.source.currencies.includes(currency) ? `目标来源不支持 ${currency}`
+          : !origin?.available ? '上游维护或下线' : null
+      return { id: game.id, currency, name: game.name, enabled: game.enabled, isActive: game.isActive, before: old?.source?.uuid ?? null, after: route.source?.uuid ?? null, level: route.level,
+        changed, issue, currencies: route.source?.currencies ?? [], aliases: after.sources.filter((s) => s.gameId === game.id).map((s) => s.uuid) }
+    })
   })
   return { rows, changed: rows.filter((r) => r.changed).length, missing: rows.filter((r) => !r.after).length, unavailable: rows.filter((r) => r.issue).length,
     blocking: rows.filter((r) => r.enabled && r.isActive && r.changed && r.issue).length }
 }
 
-export async function resolveGameRoute(env: Env, uuid: string, currency?: string, device?: string, userId?: string): Promise<{ uuid: string; canonicalUuid: string; managed: boolean }> {
+export async function resolveGameRoute(env: Env, uuid: string, currency?: string, device?: string): Promise<{ uuid: string; canonicalUuid: string; managed: boolean }> {
   if (!isMysqlEnabled(env)) return { uuid, canonicalUuid: uuid, managed: false }
   const db = getMysqlPool(env)
   // 起游戏必须读取刚提交的路由；进程缓存只用于目录展示，不能让多实例在切换后各走不同渠道。
@@ -205,22 +218,18 @@ export async function resolveGameRoute(env: Env, uuid: string, currency?: string
   const game = config.games.find((g) => g.enabled && (g.uuid === uuid || g.id === binding?.gameId))
   if (!game) return { uuid, canonicalUuid: uuid, managed: false }
   if (!game.isActive) throw new Error('该游戏已下架')
-  const { source } = routeFor(config, game)
+  const selectedCurrency = normalizeCurrency((currency || 'PHP').toUpperCase())
+  const { source } = routeFor(config, game, selectedCurrency)
   if (!source) throw new Error('当前渠道缺少已确认的游戏映射')
-  const selectedCurrency = (currency || 'PHP').toUpperCase()
   if (!source.currencies.includes(selectedCurrency)) throw new Error('当前游戏渠道不支持所选币种')
   const raw = await readSourceGame(db, source)
   if (!raw?.available) throw new Error('当前游戏渠道正在维护')
   if (raw.currencies?.length && !raw.currencies.includes(selectedCurrency)) throw new Error('上游不支持所选币种')
   if (device === 'desktop' ? !raw.desktop : !raw.mobile) throw new Error('当前游戏渠道不支持此设备')
-  if (source.aggregator === 'wxgame' && userId) {
-    const [players] = await db.query<RowDataPacket[]>('SELECT currency FROM bg_aggregator_player WHERE aggregator_id = ? AND user_id = ?', ['wxgame', userId])
-    if (players.some((p) => p.currency !== selectedCurrency)) throw new Error('WXGame 账号币种与所选币种不一致')
-  }
   return { uuid: source.uuid, canonicalUuid: game.uuid, managed: true }
 }
 
-export function projectCatalog(games: DbGame[], config: RoutingConfig, upstream: SourceGame[]): DbGame[] {
+export function projectCatalog(games: DbGame[], config: RoutingConfig, upstream: SourceGame[], currency?: string): DbGame[] {
   const active = config.games.filter((g) => g.enabled)
   if (!active.length) return games
   const raw = new Map(upstream.map((s) => [s.uuid, s]))
@@ -231,7 +240,7 @@ export function projectCatalog(games: DbGame[], config: RoutingConfig, upstream:
     const display = raw.get(game.uuid)
     if (!display) continue
     const base = games.find((g) => g.uuid === game.uuid)
-    const selected = routeFor(config, game).source
+    const selected = routeFor(config, game, currency).source
     const target = selected && raw.get(selected.uuid)
     output.push({
       nameId: null, nameVi: null, nameZh: null, category: null, subCategory: null, sortCategory: display.category, imageUrl: display.imageUrl,
@@ -246,7 +255,7 @@ export function projectCatalog(games: DbGame[], config: RoutingConfig, upstream:
   return output
 }
 
-export async function projectGameCatalog(env: Env, games: DbGame[]): Promise<DbGame[]> {
+export async function projectGameCatalog(env: Env, games: DbGame[], currency?: string): Promise<DbGame[]> {
   const config = await getRoutingConfig(env)
   if (!config.games.some((g) => g.enabled)) return games
   const sources = games.flatMap((g): SourceGame[] => g.aggregator ? [{
@@ -264,7 +273,7 @@ export async function projectGameCatalog(env: Env, games: DbGame[]): Promise<DbG
     category: g.sortCategory ?? 'other',
     syncedAt: g.createdAt ?? '',
   }] : [])
-  return projectCatalog(games, config, sources)
+  return projectCatalog(games, config, sources, currency)
 }
 
 export function gameAliasIndex(games: DbGame[]): Map<string, DbGame> {

@@ -146,6 +146,13 @@ describe('WXGame balance', () => {
     const res = await new WxgameWalletService(makeApp({ player: null })).balance(signedReq(), { playerId: 'ghost' })
     assert.equal(res.code, WX.NO_PLAYER)
   })
+
+  it('IDR 账号按原币返回余额，不复用 568Win 的千卢比换算', async () => {
+    const player = { user_id: 'BG-10025', external_username: 'BG10025IDR', currency: 'IDR', status: 'active' }
+    const res = await new WxgameWalletService(makeApp({ player, balance: 250_000 })).balance(signedReq(), { playerId: 'BG10025IDR' })
+    assert.equal(res.code, WX.OK)
+    assert.deepEqual(res.data, { balance: 250_000, currency: 'IDR' })
+  })
 })
 
 describe('WXGame 记账', () => {

@@ -295,7 +295,7 @@ router.get('/homepage-sections', async (ctx) => {
 router.get('/homepage-layout', async (ctx) => {
   try {
     const currency = String(ctx.query.currency ?? 'PHP')
-    if (currency !== 'PHP' && currency !== 'USDT') { fail(ctx, 400, 'currency 必须为 PHP 或 USDT'); return }
+    if (!['PHP', 'IDR', 'USDT'].includes(currency)) { fail(ctx, 400, 'currency 必须为 PHP、IDR 或 USDT'); return }
     ok(ctx, { items: await listHomeLayout(ctx.state.env, currency) })
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Failed')
@@ -358,12 +358,12 @@ router.put('/homepage-sections/:sectionKey', async (ctx) => {
 })
 
 // 板块显示/隐藏：隐藏只让前台跳过该板块，不动板块内容（后台仍可编辑/冻结）
-// body: { currency: 'PHP'|'USDT', hidden: boolean }
+// body: { currency: 'PHP'|'IDR'|'USDT', hidden: boolean }
 router.put('/homepage-sections/:sectionKey/visibility', async (ctx) => {
   try {
     const sectionKey = ctx.params.sectionKey
     const body = ctx.request.body as { currency?: string; hidden?: boolean }
-    if (body.currency !== 'PHP' && body.currency !== 'USDT') { fail(ctx, 400, 'currency 必须为 PHP 或 USDT'); return }
+    if (!body.currency || !['PHP', 'IDR', 'USDT'].includes(body.currency)) { fail(ctx, 400, 'currency 必须为 PHP、IDR 或 USDT'); return }
     const hidden = body.hidden === true
     await setSectionVisibility(ctx.state.env, sectionKey, body.currency, hidden)
     await refreshHomepageSelection(ctx.state.env)
@@ -382,7 +382,7 @@ router.put('/homepage-sections/:sectionKey/visibility', async (ctx) => {
 })
 
 // 冻结板块(popular/recommended/highRebate)：把当前算法+钉的实际内容快照成固定名单，前台不再跑算法
-// body: { currency: 'PHP'|'USDT' }
+// body: { currency: 'PHP'|'IDR'|'USDT' }
 router.post('/homepage-sections/:sectionKey/freeze', async (ctx) => {
   try {
     const sectionKey = ctx.params.sectionKey
@@ -390,7 +390,7 @@ router.post('/homepage-sections/:sectionKey/freeze', async (ctx) => {
       fail(ctx, 400, `板块 ${sectionKey} 不支持冻结`); return
     }
     const currency = (ctx.request.body as { currency?: string }).currency
-    if (currency !== 'PHP' && currency !== 'USDT') { fail(ctx, 400, 'currency 必须为 PHP 或 USDT'); return }
+    if (!currency || !['PHP', 'IDR', 'USDT'].includes(currency)) { fail(ctx, 400, 'currency 必须为 PHP、IDR 或 USDT'); return }
     const uuids = await computeFrozenSnapshot(ctx.state.env, sectionKey, currency)
     if (!uuids.length) { fail(ctx, 400, '当前该板块算法结果为空，无法冻结'); return }
     await replaceFrozenBoard(ctx.state.env, sectionKey, currency, uuids)
@@ -409,12 +409,12 @@ router.post('/homepage-sections/:sectionKey/freeze', async (ctx) => {
   }
 })
 
-// 解冻：删除该板块该币种的冻结名单，回到算法。query: ?currency=PHP|USDT
+// 解冻：删除该板块该币种的冻结名单，回到算法。query: ?currency=PHP|IDR|USDT
 router.delete('/homepage-sections/:sectionKey/freeze', async (ctx) => {
   try {
     const sectionKey = ctx.params.sectionKey
-    const currency = ctx.query.currency
-    if (currency !== 'PHP' && currency !== 'USDT') { fail(ctx, 400, 'currency 必须为 PHP 或 USDT'); return }
+    const currency = String(ctx.query.currency ?? '')
+    if (!['PHP', 'IDR', 'USDT'].includes(currency)) { fail(ctx, 400, 'currency 必须为 PHP、IDR 或 USDT'); return }
     await deleteFrozenBoard(ctx.state.env, sectionKey, currency)
     await refreshHomepageSelection(ctx.state.env)
     await writeAuditLog(ctx.state.env, {

@@ -50,10 +50,11 @@ router.get('/', async (ctx) => {
   )
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT r.user_id, r.rtp, r.operator_id, r.reason, r.synced_at, r.updated_at,
-            p.external_username AS player_id
+            GROUP_CONCAT(p.external_username ORDER BY p.currency SEPARATOR ', ') AS player_id
      FROM bg_wxgame_player_rtp r
      LEFT JOIN bg_aggregator_player p ON p.aggregator_id = 'wxgame' AND p.user_id = r.user_id
-     ${where} ORDER BY r.updated_at DESC LIMIT ? OFFSET ?`,
+     ${where} GROUP BY r.user_id, r.rtp, r.operator_id, r.reason, r.synced_at, r.updated_at
+     ORDER BY r.updated_at DESC LIMIT ? OFFSET ?`,
     [...params, pageSize, offset],
   )
   ok(ctx, {

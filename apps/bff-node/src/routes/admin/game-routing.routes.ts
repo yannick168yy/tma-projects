@@ -99,8 +99,8 @@ async function persistChange(conn: PoolConnection, next: RoutingConfig, change: 
       await conn.execute('INSERT INTO bg_game_source (game_id, aggregator_id, source_uuid, currencies) VALUES (?,?,?,?)', [s.gameId, s.aggregator, s.uuid, JSON.stringify(s.currencies)])
     }
   } else {
-    await conn.execute('DELETE FROM bg_game_route_rule WHERE scope = ? AND target_id = ?', [change.scope, change.targetId])
-    if (change.aggregator) await conn.execute('INSERT INTO bg_game_route_rule (scope, target_id, aggregator_id) VALUES (?,?,?)', [change.scope, change.targetId, change.aggregator])
+    await conn.execute('DELETE FROM bg_game_route_rule WHERE scope = ? AND target_id = ? AND currency = ?', [change.scope, change.targetId, change.currency])
+    if (change.aggregator) await conn.execute('INSERT INTO bg_game_route_rule (scope, target_id, currency, aggregator_id) VALUES (?,?,?,?)', [change.scope, change.targetId, change.currency, change.aggregator])
   }
 }
 
@@ -137,13 +137,13 @@ router.post('/apply', guard, async (ctx) => {
       afterState = { game: next.games.find((g) => g.id === targetId) ?? null, sources: next.sources.filter((s) => s.gameId === targetId) }
     } else {
       targetId = change.targetId
-      beforeState = before.rules.find((r) => r.scope === change.scope && r.targetId === change.targetId) ?? null
-      afterState = next.rules.find((r) => r.scope === change.scope && r.targetId === change.targetId) ?? null
+      beforeState = before.rules.find((r) => r.scope === change.scope && r.targetId === change.targetId && r.currency === change.currency) ?? null
+      afterState = next.rules.find((r) => r.scope === change.scope && r.targetId === change.targetId && r.currency === change.currency) ?? null
     }
     await conn.execute(`INSERT INTO admin_audit_log (admin_id, admin_username, action, target_type, target_id, detail, ip) VALUES (?,?,?,?,?,?,?)`,
       [ctx.state.adminId!, ctx.state.adminUsername!, 'game.routing.update', parsed.data.change.kind,
         String(targetId), JSON.stringify({ reason: parsed.data.reason, before: beforeState, after: afterState,
-          impact: { changed: preview.changed, missing: preview.missing, unavailable: preview.unavailable, changedGameIds: preview.rows.filter((r) => r.changed).map((r) => r.id) } }), ctx.ip])
+          impact: { changed: preview.changed, missing: preview.missing, unavailable: preview.unavailable, changedGameIds: [...new Set(preview.rows.filter((r) => r.changed).map((r) => r.id))] } }), ctx.ip])
     await conn.commit()
     bustGameRoutingCache()
     scheduleCacheRefresh(ctx.state.env)

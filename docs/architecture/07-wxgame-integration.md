@@ -31,7 +31,7 @@ WXGame 是**无缝钱包（seamless）+ 玩家级点控 RTP** 的私服型聚合
 | 密钥 | CompanyKey，定期轮换 | AccessKeyId/Secret **静态，无轮换** |
 | 对账 | `GetBetStatus` + 报表拉取 cron | `get_game_history_list`，含 transactionId 与注单状态 |
 | 点控 RTP | 无 | **有**，玩家级 10 档 |
-| 币种 | 多币种（140 迁移） | 单币种开户，支持 PHP ✅ |
+| 币种 | 多币种（140 迁移） | 按玩家账号分币种，开放 PHP / IDR，USDT 仍走 568Win |
 
 **结论：不做统一 provider 接口。** 差异面（钱包模型、开号方式、作废语义、对账能力）
 恰好是最不该被抽象焊死的地方。改为：
@@ -307,8 +307,10 @@ TADA 104 款游戏的 icon 都是 `https://file.wxgame99.com/assets/jili/<id>.pn
 
 ## 8. 币种与语言
 
-- **PHP 在支持列表内**（152 种币种），直接用 PHP 开户，**避免汇率换算**。
-  `bg_bet_order.original_amount` / `exchange_rate` 保持 NULL。
+- WXGame 开放 **PHP / IDR**，同一本地用户按币种使用不同的上游 `playerId`，避免 PHP 与 IDR 账号串用。
+- PHP / IDR 都按本地钱包原币记账，不做汇率换算。WXGame IDR 不复用 568Win 报表的千卢比单位换算。
+  `bg_bet_order.original_amount` 保留原额，`exchange_rate` 为 1。
+- WXGame 不开放 USDT；统一游戏路由按币种分开配置，USDT 继续使用 568Win。
 - 币种字段在 bet/win/refund 里是**可选**的，"以商户开户币种为准" → 我方以本地钱包币种为准，
   收到的 `currency` 只做校验不做换算，不一致直接返 `1015 Invalid currency code`。
 - 语言只有 7 种：`en / es / id / pt / ru / th / vi`（部分厂商多一个 `hi`）。

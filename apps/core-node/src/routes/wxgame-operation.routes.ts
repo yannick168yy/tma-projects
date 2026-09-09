@@ -3,7 +3,7 @@ import type { RowDataPacket } from 'mysql2/promise'
 import { env } from '../config/env.js'
 import { WxgameClient } from '../clients/wxgame.client.js'
 import { issueLaunchToken } from '../services/wxgame-launch.service.js'
-import { ensureWxgamePlayer } from '../services/wxgame-player.service.js'
+import { ensureWxgamePlayer, WXGAME_SUPPORTED_CURRENCIES } from '../services/wxgame-player.service.js'
 import { saveWxgameGames } from '../services/wxgame-game.service.js'
 import { getPlayerRtp, isValidRtpTier, setPlayerRtp, unsetPlayerRtp, WXGAME_RTP_TIERS } from '../services/wxgame-rtp.service.js'
 
@@ -43,7 +43,10 @@ export async function wxgameOperationRoutes(app: FastifyInstance) {
     )
     if (!game) return reply.status(404).send({ error: 'game not found or unavailable' })
 
-    const currency = req.body.currency || env.WXGAME_DEFAULT_CURRENCY
+    const currency = (req.body.currency || env.WXGAME_DEFAULT_CURRENCY).toUpperCase()
+    if (!(WXGAME_SUPPORTED_CURRENCIES as readonly string[]).includes(currency)) {
+      return reply.status(400).send({ error: `currency must be ${WXGAME_SUPPORTED_CURRENCIES.join(' or ')}` })
+    }
     const player = await ensureWxgamePlayer(app, userId, currency)
 
     // 先发 token 再调上游：上游收到 get_game_url 后会立刻回调我方 /verify，

@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import { env } from '../config/env.js'
 
 export const WXGAME_AGGREGATOR_ID = 'wxgame'
+export const WXGAME_SUPPORTED_CURRENCIES = ['PHP', 'IDR'] as const
 
 export interface WxgamePlayer {
   userId: string
@@ -19,10 +20,13 @@ export function toWxgamePlayerId(userId: string): string {
 
 // 去掉下划线会让 BG_10025 与 BG10025 撞成同一个 playerId。撞了就追加 userId 的短哈希，
 // 保证同一 userId 永远算出同一个候选序列（可重入，重试不会又生成一个新账号）。
-function candidates(userId: string): string[] {
-  const base = toWxgamePlayerId(userId)
+function candidates(userId: string, currency: string): string[] {
+  const currencySuffix = currency === 'PHP' ? '' : currency
+  const raw = toWxgamePlayerId(userId)
   const hash = createHash('sha256').update(userId).digest('hex').slice(0, 6)
-  return [base, `${base}${hash}`]
+  const base = `${raw.slice(0, 40 - currencySuffix.length)}${currencySuffix}`
+  const collisionSafe = `${raw.slice(0, 40 - currencySuffix.length - hash.length)}${hash}${currencySuffix}`
+  return [base, collisionSafe]
 }
 
 export async function resolveWxgamePlayer(app: FastifyInstance, playerId: string): Promise<WxgamePlayer | null> {
@@ -44,14 +48,18 @@ export async function resolveWxgamePlayer(app: FastifyInstance, playerId: string
 }
 
 export async function ensureWxgamePlayer(app: FastifyInstance, userId: string, currency: string): Promise<WxgamePlayer> {
+  const selectedCurrency = currency.toUpperCase()
+  if (!(WXGAME_SUPPORTED_CURRENCIES as readonly string[]).includes(selectedCurrency)) {
+    throw new Error(`WXGame currency not supported: ${selectedCurrency}`)
+  }
   const [[mapped]] = await app.mysql.query<RowDataPacket[]>(
     `SELECT external_username, currency FROM bg_aggregator_player
-     WHERE aggregator_id = ? AND user_id = ? LIMIT 1`,
-    [WXGAME_AGGREGATOR_ID, userId],
+     WHERE aggregator_id = ? AND user_id = ? AND currency = ? LIMIT 1`,
+    [WXGAME_AGGREGATOR_ID, userId, selectedCurrency],
   )
-  if (mapped) return { userId, playerId: String(mapped.external_username), currency: String(mapped.currency || currency) }
+  if (mapped) return { userId, playerId: String(mapped.external_username), currency: String(mapped.currency || selectedCurrency) }
 
-  for (const playerId of candidates(userId)) {
+  for (const playerId of candidates(userId, selectedCurrency)) {
     if (!playerId) continue
     const [[used]] = await app.mysql.query<RowDataPacket[]>(
       `SELECT user_id FROM bg_aggregator_player
@@ -63,9 +71,9 @@ export async function ensureWxgamePlayer(app: FastifyInstance, userId: string, c
       `INSERT INTO bg_aggregator_player (aggregator_id, user_id, external_username, currency)
        VALUES (?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE external_username = VALUES(external_username), currency = VALUES(currency)`,
-      [WXGAME_AGGREGATOR_ID, userId, playerId, currency],
+      [WXGAME_AGGREGATOR_ID, userId, playerId, selectedCurrency],
     )
-    return { userId, playerId, currency }
+    return { userId, playerId, currency: selectedCurrency }
   }
   throw new Error(`cannot allocate wxgame playerId for ${userId}`)
 }

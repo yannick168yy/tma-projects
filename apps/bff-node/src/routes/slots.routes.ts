@@ -279,7 +279,7 @@ router.post('/init', async (ctx) => {
   let canonicalUuid = body.gameUuid
   let managed = false
   try {
-    const resolved = await resolveGameRoute(env, body.gameUuid, body.currency, body.device, userId)
+    const resolved = await resolveGameRoute(env, body.gameUuid, body.currency, body.device)
     body.gameUuid = resolved.uuid
     canonicalUuid = resolved.canonicalUuid
     managed = resolved.managed
