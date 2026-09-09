@@ -4,7 +4,7 @@ import { ReloadOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
-  getPaymentAccounting, getPaymentReconciliation, getProviderBalances, refreshProviderBalances, syncUnispayReconciliation,
+  getPaymentAccounting, getPaymentReconciliation, getProviderBalances, refreshProviderBalances, syncPaymentReconciliation,
   setProviderAlertThreshold, setMatrixBalance,
   type PaymentAccountingRow, type PaymentReconciliationItem, type ProviderBalanceRow,
 } from '../api'
@@ -27,6 +27,7 @@ export default function PaymentAccounting() {
   const [total, setTotal] = useState<PaymentAccountingRow | null>(null)
   const [loading, setLoading] = useState(false)
   const [currency, setCurrency] = useState('IDR')
+  const [reconProvider, setReconProvider] = useState<'unispay' | 'wzpay'>('unispay')
   const [reconciliation, setReconciliation] = useState<PaymentReconciliationItem[]>([])
   const [reconLoading, setReconLoading] = useState(false)
 
@@ -57,7 +58,7 @@ export default function PaymentAccounting() {
 
   async function loadReconciliation() {
     setReconLoading(true)
-    try { setReconciliation(await getPaymentReconciliation('unispay', currency)) }
+    try { setReconciliation(await getPaymentReconciliation(reconProvider, currency)) }
     catch (e) { message.error(e instanceof Error ? e.message : '对账报告加载失败') }
     finally { setReconLoading(false) }
   }
@@ -100,7 +101,8 @@ export default function PaymentAccounting() {
     finally { setSaving(false) }
   }
 
-  useEffect(() => { void loadAccounting(); void loadReconciliation() }, [range, currency])
+  useEffect(() => { void loadAccounting() }, [range, currency])
+  useEffect(() => { void loadReconciliation() }, [reconProvider, currency])
   useEffect(() => { void loadBalances() }, [])
 
   const columns: ColumnsType<PaymentAccountingRow> = [
@@ -187,8 +189,11 @@ export default function PaymentAccounting() {
         </Row>
       </Card>
 
-      <Card size="small" title="UnisPay 回调异常 / 对账报告" style={{ marginBottom: 16 }}
-        extra={<Button size="small" icon={<ReloadOutlined />} onClick={loadReconciliation}>刷新</Button>}>
+      <Card size="small" title="回调异常 / 对账报告" style={{ marginBottom: 16 }}
+        extra={<Space>
+          <Segmented value={reconProvider} onChange={(v) => setReconProvider(v as 'unispay' | 'wzpay')} options={[{ label: 'UnisPay', value: 'unispay' }, { label: 'WZPAY', value: 'wzpay' }]} />
+          <Button size="small" icon={<ReloadOutlined />} onClick={loadReconciliation}>刷新</Button>
+        </Space>}>
         <Table rowKey="id" size="small" loading={reconLoading} dataSource={reconciliation}
           pagination={{ pageSize: 20 }} columns={[
             { title: '时间', dataIndex: 'createdAt', width: 170, render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm:ss') },
@@ -202,7 +207,7 @@ export default function PaymentAccounting() {
               r.orderId && (r.source === 'deposit' || r.source === 'withdraw')
                 ? <Button size="small" onClick={async () => {
                     try {
-                      const result = await syncUnispayReconciliation(r.source as 'deposit' | 'withdraw', r.orderId!)
+                      const result = await syncPaymentReconciliation(reconProvider, r.source as 'deposit' | 'withdraw', r.orderId!)
                       message.success(`渠道状态 ${result.providerState}，本地状态 ${result.localStatus}`)
                       await loadReconciliation()
                     } catch (e) { message.error(e instanceof Error ? e.message : '同步失败') }

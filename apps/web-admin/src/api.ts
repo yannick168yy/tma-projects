@@ -1679,8 +1679,8 @@ export const getPaymentAccounting = (range: { from?: string; to?: string; curren
 }
 export const getPaymentReconciliation = (provider = 'unispay', currency = 'IDR') =>
   get<PaymentReconciliationItem[]>('/admin/payment/reconciliation', { provider, currency })
-export const syncUnispayReconciliation = (source: 'deposit' | 'withdraw', orderId: string) =>
-  post<{ providerState: number; localStatus: string; synced: boolean }>('/admin/payment/reconciliation/unispay/sync', { source, orderId })
+export const syncPaymentReconciliation = (provider: 'unispay' | 'wzpay', source: 'deposit' | 'withdraw', orderId: string) =>
+  post<{ providerState: number; localStatus: string; synced: boolean }>(`/admin/payment/reconciliation/${provider}/sync`, { source, orderId })
 export const getProviderBalances = () => get<ProviderBalanceRow[]>('/admin/payment/balance')
 export const refreshProviderBalances = () => post<ProviderBalanceRow[]>('/admin/payment/balance/refresh', {})
 export const setProviderAlertThreshold = (provider: string, threshold: number) =>

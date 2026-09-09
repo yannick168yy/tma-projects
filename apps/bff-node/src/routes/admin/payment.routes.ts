@@ -14,6 +14,7 @@ import { writeAuditLog } from '../../services/admin-store.js'
 import { checkPlanLimits } from '../../services/plan-limit.service.js'
 import { requireRole } from '../../middleware/require-role.js'
 import { queryDeposit as queryUnispayDeposit, queryWithdrawal as queryUnispayWithdrawal, UnispayError } from '../../services/unispay.service.js'
+import { queryDeposit as queryWzpayDeposit, queryWithdrawal as queryWzpayWithdrawal, WzpayError } from '../../services/wzpay.service.js'
 
 const router = new Router({ prefix: '/payment' })
 const FEE_TYPES: FeeType[] = ['none', 'percent', 'fixed']
@@ -190,6 +191,46 @@ router.post('/reconciliation/unispay/sync', requireRole('super_admin'), async (c
     ok(ctx, { providerState: queried.state, localStatus: String(latest?.status ?? order.status), synced: terminal })
   } catch (err) {
     fail(ctx, 502, err instanceof UnispayError ? err.message : err instanceof Error ? err.message : 'UnisPay 查询失败')
+  }
+})
+
+router.post('/reconciliation/wzpay/sync', requireRole('super_admin'), async (ctx) => {
+  const body = ctx.request.body as { source?: string; orderId?: string }
+  const source = body.source
+  const orderId = String(body.orderId ?? '').trim()
+  if ((source !== 'deposit' && source !== 'withdraw') || !orderId) {
+    fail(ctx, 400, 'source / orderId 无效'); return
+  }
+  const db = getMysqlPool(ctx.state.env)
+  const table = source === 'deposit' ? 'bg_deposit_order' : 'bg_withdraw_order'
+  const [[order]] = await db.query<RowDataPacket[]>(
+    `SELECT order_id, amount, status FROM ${table} WHERE order_id = ? AND channel LIKE 'wzpay%' LIMIT 1`,
+    [orderId],
+  )
+  if (!order) { fail(ctx, 404, 'WZPAY 订单不存在'); return }
+  try {
+    const queried = source === 'deposit'
+      ? await queryWzpayDeposit(orderId, ctx.state.env)
+      : await queryWzpayWithdrawal(orderId, ctx.state.env)
+    const terminal = ['1', '2'].includes(String(queried.state))
+    if (terminal) {
+      const res = await fetch(`${ctx.state.env.CORE_NODE_URL}/internal/payment/wzpay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Token': ctx.state.env.INTERNAL_TOKEN },
+        body: JSON.stringify({
+          orderId,
+          providerOrderId: queried.platformId,
+          status: String(queried.state),
+          amount: queried.amount || Number(order.amount),
+        }),
+        signal: AbortSignal.timeout(15000),
+      })
+      if (!res.ok) throw new Error(`core sync failed (${res.status})`)
+    }
+    const [[latest]] = await db.query<RowDataPacket[]>(`SELECT status FROM ${table} WHERE order_id = ? LIMIT 1`, [orderId])
+    ok(ctx, { providerState: queried.state, localStatus: String(latest?.status ?? order.status), synced: terminal })
+  } catch (err) {
+    fail(ctx, 502, err instanceof WzpayError ? err.message : err instanceof Error ? err.message : 'WZPAY 查询失败')
   }
 })
 

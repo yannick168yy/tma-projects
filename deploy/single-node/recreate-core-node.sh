@@ -69,6 +69,8 @@ run run -d --name tma-core-node --network "$NET" --ip "$PEER_IP_CORE_NODE" --res
   -e SG_CURRENCY="${SG_CURRENCY:-EUR}" \
   -e YFPAY_API_KEY="${YFPAY_API_KEY:-}" \
   -e UNISPAY_API_KEY="${UNISPAY_API_KEY:-}" \
+  -e WZPAY_MERCHANT_ID="${WZPAY_MERCHANT_ID:-10114}" \
+  -e WZPAY_API_KEY="${WZPAY_API_KEY:-}" \
   -e USDT_TO_IDR_RATE="${USDT_TO_IDR_RATE:-16646}" \
   -e INTERNAL_TOKEN="${INTERNAL_TOKEN:-}" \
   -e MATRIX_GATEWAY_URL="${MATRIX_GATEWAY_URL:-}" \

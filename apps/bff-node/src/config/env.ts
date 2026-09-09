@@ -94,6 +94,12 @@ const schema = z.object({
   UNISPAY_API_KEY: z.string().default(''),
   UNISPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/unispay'),
   UNISPAY_RETURN_URL: z.string().default('https://www.188facai.com'),
+  // ── WZPAY 印尼通道 ────────────────────────────────────────────────────────
+  WZPAY_BASE_URL: z.string().default('https://api.wzpay.club'),
+  WZPAY_MERCHANT_ID: z.string().default('10114'),
+  WZPAY_API_KEY: z.string().default(''),
+  WZPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/wzpay'),
+  WZPAY_RETURN_URL: z.string().default('https://www.188facai.com'),
   NACOS_SERVER_ADDR: z.string().default(''),
   NACOS_NAMESPACE: z.string().default('batogo'),
   NACOS_DATA_ID: z.string().default('bff-node'),

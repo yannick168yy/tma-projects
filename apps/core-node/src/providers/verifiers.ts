@@ -71,6 +71,31 @@ function verifyUnispay(req: FastifyRequest, env: Record<string, string>): boolea
   return timingSafeEqual(Buffer.from(received), Buffer.from(expected))
 }
 
+// ── WZPAY ────────────────────────────────────────────────────────────────────
+
+const WZPAY_CALLBACK_IPS = new Set(['103.140.154.166'])
+
+function wzpaySign(params: Record<string, unknown>, apiKey: string): string {
+  const sorted = Object.entries(params)
+    .filter(([key, value]) => key !== 'sign' && value !== null && value !== undefined && value !== '')
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, value]) => `${key}=${value}`)
+    .join('&')
+  return createHash('md5').update(`${sorted}&key=${apiKey}`).digest('hex').toLowerCase()
+}
+
+function verifyWzpay(req: FastifyRequest, env: Record<string, string>): boolean {
+  const apiKey = env['WZPAY_API_KEY']
+  const merchantId = env['WZPAY_MERCHANT_ID']
+  if (!apiKey || !merchantId || !WZPAY_CALLBACK_IPS.has(getClientIp(req))) return false
+  const body = req.body as Record<string, unknown>
+  if (String(body.merchantId ?? '') !== merchantId) return false
+  const received = String(body.sign ?? '').toLowerCase()
+  const expected = wzpaySign(body, apiKey)
+  if (received.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(received), Buffer.from(expected))
+}
+
 // ── Matrix ────────────────────────────────────────────────────────────────────
 
 function verifyMatrix(req: FastifyRequest, env: Record<string, string>): boolean {
@@ -101,5 +126,6 @@ function verifyMatrix(req: FastifyRequest, env: Record<string, string>): boolean
 export const providerVerifiers: Record<string, VerifyFn> = {
   yfpay: verifyYfpay,
   unispay: verifyUnispay,
+  wzpay: verifyWzpay,
   matrix: verifyMatrix,
 }

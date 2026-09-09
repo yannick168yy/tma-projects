@@ -108,6 +108,8 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-betogo}
       MYSQL_USER: ${MYSQL_BETOGO_USER:-betogo}
       MYSQL_PASSWORD: ${MYSQL_BETOGO_PASSWORD:-${MYSQL_PASSWORD:-tma_dev}}
+      WZPAY_MERCHANT_ID: ${WZPAY_MERCHANT_ID:-10114}
+      WZPAY_API_KEY: ${WZPAY_API_KEY:-}
     depends_on:
       mysql:
         condition: service_healthy
@@ -153,6 +155,11 @@ services:
       YFPAY_USERNAME: ${YFPAY_USERNAME:-}
       YFPAY_API_KEY: ${YFPAY_API_KEY:-}
       YFPAY_NOTIFY_URL: ${YFPAY_NOTIFY_URL:-https://www.188facai.com/api/v1/callback/yfpay}
+      WZPAY_BASE_URL: ${WZPAY_BASE_URL:-https://api.wzpay.club}
+      WZPAY_MERCHANT_ID: ${WZPAY_MERCHANT_ID:-10114}
+      WZPAY_API_KEY: ${WZPAY_API_KEY:-}
+      WZPAY_NOTIFY_URL: ${WZPAY_NOTIFY_URL:-https://www.188facai.com/api/v1/callback/wzpay}
+      WZPAY_RETURN_URL: ${WZPAY_RETURN_URL:-https://www.188facai.com}
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       MYSQL_DATABASE: ${MYSQL_DATABASE:-betogo}

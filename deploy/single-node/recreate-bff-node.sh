@@ -104,6 +104,11 @@ run run -d --name tma-bff-node --network "$NET" --ip "$PEER_IP_BFF_NODE" --resta
   -e UNISPAY_API_KEY="${UNISPAY_API_KEY:-}" \
   -e UNISPAY_NOTIFY_URL="${UNISPAY_NOTIFY_URL:-https://www.188facai.com/api/v1/callback/unispay}" \
   -e UNISPAY_RETURN_URL="${UNISPAY_RETURN_URL:-https://www.188facai.com}" \
+  -e WZPAY_BASE_URL="${WZPAY_BASE_URL:-https://api.wzpay.club}" \
+  -e WZPAY_MERCHANT_ID="${WZPAY_MERCHANT_ID:-10114}" \
+  -e WZPAY_API_KEY="${WZPAY_API_KEY:-}" \
+  -e WZPAY_NOTIFY_URL="${WZPAY_NOTIFY_URL:-https://www.188facai.com/api/v1/callback/wzpay}" \
+  -e WZPAY_RETURN_URL="${WZPAY_RETURN_URL:-https://www.188facai.com}" \
   -e MERCHANT_TON_ADDRESS="${MERCHANT_TON_ADDRESS:-UQBjAz1W6jUkH7WJbxwu7rSHbJaOg65TVFHv8w6b1Nx697rJ}" \
   -e TON_TO_PHP_RATE="${TON_TO_PHP_RATE:-350}" \
   -e TONCENTER_API_KEY="${TONCENTER_API_KEY:-}" \

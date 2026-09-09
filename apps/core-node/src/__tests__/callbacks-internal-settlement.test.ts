@@ -16,6 +16,8 @@ process.env.INTERNAL_TOKEN = 'internal-test-token'
 process.env.NATS_CALLBACK_SUBJECT = 'betogo.callback.test'
 process.env.YFPAY_API_KEY = 'yfpay-secret'
 process.env.UNISPAY_API_KEY = 'unispay-secret'
+process.env.WZPAY_MERCHANT_ID = '10114'
+process.env.WZPAY_API_KEY = 'wzpay-secret'
 process.env.MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY = merchantPrivatePem
 process.env.MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY = platformPublicPem
 
@@ -152,6 +154,15 @@ function unispaySign(params: Record<string, unknown>, apiKey: string): string {
     .map(([k, v]) => `${k}=${v}`)
     .join('&')
   return createHash('sha256').update(`${sorted}&key=${apiKey}`).digest('hex')
+}
+
+function wzpaySign(params: Record<string, unknown>, apiKey: string): string {
+  const sorted = Object.entries(params)
+    .filter(([k, v]) => k !== 'sign' && v !== null && v !== undefined && v !== '')
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('&')
+  return createHash('md5').update(`${sorted}&key=${apiKey}`).digest('hex').toLowerCase()
 }
 
 function matrixRequestEnvelope(bizData: unknown) {
@@ -428,6 +439,42 @@ describe('Matrix 提现反查与通用回调', () => {
     assert.equal(res.statusCode, 400)
     assert.equal(published.length, 0)
   })
+
+  it('WZPAY 回调校验商户、签名和来源 IP 后返回 success', async () => {
+    const published: Array<{ subject: string; payload: string }> = []
+    const app = await createApp({ js: { async publish(subject, payload) { published.push({ subject, payload }) } } })
+    const payload = {
+      merchantId: '10114', outTradeId: 'WZD_1', orderId: 'P1', amount: '100000', status: '1',
+    }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/callback/wzpay',
+      headers: { 'x-forwarded-for': '103.140.154.166' },
+      payload: { ...payload, sign: wzpaySign(payload, 'wzpay-secret') },
+    })
+
+    assert.equal(res.statusCode, 200)
+    assert.equal(res.body, 'success')
+    assert.equal(published.length, 1)
+    assert.equal(JSON.parse(published[0].payload).provider, 'wzpay')
+  })
+
+  it('WZPAY 回调拒绝非白名单 IP', async () => {
+    const published: Array<{ subject: string; payload: string }> = []
+    const app = await createApp({ js: { async publish(subject, payload) { published.push({ subject, payload }) } } })
+    const payload = {
+      merchantId: '10114', outTradeId: 'WZD_1', orderId: 'P1', amount: '100000', status: '1',
+    }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/callback/wzpay',
+      headers: { 'x-forwarded-for': '8.8.8.8' },
+      payload: { ...payload, sign: wzpaySign(payload, 'wzpay-secret') },
+    })
+
+    assert.equal(res.statusCode, 401)
+    assert.equal(published.length, 0)
+  })
 })
 
 describe('UnisPay 回调处理', () => {
@@ -535,6 +582,88 @@ describe('UnisPay 回调处理', () => {
     await handleUnispayCallback({ amount: '50000', mchNo: 'M1', mchOrderId: 'UPW_OK', orderNo: 'F_OK', status: '2' }, pool as never, createRedis() as never)
     assert.equal(pool.executes.some((e) => e.sql.includes("SET status='completed'")), true)
     assert.equal(pool.conn.executes.some((e) => e.sql.includes('INSERT INTO bg_wallet')), false)
+  })
+})
+
+describe('WZPAY 回调处理', () => {
+  it('存款成功按本地订单金额入账', async () => {
+    const { handleWzpayCallback } = await import('../handlers/wzpay-callback.handler.js')
+    const conn = createConn({
+      query(sql) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 100000 }]]
+        return [[]]
+      },
+      execute(sql) {
+        if (sql.includes('UPDATE bg_deposit_order')) return [{ affectedRows: 1 }]
+        return [{}]
+      },
+    })
+    const pool = createPool({
+      conn,
+      query(sql) {
+        if (sql.includes('FROM bg_deposit_order WHERE order_id')) {
+          return [[{ order_id: 'WZD_1', user_id: 'U1', currency: 'IDR', amount: 100000, credited: 0, status: 'pending' }]]
+        }
+        return [[]]
+      },
+    })
+
+    await handleWzpayCallback({
+      merchantId: '10114', outTradeId: 'WZD_1', orderId: 'P1', amount: '100000', status: '1',
+    }, pool as never, createRedis() as never)
+
+    assert.equal(conn.committed, true)
+    assert.equal(conn.executes.some((e) => e.sql.includes('INSERT INTO bg_wallet') && e.params?.[2] === 100000), true)
+  })
+
+  it('存款回调金额不一致时只记录异常、不入账', async () => {
+    const { handleWzpayCallback } = await import('../handlers/wzpay-callback.handler.js')
+    const pool = createPool({
+      query(sql) {
+        if (sql.includes('FROM bg_deposit_order WHERE order_id')) {
+          return [[{ order_id: 'WZD_DIFF', user_id: 'U1', currency: 'IDR', amount: 100000, credited: 0, status: 'pending' }]]
+        }
+        return [[]]
+      },
+    })
+
+    await handleWzpayCallback({
+      merchantId: '10114', outTradeId: 'WZD_DIFF', orderId: 'P_DIFF', amount: '1', status: '1',
+    }, pool as never, createRedis() as never)
+
+    assert.equal(pool.executes.some((e) => e.sql.includes('bg_payment_callback_issue')), true)
+    assert.equal(pool.conn.executes.some((e) => e.sql.includes('INSERT INTO bg_wallet')), false)
+  })
+
+  it('代付失败只退款一次并标记 failed', async () => {
+    const { handleWzpayCallback } = await import('../handlers/wzpay-callback.handler.js')
+    const conn = createConn({
+      query(sql) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 50000 }]]
+        return [[]]
+      },
+      execute(sql) {
+        if (sql.includes('UPDATE bg_withdraw_order')) return [{ affectedRows: 1 }]
+        return [{}]
+      },
+    })
+    const pool = createPool({
+      conn,
+      query(sql) {
+        if (sql.includes('FROM bg_withdraw_order')) {
+          return [[{ order_id: 'WZW_1', user_id: 'U1', currency: 'IDR', amount: 50000, status: 'processing', refunded: 0 }]]
+        }
+        return [[]]
+      },
+    })
+
+    await handleWzpayCallback({
+      merchantId: '10114', outTradeId: 'WZW_1', orderId: 'P2', amount: '50000', status: '2',
+    }, pool as never, createRedis() as never)
+
+    assert.equal(conn.committed, true)
+    assert.equal(conn.executes.some((e) => e.sql.includes("SET status='failed', refunded=1")), true)
+    assert.equal(conn.executes.some((e) => e.params?.includes('REFUND_WZW_1')), true)
   })
 })
 

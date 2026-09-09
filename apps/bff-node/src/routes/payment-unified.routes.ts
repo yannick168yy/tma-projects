@@ -21,10 +21,15 @@ import {
   queryDeposit as unispayQueryDeposit,
   UnispayError,
 } from '../services/unispay.service.js'
+import {
+  createDeposit as wzpayCreateDeposit,
+  queryDeposit as wzpayQueryDeposit,
+  WzpayError,
+} from '../services/wzpay.service.js'
 import { syncQueriedDepositStatus } from '../services/deposit-status-sync.service.js'
 import {
   getWalletBalances, getDeposit, getWithdraw, saveDeposit, saveWithdraw,
-  creditWallet, listDeposits, listWithdrawals,
+  creditWallet, listDeposits, listWithdrawals, getUser, getKyc, listUserIdentities,
 } from '../services/store/index.js'
 import { isKycApproved } from '../services/kyc.service.js'
 import { checkWithdrawPhoneAccount } from '../services/auth.service.js'
@@ -41,10 +46,42 @@ const router = new Router()
 // 收款账号=手机号的电子钱包渠道（GoTyme 是银行卡号，不在此列）
 const PHONE_WALLET_WITHDRAW_CHANNELS = new Set(['gcash', 'maya'])
 
+function normalizeWzpayPhone(raw: string): string {
+  let digits = raw.replace(/\D/g, '')
+  if (digits.startsWith('0062')) digits = `0${digits.slice(4)}`
+  else if (digits.startsWith('62')) digits = `0${digits.slice(2)}`
+  return /^\d{10,13}$/.test(digits) ? digits : ''
+}
+
+async function getWzpayCustomer(redis: Redis, userId: string) {
+  const [user, kyc, identities] = await Promise.all([
+    getUser(redis, userId),
+    getKyc(redis, userId),
+    listUserIdentities(redis, userId),
+  ])
+  const identityPhone = identities.find((item) => item.provider === 'phone' && item.verifiedAt)?.identifier ?? ''
+  const phone = normalizeWzpayPhone(kyc?.phone || identityPhone)
+  const name = String(kyc?.fullName ?? user?.displayName ?? '').trim()
+  const email = String(user?.email ?? '').trim()
+  if (!phone) throw new WzpayError(400, 'WZPAY 要求绑定有效的印尼手机号')
+  if (!name) throw new WzpayError(400, 'WZPAY 要求填写付款人姓名')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new WzpayError(400, 'WZPAY 要求绑定有效邮箱')
+  return { phone, name, email }
+}
+
 function depositOrderState(status: OrderDeposit['status']): number {
   if (status === 'paid') return 2
   if (status === 'failed' || status === 'rejected' || status === 'cancelled') return 3
   return 0
+}
+
+function queriedDepositState(provider: string, state: number): number {
+  if (provider === 'unispay' || provider === 'wzpay') {
+    if (state === 1) return 2
+    if (state === 2 || state === 3) return 3
+    return 0
+  }
+  return state
 }
 
 // yfpay 渠道列表 Redis 缓存（5 分钟）
@@ -118,7 +155,7 @@ router.post('/payment/deposit/create', async (ctx) => {
     fail(ctx, 400, 'errors.amountOrChannelUnavailable'); return
   }
 
-  const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFD' : 'UPD')
+  const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFD' : provider === 'unispay' ? 'UPD' : 'WZD')
 
   try {
     let payUrl: string
@@ -150,6 +187,21 @@ router.post('/payment/deposit/create', async (ctx) => {
       payUrl = result.payUrl
       qrcode = result.qrcode
       platformId = result.platformId
+    } else if (provider === 'wzpay') {
+      if (currency !== 'IDR' || !Number.isInteger(amount)) { fail(ctx, 400, 'WZPAY IDR 充值金额必须为整数'); return }
+      const customer = await getWzpayCustomer(ctx.state.redis as Redis, ctx.state.userId!)
+      const result = await wzpayCreateDeposit({
+        amount,
+        channelName,
+        merchantSerial,
+        ...customer,
+        notifyUrl: ctx.state.env.WZPAY_NOTIFY_URL,
+        callbackUrl: ctx.state.env.WZPAY_RETURN_URL,
+      }, ctx.state.env)
+      channelCodeUsed = channelName.toUpperCase()
+      payUrl = result.payUrl
+      qrcode = result.qrcode
+      platformId = result.platformId
     } else {
       fail(ctx, 500, `未知 provider: ${provider}`); return
     }
@@ -175,8 +227,9 @@ router.post('/payment/deposit/create', async (ctx) => {
     console.error('[bff] payment/deposit/create', merchantSerial, err)
     const msg = err instanceof YfPayError ? err.message
       : err instanceof UnispayError ? err.message
+      : err instanceof WzpayError ? err.message
       : '创建充值订单失败'
-    fail(ctx, 500, msg)
+    fail(ctx, err instanceof WzpayError && Number(err.code) === 400 ? 400 : 500, msg)
   }
 })
 
@@ -186,12 +239,14 @@ router.post('/payment/deposit/query', async (ctx) => {
   const body = ctx.request.body as { merchantSerial?: string }
   if (!body.merchantSerial) { fail(ctx, 400, '缺少 merchantSerial'); return }
 
-  let provider = 'yfpay'
+  let provider = body.merchantSerial.startsWith('WZD') ? 'wzpay'
+    : body.merchantSerial.startsWith('UPD') ? 'unispay'
+      : 'yfpay'
   let order: OrderDeposit | null = null
   if (isMysqlEnabled(ctx.state.env)) {
     order = await getDeposit(ctx.state.redis, body.merchantSerial)
     if (!order || order.userId !== ctx.state.userId) { fail(ctx, 403, 'errors.noPermission'); return }
-    provider = order.provider ?? (order.channelId.startsWith('unispay_') ? 'unispay' : 'yfpay')
+    provider = order.provider ?? (order.channelId.startsWith('unispay_') ? 'unispay' : order.channelId.startsWith('wzpay_') ? 'wzpay' : 'yfpay')
     if (order.status !== 'pending') {
       ok(ctx, { state: depositOrderState(order.status) })
       return
@@ -202,10 +257,13 @@ router.post('/payment/deposit/query', async (ctx) => {
     let state: number
     if (order) {
       const synced = await syncQueriedDepositStatus(ctx.state.env, order)
-      state = synced?.state ?? depositOrderState(order.status)
+      state = synced ? depositOrderState(synced.status) : depositOrderState(order.status)
     } else if (provider === 'unispay') {
       const r = await unispayQueryDeposit(body.merchantSerial, ctx.state.env)
-      state = r.state
+      state = queriedDepositState(provider, r.state)
+    } else if (provider === 'wzpay') {
+      const r = await wzpayQueryDeposit(body.merchantSerial, ctx.state.env)
+      state = queriedDepositState(provider, r.state)
     } else {
       const r = await yfpayQueryDeposit(body.merchantSerial, ctx.state.env)
       state = r.state
@@ -214,6 +272,7 @@ router.post('/payment/deposit/query', async (ctx) => {
   } catch (err) {
     const msg = err instanceof YfPayError ? err.message
       : err instanceof UnispayError ? err.message
+      : err instanceof WzpayError ? err.message
       : '查询失败'
     fail(ctx, 500, msg)
   }
@@ -228,7 +287,7 @@ router.get('/payment/deposit/orders', async (ctx) => {
     merchantSerial: o.orderId,
     amount: o.amount,
     channelName: (o.extraData as Record<string, string> | undefined)?.channelName ?? o.channelId,
-    provider: o.provider ?? (o.channelId.startsWith('unispay_') ? 'unispay' : o.channelId.startsWith('yfpay_') ? 'yfpay' : undefined),
+    provider: o.provider ?? (o.channelId.startsWith('unispay_') ? 'unispay' : o.channelId.startsWith('wzpay_') ? 'wzpay' : o.channelId.startsWith('yfpay_') ? 'yfpay' : undefined),
     state: depositOrderState(o.status),
     payUrl: (o.extraData as Record<string, string> | undefined)?.payUrl,
     createdAt: o.createdAt,
@@ -295,11 +354,24 @@ router.post('/payment/withdraw/create', async (ctx) => {
     if (provider === 'unispay' && (currency !== 'IDR' || !Number.isInteger(amount))) {
       fail(ctx, 400, 'UnisPay IDR 提现金额必须为整数'); return
     }
+    if (provider === 'wzpay' && (currency !== 'IDR' || !Number.isInteger(amount))) {
+      fail(ctx, 400, 'WZPAY IDR 提现金额必须为整数'); return
+    }
+
+    let wzpayCustomer: Awaited<ReturnType<typeof getWzpayCustomer>> | undefined
+    if (provider === 'wzpay') {
+      try {
+        wzpayCustomer = await getWzpayCustomer(redis, userId)
+      } catch (err) {
+        fail(ctx, 400, err instanceof Error ? err.message : 'WZPAY 用户资料不完整')
+        return
+      }
+    }
 
     // provider 专用渠道码：yfpay 代付使用 bank-codes 数字编码。
     const channelCode = channelName.toUpperCase()
     const optionCode = normalizeWithdrawOptionCode(channelCode)
-    const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFW' : 'UPW')
+    const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFW' : provider === 'unispay' ? 'UPW' : 'WZW')
 
     await creditWallet(redis, userId, -amount, {
       type: 'withdraw',
@@ -324,6 +396,10 @@ router.post('/payment/withdraw/create', async (ctx) => {
         channelName,
         targetAccount: targetAccount ?? '',
         targetOwner: targetOwner ?? '',
+        ...(wzpayCustomer ? {
+          accountMobile: wzpayCustomer.phone,
+          accountEmail: wzpayCustomer.email,
+        } : {}),
       },
       createdAt: nowIso(),
     }

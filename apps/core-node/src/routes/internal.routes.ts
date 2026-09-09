@@ -11,6 +11,7 @@ import { applyDepositPromos } from '../services/deposit-promo.service.js'
 import { sendRegistrationConversion } from '../services/capi.service.js'
 import { tryActivateTeamNode } from '../services/team-activation.service.js'
 import { handleUnispayCallback } from '../handlers/unispay-callback.handler.js'
+import { handleWzpayCallback } from '../handlers/wzpay-callback.handler.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 const ID_OFFSET_MS = 7 * 60 * 60 * 1000
@@ -199,6 +200,23 @@ export async function internalRoutes(app: FastifyInstance) {
       status: String(status),
       amount: String(amount),
       mchNo: 'internal-query-sync',
+    }, app.mysql, app.redis as unknown as Redis)
+    return reply.send({ code: 0, message: 'ok' })
+  })
+
+  app.post<{
+    Body: { orderId: string; providerOrderId: string; status: string; amount: number }
+  }>('/internal/payment/wzpay', async (req, reply) => {
+    const { orderId, providerOrderId, status, amount } = req.body
+    if (!orderId || !providerOrderId || !['0', '1', '2'].includes(String(status)) || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      return reply.status(400).send({ code: 400, message: 'invalid payload' })
+    }
+    await handleWzpayCallback({
+      merchantId: 'internal-query-sync',
+      outTradeId: orderId,
+      orderId: providerOrderId,
+      status: String(status),
+      amount: String(amount),
     }, app.mysql, app.redis as unknown as Redis)
     return reply.send({ code: 0, message: 'ok' })
   })

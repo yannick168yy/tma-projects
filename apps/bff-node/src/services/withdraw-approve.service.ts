@@ -5,6 +5,7 @@ import { saveWithdraw, creditWallet } from './store/index.js'
 import { executeMatrixWithdrawOrder } from './matrix.service.js'
 import { createWithdrawal as yfpayCreateWithdrawal, YfPayError } from './yfpay.service.js'
 import { createWithdrawal as unispayCreateWithdrawal, UnispayError } from './unispay.service.js'
+import { createWithdrawal as wzpayCreateWithdrawal, WzpayError } from './wzpay.service.js'
 import { refreshAndCheckProviderBalance } from './payment-accounting.service.js'
 import { nowIso } from '../utils/format.js'
 import { providerFromChannel } from '../utils/payment-provider.js'
@@ -19,6 +20,8 @@ const isYfpay = (o: OrderWithdraw) =>
   o.provider === 'yfpay' || providerFromChannel(o.channelId) === 'yfpay'
 const isUnispay = (o: OrderWithdraw) =>
   o.provider === 'unispay' || providerFromChannel(o.channelId) === 'unispay'
+const isWzpay = (o: OrderWithdraw) =>
+  o.provider === 'wzpay' || providerFromChannel(o.channelId) === 'wzpay'
 
 /**
  * 批准提款并出款。管理员人工批准与自动审核共用此路径，避免两份逻辑漂移。
@@ -111,6 +114,39 @@ export async function approveWithdraw(
       order.status = 'failed'
       await saveWithdraw(redis, order)
       throw new Error(err instanceof UnispayError ? err.message : 'UnisPay 提现出款失败')
+    }
+  }
+
+  if (isWzpay(order)) {
+    const ex = (order.extraData ?? {}) as Record<string, unknown>
+    try {
+      const r = await wzpayCreateWithdrawal({
+        merchantSerial: order.orderId,
+        amount: order.amount,
+        channelName: String(ex.channelCode ?? '').toLowerCase(),
+        targetOwner: String(ex.targetOwner ?? ''),
+        targetAccount: String(ex.targetAccount ?? ''),
+        accountMobile: String(ex.accountMobile ?? ''),
+        accountEmail: String(ex.accountEmail ?? ''),
+        notifyUrl: env.WZPAY_NOTIFY_URL,
+      }, env)
+      order.status = 'processing'
+      order.extraData = { ...ex, platformId: r.platformId }
+      await saveWithdraw(redis, order)
+      void refreshAndCheckProviderBalance(env, 'wzpay').catch(() => {})
+      await chargePayout(env, redis, order)
+      return { status: 'processing' }
+    } catch (err) {
+      await creditWallet(redis, order.userId, order.amount, {
+        type: 'bonus',
+        refId: `REFUND_${order.orderId}`,
+        description: `WZPAY 提现出款失败退款 #${order.orderId}`,
+        createdAt: nowIso(),
+        currency: order.currency ?? 'IDR',
+      })
+      order.status = 'failed'
+      await saveWithdraw(redis, order)
+      throw new Error(err instanceof WzpayError ? err.message : 'WZPAY 提现出款失败')
     }
   }
 

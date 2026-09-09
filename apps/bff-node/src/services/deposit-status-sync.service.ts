@@ -4,12 +4,13 @@ import type { OrderDeposit } from '../types/domain.js'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { queryDeposit as yfpayQueryDeposit } from './yfpay.service.js'
 import { queryDeposit as unispayQueryDeposit, type UnispayOrderQueryResult } from './unispay.service.js'
+import { queryDeposit as wzpayQueryDeposit, type WzpayOrderQueryResult } from './wzpay.service.js'
 
 const QUERY_AFTER_MINUTES = 30
 const FORCE_FAIL_AFTER_MINUTES = 120
 const SCAN_LIMIT = 50
 
-type DepositProvider = 'yfpay' | 'unispay'
+type DepositProvider = 'yfpay' | 'unispay' | 'wzpay'
 
 interface PendingDepositRow extends RowDataPacket {
   order_id: string
@@ -42,6 +43,7 @@ function resolveProvider(order: Pick<OrderDeposit, 'provider' | 'channelId'>): D
   const raw = String(order.provider || order.channelId || '').toLowerCase()
   if (raw.includes('yfpay')) return 'yfpay'
   if (raw.includes('unispay')) return 'unispay'
+  if (raw.includes('wzpay')) return 'wzpay'
   return null
 }
 
@@ -51,15 +53,27 @@ function mapStateToStatus(provider: DepositProvider, state: number): OrderDeposi
     if (state === 2 || state === 3) return 'failed'
     return null
   }
+  if (provider === 'wzpay') {
+    if (state === 1) return 'paid'
+    if (state === 2) return 'failed'
+    return null
+  }
   if (state === 2) return 'paid'
   if (state === 3) return 'failed'
   return null
 }
 
-async function queryProviderState(env: Env, provider: DepositProvider, orderId: string): Promise<{ state: number; unispay?: UnispayOrderQueryResult }> {
+async function queryProviderState(env: Env, provider: DepositProvider, orderId: string): Promise<{
+  state: number
+  providerOrder?: UnispayOrderQueryResult | WzpayOrderQueryResult
+}> {
   if (provider === 'unispay') {
     const result = await unispayQueryDeposit(orderId, env)
-    return { state: result.state, unispay: result }
+    return { state: result.state, providerOrder: result }
+  }
+  if (provider === 'wzpay') {
+    const result = await wzpayQueryDeposit(orderId, env)
+    return { state: result.state, providerOrder: result }
   }
   return { state: (await yfpayQueryDeposit(orderId, env)).state }
 }
@@ -85,7 +99,12 @@ async function markDepositFailed(env: Env, orderId: string, reason: string, stat
   return res.affectedRows > 0
 }
 
-async function settleDepositViaCore(env: Env, provider: DepositProvider, order: OrderDeposit, unispay?: UnispayOrderQueryResult): Promise<boolean> {
+async function settleDepositViaCore(
+  env: Env,
+  provider: DepositProvider,
+  order: OrderDeposit,
+  providerOrder?: UnispayOrderQueryResult | WzpayOrderQueryResult,
+): Promise<boolean> {
   const res = await fetch(`${env.CORE_NODE_URL}/internal/payment/${provider}`, {
     method: 'POST',
     headers: {
@@ -96,10 +115,10 @@ async function settleDepositViaCore(env: Env, provider: DepositProvider, order: 
       orderId: order.orderId,
       userId: order.userId,
       creditedCents: order.amount,
-      ...(provider === 'unispay' ? {
-        providerOrderId: unispay?.platformId,
-        status: String(unispay?.state ?? 0),
-        amount: unispay?.amount || order.amount,
+      ...(provider === 'unispay' || provider === 'wzpay' ? {
+        providerOrderId: providerOrder?.platformId,
+        status: String(providerOrder?.state ?? 0),
+        amount: providerOrder?.amount || order.amount,
       } : {}),
     }),
     signal: AbortSignal.timeout(15000),
@@ -123,7 +142,7 @@ export async function syncQueriedDepositStatus(env: Env, order: OrderDeposit): P
     return { orderId: order.orderId, provider, state, status: 'failed', changed }
   }
 
-  await settleDepositViaCore(env, provider, order, queried.unispay)
+  await settleDepositViaCore(env, provider, order, queried.providerOrder)
   return { orderId: order.orderId, provider, state, status: 'paid', changed: true }
 }
 
@@ -153,7 +172,7 @@ export async function runDepositStatusTick(env: Env, log: { info: (obj: unknown,
     `SELECT order_id, user_id, amount, currency, channel, status, created_at, extra
      FROM bg_deposit_order
      WHERE status = 'pending'
-       AND channel LIKE 'yfpay\\_%'
+       AND (channel LIKE 'yfpay\\_%' OR channel LIKE 'unispay\\_%' OR channel LIKE 'wzpay\\_%')
        AND created_at < NOW() - INTERVAL ? MINUTE
      ORDER BY created_at ASC
      LIMIT ?`,
