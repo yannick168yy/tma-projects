@@ -31,7 +31,7 @@ interface Props { open: boolean; onClose: () => void; initialTab?: 'deposit'|'wi
 interface HistoryItem { id: string; orderId: string; type: 'deposit'|'withdraw'; method: string; amount: string; date: string; sortKey: string; status: 'success'|'pending'|'rejected'|'admin_rejected'|'failed'; rejectReason?: string | null }
 const STALE_DEPOSIT_PENDING_MS = 30 * 60 * 1000
 
-function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank',DANA:'DANA',dana:'DANA',VA:'VA',va:'VA',QRIS:'QRIS',qris:'QRIS'}; return m[code]??code??'—' }
+function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank',DANA:'DANA',dana:'DANA',VA:'VA',va:'VA',QRIS:'QRIS',qris:'QRIS',LINKAJA:'LinkAja',linkaja:'LinkAja',OVO:'OVO',ovo:'OVO',GOPAY:'GoPay',gopay:'GoPay'}; return m[code]??code??'—' }
 function formatOrderDate(iso: string) { try { return new Date(iso).toLocaleString('en-PH',{dateStyle:'short',timeStyle:'short'}) } catch { return iso } }
 function mapDepositState(state: number): HistoryItem['status'] { if(state===2)return 'success'; if(state===3)return 'rejected'; return 'pending' }
 function mapWithdrawState(state: number): HistoryItem['status'] { if(state===1)return 'success'; if(state===2||state===3)return 'rejected'; return 'pending' }
@@ -67,7 +67,14 @@ function matchTierBonus(tiers: FirstDepTier[] | undefined, amount: number): numb
 type DepositCategory = 'ewallet' | 'crypto' | 'telegram'
 
 function isPhoneWalletWithdraw(id: string | null) {
-  return id === 'gcash-w' || id === 'maya-w'
+  return id?.startsWith('gcash-w') === true || id?.startsWith('maya-w') === true
+}
+
+function paymentProviderName(provider: string): string {
+  if (provider === 'unispay') return 'UnisPay'
+  if (provider === 'wzpay') return 'WZPAY'
+  if (provider === 'yfpay') return 'YFPay'
+  return provider
 }
 
 function walletAccountFromPhone(e164: string | null): string {
@@ -328,17 +335,36 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
 
   useEffect(() => { return () => { stopPolling() } }, [])
 
-  const liveFiatDeposit = useMemo((): PayMethod[] => FIAT_DEPOSIT.filter((m) => (!m.currency || m.currency === activeCurrency) && !hiddenPaymentChannels.includes(m.id)).map((m) => {
-    const ch = paymentDepositChannels.find((c) => c.name === m.id)
-    if (ch) return { ...m, id: `fiat_${m.id}`, tag: ch.minAmount ? `${fmtPreset(ch.minAmount, activeCurrency)}–${ch.maxAmount ? fmtPreset(ch.maxAmount, activeCurrency) : '∞'}` : 'Instant', enabled: true, channelId: `fiat_${m.id}`, paymentChannelName: m.id, minAmount: ch.minAmount ?? undefined, maxAmount: ch.maxAmount ?? undefined }
-    return { ...m, enabled: false }
+  const liveFiatDeposit = useMemo((): PayMethod[] => FIAT_DEPOSIT.filter((m) => (!m.currency || m.currency === activeCurrency) && !hiddenPaymentChannels.includes(m.id)).flatMap<PayMethod>((m): PayMethod[] => {
+    const channels = paymentDepositChannels.filter((c) => c.name === m.id)
+    if (channels.length === 0) return [{ ...m, enabled: false }]
+    return channels.map((ch) => ({
+      ...m,
+      id: `fiat_${m.id}_${ch.provider}`,
+      tag: paymentProviderName(ch.provider),
+      enabled: true,
+      channelId: `fiat_${m.id}_${ch.provider}`,
+      paymentChannelName: m.id,
+      paymentProvider: ch.provider,
+      minAmount: ch.minAmount ?? undefined,
+      maxAmount: ch.maxAmount ?? undefined,
+    }))
   }), [paymentDepositChannels, hiddenPaymentChannels, activeCurrency])
 
-  const liveFiatWithdraw = useMemo((): PayMethod[] => FIAT_WITHDRAW.filter((m) => (!m.currency || m.currency === activeCurrency) && !hiddenPaymentChannels.includes(m.id.replace('-w', ''))).map((m) => {
+  const liveFiatWithdraw = useMemo((): PayMethod[] => FIAT_WITHDRAW.filter((m) => (!m.currency || m.currency === activeCurrency) && !hiddenPaymentChannels.includes(m.id.replace('-w', ''))).flatMap<PayMethod>((m): PayMethod[] => {
     const channelName = m.id.replace('-w', '')
-    const ch = paymentWithdrawChannels.find((c) => c.name === channelName)
-    if (ch) return { ...m, enabled: true, paymentChannelName: channelName, minAmount: ch.minAmount ?? undefined, maxAmount: ch.maxAmount ?? undefined, tag: ch.minAmount ? `${fmtPreset(ch.minAmount, activeCurrency)}–${ch.maxAmount ? fmtPreset(ch.maxAmount, activeCurrency) : '∞'}` : m.tag }
-    return { ...m, enabled: false }
+    const channels = paymentWithdrawChannels.filter((c) => c.name === channelName)
+    if (channels.length === 0) return [{ ...m, enabled: false }]
+    return channels.map((ch) => ({
+      ...m,
+      id: `${m.id}_${ch.provider}`,
+      tag: paymentProviderName(ch.provider),
+      enabled: true,
+      paymentChannelName: channelName,
+      paymentProvider: ch.provider,
+      minAmount: ch.minAmount ?? undefined,
+      maxAmount: ch.maxAmount ?? undefined,
+    }))
   }), [paymentWithdrawChannels, hiddenPaymentChannels, activeCurrency])
 
   // 虚拟币/TG 渠道开关由后台控制；开关未加载前不使用静态 enabled，避免误选已关闭币种
@@ -516,7 +542,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     setDepositLoading(true); setDepositMessage(t('wallet.yfpayOpenBrowser')); setDepositSuccess(false); setPaymentCheckout(null); setCopiedPaymentLink(false); stopPolling(); pollFiatDepositCountRef.current=0
     analytics.depositStart(method.paymentChannelName,num,activeCurrency)
     try {
-      const result=await createPaymentDeposit({channelName:method.paymentChannelName,amount:num,currency:activeCurrency}); setPaymentCheckout({payUrl:result.payUrl,qrcode:result.qrcode})
+      const result=await createPaymentDeposit({channelName:method.paymentChannelName,provider:method.paymentProvider,amount:num,currency:activeCurrency}); setPaymentCheckout({payUrl:result.payUrl,qrcode:result.qrcode})
       analytics.depositOrderCreated(method.paymentChannelName,num,activeCurrency,result.merchantSerial)
       openPaymentCheckout(result.payUrl)
       setDepositMessage(t('wallet.yfpayWaitingPayment')); pollTimerRef.current=setInterval(()=>void pollFiatDeposit(result.merchantSerial),3000)
@@ -549,7 +575,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     setWithdrawLoading(true); setWithdrawMessage(''); setWithdrawSuccess(false)
     const channelName=selectedPayMethod?.paymentChannelName; if(!channelName)return
     analytics.withdrawStart(channelName,n,activeCurrency)
-    try{await createPaymentWithdrawal({channelName,amount:n,targetOwner:withdrawOwner.trim(),targetAccount:withdrawAccount.trim(),currency:activeCurrency});analytics.withdrawCreated(channelName,n,activeCurrency);setWithdrawSuccess(true);setWithdrawMessage(t('wallet.yfpayWithdrawPending'));await walletStore.refresh();setTimeout(()=>{setTab('history');setHistoryFilter('withdraw');void loadHistory()},1500)}catch(e){setWithdrawMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.yfpayWithdrawFailed'))}finally{setWithdrawLoading(false)}
+    try{await createPaymentWithdrawal({channelName,provider:selectedPayMethod?.paymentProvider,amount:n,targetOwner:withdrawOwner.trim(),targetAccount:withdrawAccount.trim(),currency:activeCurrency});analytics.withdrawCreated(channelName,n,activeCurrency);setWithdrawSuccess(true);setWithdrawMessage(t('wallet.yfpayWithdrawPending'));await walletStore.refresh();setTimeout(()=>{setTab('history');setHistoryFilter('withdraw');void loadHistory()},1500)}catch(e){setWithdrawMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.yfpayWithdrawFailed'))}finally{setWithdrawLoading(false)}
   }
 
   async function onProceedMatrixWithdraw() {

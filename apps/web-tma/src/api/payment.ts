@@ -2,6 +2,7 @@ import { apiRequest } from '@/api/client'
 
 export interface PaymentChannel {
   name: string
+  provider: string
   label: string
   minAmount: number | null
   maxAmount: number | null
@@ -58,6 +59,7 @@ export async function fetchCryptoChannels(): Promise<CryptoChannelState[]> {
 
 export async function createPaymentDeposit(params: {
   channelName: string
+  provider?: string
   amount: number
   currency?: string
 }): Promise<PaymentDepositResult> {
@@ -80,6 +82,7 @@ export async function fetchPaymentDepositOrders(): Promise<PaymentOrder[]> {
 
 export async function createPaymentWithdrawal(params: {
   channelName: string
+  provider?: string
   amount: number
   targetOwner: string
   targetAccount: string

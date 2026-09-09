@@ -105,7 +105,7 @@ function findYfpayCode(channels: Awaited<ReturnType<typeof yfpayGetChannels>>, c
 // 可用渠道列表 Redis 缓存（60 秒）。实际下单路由走 resolveChannel 不读此缓存，
 // 故后台改渠道后真实路由立即生效，仅客户端展示列表最多滞后 60 秒。
 async function getCachedAvailableChannels(redis: Redis, env: Parameters<typeof listAvailableChannels>[0], txType: TxType, currency: string) {
-  const KEY = `payment:channels:${txType}:${currency}`
+  const KEY = `payment:channels:v2:${txType}:${currency}`
   const cached = await redis.get(KEY)
   if (cached) return JSON.parse(cached) as Awaited<ReturnType<typeof listAvailableChannels>>
   const channels = await listAvailableChannels(env, txType, currency)
@@ -119,7 +119,7 @@ router.get('/payment/channels', async (ctx) => {
   const txType = (ctx.query.txType ?? 'deposit') as TxType
   const currency = String(ctx.query.currency ?? 'PHP').toUpperCase()
 
-  // min/max 以后台配置的规则区间为准（listAvailableChannels 已聚合 MIN/MAX），
+  // 每个支付商独立返回，min/max 以该支付商的后台规则区间为准，
   // 不用服务商接口覆盖，金额区间始终以后端渠道规则为准。
   const channels = await getCachedAvailableChannels(ctx.state.redis as Redis, ctx.state.env, txType, currency)
   ok(ctx, channels)
@@ -141,8 +141,9 @@ router.get('/payment/crypto-channels', async (ctx) => {
 // ── POST /payment/deposit/create ──────────────────────────────────────────────
 
 router.post('/payment/deposit/create', async (ctx) => {
-  const body = ctx.request.body as { channelName?: string; amount?: number; currency?: string }
+  const body = ctx.request.body as { channelName?: string; provider?: string; amount?: number; currency?: string }
   const channelName = String(body.channelName ?? '').toLowerCase().trim()
+  const requestedProvider = body.provider ? String(body.provider).toLowerCase().trim() : undefined
   const amount = Number(body.amount)
   const currency = String(body.currency ?? 'PHP').toUpperCase()
 
@@ -150,7 +151,7 @@ router.post('/payment/deposit/create', async (ctx) => {
     fail(ctx, 400, '缺少 channelName 或 amount'); return
   }
 
-  const provider = await resolveChannel(ctx.state.env, channelName, 'deposit', amount, currency)
+  const provider = await resolveChannel(ctx.state.env, channelName, 'deposit', amount, currency, requestedProvider)
   if (!provider) {
     fail(ctx, 400, 'errors.amountOrChannelUnavailable'); return
   }
@@ -300,9 +301,10 @@ router.post('/payment/withdraw/create', async (ctx) => {
   const body = ctx.request.body as {
     channelName?: string; amount?: number
     targetOwner?: string; targetAccount?: string
-    currency?: string
+    currency?: string; provider?: string
   }
   const channelName = String(body.channelName ?? '').toLowerCase().trim()
+  const requestedProvider = body.provider ? String(body.provider).toLowerCase().trim() : undefined
   const { amount, targetOwner, targetAccount } = body
   const currency = String(body.currency ?? 'PHP').toUpperCase()
 
@@ -349,7 +351,7 @@ router.post('/payment/withdraw/create', async (ctx) => {
     if (wallet.available < amount) { fail(ctx, 400, 'errors.insufficientBalance'); return }
     if (amount > wallet.available - lockedBonus) { fail(ctx, 403, 'errors.bonusLocked'); return }
 
-    const provider = await resolveChannel(ctx.state.env, channelName, 'withdraw', amount, currency)
+    const provider = await resolveChannel(ctx.state.env, channelName, 'withdraw', amount, currency, requestedProvider)
     if (!provider) { fail(ctx, 400, 'errors.amountOrChannelUnavailable'); return }
     if (provider === 'unispay' && (currency !== 'IDR' || !Number.isInteger(amount))) {
       fail(ctx, 400, 'UnisPay IDR 提现金额必须为整数'); return
