@@ -84,7 +84,7 @@ export async function createDeposit(params: CreateDepositParams, env: Env): Prom
     throw new WzpayError(400, 'WZPAY IDR 代收金额必须为正整数')
   }
   const method = params.channelName.toUpperCase()
-  if (!['DANA', 'QRIS', 'LINKAJA', 'OVO'].includes(method)) {
+  if (!['BNI', 'BRI', 'MANDIRI', 'PERMATA', 'QRIS'].includes(method)) {
     throw new WzpayError(400, `WZPAY 不支持代收方式 ${params.channelName}`)
   }
   const data = await request<{
@@ -138,16 +138,26 @@ export interface WithdrawalOrderResult {
   state: number
 }
 
+const WZPAY_PAYOUT_CHANNELS: Record<string, { method: 'BANK' | 'WALLET'; bankCode: string; bankName: string }> = {
+  bri: { method: 'BANK', bankCode: '002', bankName: 'Bank Rakyat Indonesia' },
+  mandiri: { method: 'BANK', bankCode: '008', bankName: 'Bank Mandiri (Persero) Tbk' },
+  bni: { method: 'BANK', bankCode: '009', bankName: 'Bank Negara Indonesia' },
+  permata: { method: 'BANK', bankCode: '013', bankName: 'PT Bank Permata Tbk' },
+  ovo: { method: 'WALLET', bankCode: '10001', bankName: 'OVO' },
+  dana: { method: 'WALLET', bankCode: '10002', bankName: 'Dana' },
+  gopay: { method: 'WALLET', bankCode: '10003', bankName: 'Gopay' },
+  linkaja: { method: 'WALLET', bankCode: '10009', bankName: 'LinkAja' },
+}
+
 export async function createWithdrawal(params: CreateWithdrawalParams, env: Env): Promise<WithdrawalOrderResult> {
   if (!Number.isInteger(params.amount) || params.amount <= 0) {
     throw new WzpayError(400, 'WZPAY IDR 代付金额必须为正整数')
   }
   const channelName = params.channelName.toLowerCase()
-  if (!['dana', 'gopay', 'linkaja', 'ovo'].includes(channelName)) {
+  const payoutChannel = WZPAY_PAYOUT_CHANNELS[channelName]
+  if (!payoutChannel) {
     throw new WzpayError(400, `WZPAY 暂未配置代付银行编号 ${params.channelName}`)
   }
-  const method = channelName
-  const bankCode = channelName.toUpperCase()
   const data = await request<{
     orderId: string
     outTradeId: string
@@ -158,14 +168,14 @@ export async function createWithdrawal(params: CreateWithdrawalParams, env: Env)
     outTradeId: params.merchantSerial,
     currency: 'IDR',
     amount: String(Math.trunc(params.amount)),
-    method,
-    bankCode,
+    method: payoutChannel.method,
+    bankCode: payoutChannel.bankCode,
     bankCard: params.targetAccount,
     accountMobile: params.accountMobile,
     accountEmail: params.accountEmail,
     accountName: params.targetOwner,
     name: params.targetOwner,
-    bankName: bankCode,
+    bankName: payoutChannel.bankName,
   }, {
     notifyUrl: params.notifyUrl,
   }, env)

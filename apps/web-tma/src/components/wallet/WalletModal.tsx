@@ -31,7 +31,7 @@ interface Props { open: boolean; onClose: () => void; initialTab?: 'deposit'|'wi
 interface HistoryItem { id: string; orderId: string; type: 'deposit'|'withdraw'; method: string; amount: string; date: string; sortKey: string; status: 'success'|'pending'|'rejected'|'admin_rejected'|'failed'; rejectReason?: string | null }
 const STALE_DEPOSIT_PENDING_MS = 30 * 60 * 1000
 
-function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank',DANA:'DANA',dana:'DANA',VA:'VA',va:'VA',QRIS:'QRIS',qris:'QRIS',LINKAJA:'LinkAja',linkaja:'LinkAja',OVO:'OVO',ovo:'OVO',GOPAY:'GoPay',gopay:'GoPay'}; return m[code]??code??'—' }
+function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank',DANA:'DANA',dana:'DANA',VA:'VA',va:'VA',QRIS:'QRIS',qris:'QRIS',LINKAJA:'LinkAja',linkaja:'LinkAja',OVO:'OVO',ovo:'OVO',GOPAY:'GoPay',gopay:'GoPay',BNI:'BNI',bni:'BNI',BRI:'BRI',bri:'BRI',MANDIRI:'Mandiri',mandiri:'Mandiri',PERMATA:'Permata',permata:'Permata'}; return m[code]??code??'—' }
 function formatOrderDate(iso: string) { try { return new Date(iso).toLocaleString('en-PH',{dateStyle:'short',timeStyle:'short'}) } catch { return iso } }
 function mapDepositState(state: number): HistoryItem['status'] { if(state===2)return 'success'; if(state===3)return 'rejected'; return 'pending' }
 function mapWithdrawState(state: number): HistoryItem['status'] { if(state===1)return 'success'; if(state===2||state===3)return 'rejected'; return 'pending' }

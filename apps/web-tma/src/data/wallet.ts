@@ -58,8 +58,10 @@ export const FIAT_DEPOSIT: PayMethod[] = [
   { id: 'dana', name: 'DANA', icon: 'D', color: 'from-sky-500 to-blue-700', tag: 'Wallet', currency: 'IDR' },
   { id: 'va', name: 'VA', icon: 'VA', color: 'from-blue-600 to-sky-700', tag: 'VA', currency: 'IDR' },
   { id: 'qris', name: 'QRIS', icon: 'QR', color: 'from-red-500 to-slate-700', tag: 'QRIS', currency: 'IDR' },
-  { id: 'linkaja', name: 'LinkAja', icon: 'L', color: 'from-red-500 to-rose-700', tag: 'Wallet', currency: 'IDR' },
-  { id: 'ovo', name: 'OVO', icon: 'O', color: 'from-violet-500 to-purple-700', tag: 'Wallet', currency: 'IDR' },
+  { id: 'bni', name: 'BNI', icon: 'BNI', color: 'from-orange-500 to-teal-700', tag: 'Bank', currency: 'IDR' },
+  { id: 'bri', name: 'BRI', icon: 'BRI', color: 'from-blue-500 to-blue-800', tag: 'Bank', currency: 'IDR' },
+  { id: 'mandiri', name: 'Mandiri', icon: 'M', color: 'from-blue-600 to-yellow-500', tag: 'Bank', currency: 'IDR' },
+  { id: 'permata', name: 'Permata', icon: 'P', color: 'from-cyan-500 to-green-700', tag: 'Bank', currency: 'IDR' },
 ]
 
 export const CRYPTO_DEPOSIT: PayMethod[] = [
@@ -93,6 +95,10 @@ export const FIAT_WITHDRAW: PayMethod[] = [
   { id: 'linkaja-w', name: 'LinkAja', icon: 'L', color: 'from-red-500 to-rose-700', tag: 'Wallet', currency: 'IDR' },
   { id: 'ovo-w', name: 'OVO', icon: 'O', color: 'from-violet-500 to-purple-700', tag: 'Wallet', currency: 'IDR' },
   { id: 'gopay-w', name: 'GoPay', icon: 'G', color: 'from-sky-500 to-cyan-700', tag: 'Wallet', currency: 'IDR' },
+  { id: 'bni-w', name: 'BNI', icon: 'BNI', color: 'from-orange-500 to-teal-700', tag: 'Bank', currency: 'IDR' },
+  { id: 'bri-w', name: 'BRI', icon: 'BRI', color: 'from-blue-500 to-blue-800', tag: 'Bank', currency: 'IDR' },
+  { id: 'mandiri-w', name: 'Mandiri', icon: 'M', color: 'from-blue-600 to-yellow-500', tag: 'Bank', currency: 'IDR' },
+  { id: 'permata-w', name: 'Permata', icon: 'P', color: 'from-cyan-500 to-green-700', tag: 'Bank', currency: 'IDR' },
 ]
 
 export const CRYPTO_WITHDRAW: PayMethod[] = [

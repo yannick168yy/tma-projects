@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Env } from '../config/env.js'
-import { createDeposit, generateSign, generateWzpayContact, getBalance, queryDeposit } from '../services/wzpay.service.js'
+import { createDeposit, createWithdrawal, generateSign, generateWzpayContact, getBalance, queryDeposit } from '../services/wzpay.service.js'
 
 const env = {
   WZPAY_BASE_URL: 'https://api.wzpay.club',
@@ -37,7 +37,7 @@ describe('WZPAY 服务', () => {
     })))
     await expect(createDeposit({
       amount: 100000,
-      channelName: 'dana',
+      channelName: 'qris',
       merchantSerial: 'WZD_1',
       phone: '081234567890',
       name: 'Test User',
@@ -49,7 +49,34 @@ describe('WZPAY 服务', () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Record<string, unknown>
     const { sign, ...unsigned } = body
     expect(sign).toBe(generateSign(unsigned, 'secret'))
-    expect(body).toMatchObject({ method: 'DANA', currency: 'IDR', directConnect: '1' })
+    expect(body).toMatchObject({ method: 'QRIS', currency: 'IDR', directConnect: '1' })
+    fetchMock.mockRestore()
+  })
+
+  it('代付按银行与钱包类型提交官方编码', async () => {
+    const successResponse = () => new Response(JSON.stringify({
+      code: 0,
+      msg: '成功',
+      data: { orderId: 'P3', outTradeId: 'WZW_1', amount: '100000', status: 0 },
+    }))
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(successResponse())
+      .mockResolvedValueOnce(successResponse())
+    const base = {
+      merchantSerial: 'WZW_1', amount: 100000, targetOwner: 'Test User', targetAccount: '1234567890',
+      accountMobile: '081288706603', accountEmail: 'wzpay-test@188facai.com',
+      notifyUrl: 'https://www.188facai.com/api/v1/callback/wzpay',
+    }
+
+    await createWithdrawal({ ...base, channelName: 'bni' }, env)
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      method: 'BANK', bankCode: '009', bankName: 'Bank Negara Indonesia',
+    })
+
+    await createWithdrawal({ ...base, channelName: 'dana' }, env)
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
+      method: 'WALLET', bankCode: '10002', bankName: 'Dana',
+    })
     fetchMock.mockRestore()
   })
 
