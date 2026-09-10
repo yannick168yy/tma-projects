@@ -29,7 +29,7 @@ describe('WZPAY 服务', () => {
     fetchMock.mockRestore()
   })
 
-  it('代收按实际接口要求将所有非空字段加入签名', async () => {
+  it.each(['qris', 'dana', 'va'])('代收 %s 保留请求能力并将所有非空字段加入签名', async (channelName) => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
       code: 0,
       msg: '成功',
@@ -37,7 +37,7 @@ describe('WZPAY 服务', () => {
     })))
     await expect(createDeposit({
       amount: 100000,
-      channelName: 'qris',
+      channelName,
       merchantSerial: 'WZD_1',
       phone: '081234567890',
       name: 'Test User',
@@ -49,7 +49,7 @@ describe('WZPAY 服务', () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Record<string, unknown>
     const { sign, ...unsigned } = body
     expect(sign).toBe(generateSign(unsigned, 'secret'))
-    expect(body).toMatchObject({ method: 'QRIS', currency: 'IDR', directConnect: '1' })
+    expect(body).toMatchObject({ method: channelName.toUpperCase(), currency: 'IDR', directConnect: '1' })
     fetchMock.mockRestore()
   })
 

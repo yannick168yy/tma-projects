@@ -84,7 +84,7 @@ export async function createDeposit(params: CreateDepositParams, env: Env): Prom
     throw new WzpayError(400, 'WZPAY IDR 代收金额必须为正整数')
   }
   const method = params.channelName.toUpperCase()
-  if (!['BNI', 'BRI', 'MANDIRI', 'PERMATA', 'QRIS'].includes(method)) {
+  if (!['BNI', 'BRI', 'MANDIRI', 'PERMATA', 'QRIS', 'DANA', 'VA'].includes(method)) {
     throw new WzpayError(400, `WZPAY 不支持代收方式 ${params.channelName}`)
   }
   const data = await request<{
