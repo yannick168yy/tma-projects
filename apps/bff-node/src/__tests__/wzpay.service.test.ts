@@ -29,7 +29,7 @@ describe('WZPAY 服务', () => {
     fetchMock.mockRestore()
   })
 
-  it('代收按文档字段提交，选填字段不参与签名', async () => {
+  it('代收按实际接口要求将所有非空字段加入签名', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
       code: 0,
       msg: '成功',
@@ -47,8 +47,8 @@ describe('WZPAY 服务', () => {
     }, env)).resolves.toMatchObject({ platformId: 'P1', payUrl: 'https://pay' })
 
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Record<string, unknown>
-    const { sign, notifyUrl: _notifyUrl, callbackUrl: _callbackUrl, directConnect: _directConnect, ...required } = body
-    expect(sign).toBe(generateSign(required, 'secret'))
+    const { sign, ...unsigned } = body
+    expect(sign).toBe(generateSign(unsigned, 'secret'))
     expect(body).toMatchObject({ method: 'DANA', currency: 'IDR', directConnect: '1' })
     fetchMock.mockRestore()
   })

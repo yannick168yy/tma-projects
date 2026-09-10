@@ -41,11 +41,11 @@ async function request<T>(
   if (!env.WZPAY_MERCHANT_ID || !env.WZPAY_API_KEY) {
     throw new WzpayError(500, 'WZPAY 商户配置缺失')
   }
-  const payload = {
+  const unsignedPayload = {
     ...required,
     ...Object.fromEntries(Object.entries(optional).filter(([, value]) => value !== null && value !== undefined && value !== '')),
-    sign: generateSign(required, env.WZPAY_API_KEY),
   }
+  const payload = { ...unsignedPayload, sign: generateSign(unsignedPayload, env.WZPAY_API_KEY) }
   const res = await fetch(`${env.WZPAY_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json; charset=UTF-8' },
