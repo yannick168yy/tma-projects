@@ -81,6 +81,7 @@ const RULES = {
   bank: (v) => M.fakeBankAccount(v),
   avatar: (v) => M.fakeAvatar(v),
   preserve: (v) => M.preserveFormat(v),
+  fakeDate: (v) => M.fakeDate(v),
   clear: () => null,
   fakeDomain: (v) => (v ? `${M.preserveFormat(String(v).split('.')[0], 'dom')}.demo-site.com` : v),
   identityByProvider: (v, row) => {

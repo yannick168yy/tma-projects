@@ -20,6 +20,11 @@ export const COPY = [
   'payment_channels', 'payment_channel_rules',
   'cs_faq', 'bg_announcement', 'bg_exchange_rate', 'cm_template', 'cm_rule',
   'bg_user_id_seq',
+  // 🔴 迁移记录必须进快照。不进的话，reset 导入后迁移执行器看到"有表但没有版本
+  // 记录"，会把全部迁移一次性标记为已执行 —— 快照放几周、中间上线过新迁移，
+  // 那些迁移就被跳过了，演示库从此缺表，而且不报错。带上版本记录，执行器才知道
+  // 该从哪一版往后补。实测输出："已有数据库，初始化迁移版本记录...已标记 234 个"
+  'schema_migrations',
 ]
 
 /**
@@ -28,7 +33,6 @@ export const COPY = [
 export const SKIP = {
   admin_accounts: '开站已建 demoadmin。复制等于把演示后台连着生产管理员一起交出去',
   admin_audit_log: '管理员操作明细，含调额、审批的完整轨迹',
-  schema_migrations: '重置流程单独处理：导快照后要补跑迁移，版本记录不能来自快照',
   bg_idempotency: '幂等键，无演示价值',
 
   // 第三方原始报文：非结构化 JSON，逐字段脱敏的思路覆盖不到，且可能含密钥
@@ -76,7 +80,7 @@ export const PURGED_SETTINGS = [
  * 全量搬运会实打实影响在线用户。
  */
 export const COPY_WINDOWED = {
-  bg_exchange_rate: { column: 'created_at', days: 7 },
+  bg_exchange_rate: { column: 'fetched_at', days: 7 },   // 这张表的时间列叫 fetched_at，不是 created_at
 }
 
 /**
@@ -99,8 +103,13 @@ export const PURGED_COLUMNS = {
  */
 export const MASK_FIELDS = {
   bg_user: {
-    email: 'email', display_name: 'name', avatar_url: 'avatar',
+    email: 'email', display_name: 'name',
+    // 真实 avatar_url 指向 lh3.googleusercontent.com / t.me 上的**真人头像**。
+    // 直接清空而不是换成假路径：web-admin 用的是 antd Avatar，src 为空会自动
+    // 回退成默认图标，换成假路径反而会让每行都发一个 404 请求。
+    avatar_url: 'clear',
     register_ip: 'ip', last_login_ip: 'ip', register_device_id: 'device',
+    birthday: 'fakeDate',
   },
   // identifier 按 provider 分流：phone 走号段保留，telegram/google 是不透明 id
   // display_label 是自检抓出来的漏网之鱼：里面存着真实邮箱。
@@ -110,16 +119,28 @@ export const MASK_FIELDS = {
     credential_hash: 'preserve',
   },
 
-  bg_kyc: { full_name: 'name', extracted_id_no: 'preserve', phone: 'phone' },
-  bg_kyc_doc_log: { full_name: 'name' },
-  bg_kyc_submission: { full_name: 'name' },
+  // 🔴 KYC 是全库最敏感的一张表。除了姓名证件号，还有三类东西必须清掉：
+  // gemini_result 是 AI 从证件上识别出的全部文字（姓名、证件号、生日、住址），
+  // liveness_frames 是活体检测的人脸帧，doc/selfie_image_key 指向证件照与自拍照。
+  // 对象存储虽然按 t{id}/ 前缀隔离、演示租户本就读不到自营站的图，
+  // 但这属于纵深防御 —— 不能把"另一层碰巧挡住了"当成不清的理由。
+  bg_kyc: {
+    full_name: 'name', extracted_id_no: 'preserve', phone: 'phone',
+    gemini_result: 'clear', liveness_frames: 'clear',
+    doc_image_key: 'clear', selfie_image_key: 'clear',
+  },
+  bg_kyc_doc_log: { full_name: 'name', doc_image_key: 'clear' },
+  bg_kyc_submission: { full_name: 'name', file_ids: 'clear', dob: 'fakeDate' },
 
   // fp_visitor / fp_signals 是设备指纹，唯一性比 device_id 还强，必须一起换
   bg_login_log: {
     ip: 'ip', device_id: 'device', fp_visitor: 'device', fp_signals: 'clear',
     user_agent: 'clear',
   },
-  bg_risk_hit_log: { device_id: 'device', detail: 'clear' },
+  // detail 只存聚合值（params / bonusRatio / deviceSharedUsers），没有个人标识，
+  // 保留它风控命中页面才有内容可看 —— 那是演示的重点之一。
+  // 万一以后有人往里塞了明文，03-verify 的全库敏感模式扫描会拦下来
+  bg_risk_hit_log: { device_id: 'device' },
   bg_app_download_claim: { device_id: 'device' },
   bg_user_attribution: { client_ip: 'ip' },
 

@@ -128,6 +128,20 @@ export function fakeBankAccount(real) {
   return preserveFormat(real, 'bank')
 }
 
+/**
+ * 生日：保留年月，换掉具体日期。
+ * 年月留着，年龄段分布和生日月份的运营报表才还有意义；具体某天换掉，
+ * 结合已经假掉的姓名就无法指回真人。
+ */
+export function fakeDate(real) {
+  if (!real) return real
+  const d = new Date(real)
+  if (Number.isNaN(d.getTime())) return real
+  const day = (seed('date', String(real)) % 28) + 1   // 28 封顶，省掉闰月与月末判断
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${String(day).padStart(2, '0')}`
+}
+
 const AVATAR_COUNT = 12
 export function fakeAvatar(real) {
   if (!real) return real

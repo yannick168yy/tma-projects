@@ -72,6 +72,38 @@ for (const t of tables) {
   }
 }
 
+// 3b. 未脱敏的 JSON/TEXT 字段里不该出现个人信息明文。
+//
+// 这道检查是"保留聚合 JSON"那个决定的安全底座：review_snapshot、signals、
+// evidence 这些字段装的都是计数与金额，保留它们风控和审核页面才有内容可演示。
+// 但谁也不能保证以后没人往里塞明文，所以这里按模式扫一遍。
+//
+// 只扫**没有**脱敏规则的字段 —— 脱敏后的手机号格式与真号一模一样，
+// 拿去扫已脱敏字段只会得到一堆误报。
+const PII_PATTERNS = [
+  { name: '手机号', re: "(\\+?63|0)9[0-9]{9}|(\\+?62|0)8[0-9]{8,11}" },
+  { name: '身份证/NIK', re: "[0-9]{16}" },
+]
+const maskedCols = new Set()
+for (const [t, rules] of Object.entries(MASK_FIELDS)) {
+  for (const c of Object.keys(rules)) maskedCols.add(`${t}.${c}`)
+}
+for (const t of tables) {
+  if (Object.keys(SKIP).includes(t)) continue
+  const cols = await q(
+    `SELECT column_name AS c FROM information_schema.columns
+      WHERE table_schema = ? AND table_name = ? AND data_type IN ('json','text','mediumtext','longtext')`,
+    [DB, t])
+  for (const { c } of cols) {
+    if (maskedCols.has(`${t}.${c}`)) continue
+    for (const p of PII_PATTERNS) {
+      const [{ n }] = await q(
+        `SELECT COUNT(*) AS n FROM \`${t}\` WHERE CAST(\`${c}\` AS CHAR) REGEXP ?`, [p.re])
+      if (n > 0) fails.push(`未脱敏字段疑似含${p.name}明文：${t}.${c}（${n} 行）`)
+    }
+  }
+}
+
 // 4. 被 purge 的配置键确实不在了
 if (tables.includes('bg_admin_settings')) {
   const rows = await q(

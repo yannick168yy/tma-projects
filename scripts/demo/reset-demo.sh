@@ -6,9 +6,12 @@
 # 五步顺序不能调换，每一步都对应一个真会踩到的坑：
 #   1. drop + 建库      —— 只重建业务库，绝不碰 pf_tenant 的登记
 #   2. 导入快照          —— 快照是脱敏后的固定样本
-#   3. 补跑迁移          —— 快照自带 schema_migrations，还原等于把 schema 退回打快照那天
-#   4. 时间戳平移        —— 否则第二天仪表盘显示"最近登录 3 天前"，一眼是死数据
-#   5. 清 Redis 租户前缀 —— 库换了但缓存还是旧的，页面数字和库里对不上
+#   3. 补跑迁移          —— 快照自带 schema_migrations（记录打快照那天的版本），
+#                          执行器据此只补跑之后的新迁移
+#   4. 恢复管理员账号    —— 快照里 admin_accounts 是空的（脱敏时清掉了，不能
+#                          把源站管理员带出来），不补回来演示后台直接登不进去
+#   5. 时间戳平移        —— 否则第二天仪表盘显示"最近登录 3 天前"，一眼是死数据
+#   6. 清 Redis 租户前缀 —— 库换了但缓存还是旧的，页面数字和库里对不上
 #
 # 用法：
 #   APP_DIR=/root/workspace/tma-projects DEMO_TENANT=demo bash reset-demo.sh
@@ -19,6 +22,9 @@ APP_DIR="${APP_DIR:-/root/workspace/tma-projects}"
 DEMO_TENANT="${DEMO_TENANT:-demo}"
 DEMO_DB="betogo_${DEMO_TENANT}"
 SNAPSHOT="${SNAPSHOT:-$APP_DIR/data/demo/demo-snapshot.sql.gz}"
+# 管理员种子与快照分开存：快照每次刷新数据都会重出，而演示账号要一直是同一个
+# （销售记住一套凭据就行）。客人在演示中改了密码，第二天重置会还原成初始密码。
+ADMIN_SEED="${ADMIN_SEED:-$APP_DIR/data/demo/demo-admin-seed.sql}"
 CTR="${CTR:-podman}"
 MYSQL_CTR="${MYSQL_CTR:-tma-mysql}"
 REDIS_CTR="${REDIS_CTR:-tma-redis}"
@@ -40,17 +46,28 @@ if [ "$IS_DEMO" != "1" ]; then
 fi
 TENANT_ID=$(MYQ "SELECT id FROM $PF_DB.pf_tenant WHERE code='$DEMO_TENANT'")
 
-echo "==> [1/5] 重建 $DEMO_DB（pf_tenant 登记保持不动）"
+echo "==> [1/6] 重建 $DEMO_DB（pf_tenant 登记保持不动）"
 MY -e "DROP DATABASE IF EXISTS \`$DEMO_DB\`; CREATE DATABASE \`$DEMO_DB\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-echo "==> [2/5] 导入快照"
+echo "==> [2/6] 导入快照"
 gunzip -c "$SNAPSHOT" | $CTR exec -i "$MYSQL_CTR" mysql --default-character-set=utf8mb4 -uroot -p"$PW" "$DEMO_DB" 2>/dev/null
 
-echo "==> [3/5] 补跑快照之后的新迁移"
+echo "==> [3/6] 补跑快照之后的新迁移"
 APP_DIR="$APP_DIR" CTR="$CTR" MYSQL_CTR="$MYSQL_CTR" \
   bash "$APP_DIR/deploy/single-node/remote-migrate.sh" tenants 2>&1 | grep -E "$DEMO_DB|失败" || true
 
-echo "==> [4/5] 时间戳平移到今天"
+echo "==> [4/6] 恢复演示管理员账号"
+if [ -f "$ADMIN_SEED" ]; then
+  $CTR exec -i "$MYSQL_CTR" mysql --default-character-set=utf8mb4 -uroot -p"$PW" "$DEMO_DB" < "$ADMIN_SEED" 2>/dev/null
+  N=$(MYQ "SELECT COUNT(*) FROM $DEMO_DB.admin_accounts")
+  echo "    已恢复 ${N:-0} 个管理员账号"
+else
+  echo "  🔴 找不到 $ADMIN_SEED，演示后台将无法登录" >&2
+  echo "     生成方式：mysqldump --no-create-info <演示库> admin_accounts > $ADMIN_SEED" >&2
+  exit 1
+fi
+
+echo "==> [5/6] 时间戳平移到今天"
 # 以注单最新时间为基准算偏移天数：演示时仪表盘要有"今天"的数据
 SHIFT=$(MYQ "SELECT GREATEST(0, DATEDIFF(CURDATE(), DATE(MAX(created_at)))) FROM $DEMO_DB.bg_bet_order")
 SHIFT=${SHIFT:-0}
@@ -68,7 +85,7 @@ else
   echo "    快照已是当天数据，无需平移"
 fi
 
-echo "==> [5/5] 清演示租户的 Redis 键（前缀 t${TENANT_ID}:）"
+echo "==> [6/6] 清演示租户的 Redis 键（前缀 t${TENANT_ID}:）"
 KEYS=$($CTR exec "$REDIS_CTR" redis-cli --scan --pattern "t${TENANT_ID}:*" 2>/dev/null | head -100000)
 if [ -n "$KEYS" ]; then
   echo "$KEYS" | xargs -r $CTR exec -i "$REDIS_CTR" redis-cli DEL >/dev/null 2>&1 || true
