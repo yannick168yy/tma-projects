@@ -118,7 +118,7 @@ const SECTION_LABELS: Record<string, string> = {
   highRebate: '高洗码游戏',
   sports: '体育游戏',
 }
-const CURRENCIES = [{ value: 'PHP', label: 'PHP 首页' }, { value: 'USDT', label: 'USDT 首页' }]
+const CURRENCIES = [{ value: 'PHP', label: 'PHP 首页' }, { value: 'IDR', label: 'IDR 首页' }, { value: 'USDT', label: 'USDT 首页' }]
 
 // 编辑态：一行游戏。pinned=已固定(手动锁位)，否则为策略实时推荐
 interface Item { gameUuid: string; name: string; provider: string; imageUrl: string | null; pinned: boolean }

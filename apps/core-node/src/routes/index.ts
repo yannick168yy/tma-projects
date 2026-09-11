@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify'
 import { callbackRoutes } from './callback.routes.js'
 import { internalRoutes } from './internal.routes.js'
 import { win568WalletRoutes } from './win568-wallet.routes.js'
+import { wxgameWalletRoutes } from './wxgame-wallet.routes.js'
+import { wxgameOperationRoutes } from './wxgame-operation.routes.js'
 import { win568OperationRoutes } from './win568-operation.routes.js'
 import { biRoutes } from './bi.routes.js'
 
@@ -12,7 +14,9 @@ export async function registerRoutes(app: FastifyInstance) {
   // 三方（聚合商/支付商）改 notify URL 要排期，多租户改造不能把线上收款打断。
   await app.register(callbackRoutes, { prefix: '/api/v1' })
   await app.register(win568WalletRoutes)
+  await app.register(wxgameWalletRoutes, { prefix: '/wxgame' })
   await app.register(win568OperationRoutes, { prefix: '/internal/win568' })
+  await app.register(wxgameOperationRoutes, { prefix: '/internal/wxgame' })
   await app.register(internalRoutes)
   await app.register(biRoutes)
 
@@ -20,5 +24,7 @@ export async function registerRoutes(app: FastifyInstance) {
   // tenant 插件从 :tenantCode 解析归属，不依赖 Host，也不需要和三方协调。
   await app.register(callbackRoutes, { prefix: '/t/:tenantCode/api/v1' })
   await app.register(win568WalletRoutes, { prefix: '/t/:tenantCode' })
+  await app.register(wxgameWalletRoutes, { prefix: '/t/:tenantCode/wxgame' })
   await app.register(win568OperationRoutes, { prefix: '/t/:tenantCode/internal/win568' })
+  await app.register(wxgameOperationRoutes, { prefix: '/t/:tenantCode/internal/wxgame' })
 }

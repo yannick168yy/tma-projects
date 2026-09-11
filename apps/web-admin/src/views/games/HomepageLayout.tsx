@@ -5,7 +5,7 @@ import { getHomeLayout, putHomeLayout, type HomeLayoutRow } from '../../api'
 
 const { Title } = Typography
 
-const CURRENCIES = [{ value: 'PHP', label: 'PHP 首页' }, { value: 'USDT', label: 'USDT 首页' }]
+const CURRENCIES = [{ value: 'PHP', label: 'PHP 首页' }, { value: 'IDR', label: 'IDR 首页' }, { value: 'USDT', label: 'USDT 首页' }]
 
 // 可配「展示数量」的块：游戏块 + 厂商专区（其余运营块是横条/轮播，没有"几个"的概念；
 // 最近在玩本就按用户记录自截断，给它一个数量框只会让人以为能调）

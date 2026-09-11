@@ -3,6 +3,7 @@ import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getRedis } from '../clients/redis.client.js'
 import { DEFAULT_AGGREGATOR, type AggregatorId } from '../lib/aggregators.js'
+import { projectGameCatalog, gameAliasIndex, readRoutingConfig } from './game-routing.service.js'
 
 const GAMES_CACHE_KEY = 'games:all'
 const GAMES_CACHE_TTL = 30 * 60 // 30 分钟
@@ -21,6 +22,7 @@ const WIN568_SPORTSBOOK_DEFAULT = {
 
 export interface DbGame {
   uuid: string
+  aliases?: string[]
   aggregator?: AggregatorId
   name: string
   nameId: string | null
@@ -74,6 +76,7 @@ function supportsCurrency(game: DbGame, currency?: string): boolean {
   const normalized = normalizeGameCurrency(currency)
   if (!normalized) return true
   const supported = game.supportedCurrencies
+  if (game.aliases) return !!supported?.includes(normalized)
   if (!supported || supported.length === 0) return true
   const set = new Set(supported.map((c) => normalizeGameCurrency(c) ?? c.toUpperCase()))
   return set.has(normalized)
@@ -190,6 +193,47 @@ async function loadWin568SportsbookGame(db: ReturnType<typeof getMysqlPool>): Pr
 
 // ── 全量缓存 ──────────────────────────────────────────────────────────────────
 
+// WXGame 没有 568win 那套 override / 封面候选 / 排名体系，字段少得多：
+// 上游 get_game_list 只给 5 个字段（含实测才发现的 gameIcon 与 status）。
+// 权重给固定值而不是照抄 568win 的 3999-rank：这边没有 rank_no，
+// 编一个假排名会让两家的排序混在一起没法解释。
+const WXGAME_SORT_CATEGORY: Record<string, string> = {
+  slot: 'slots', fish: 'fishing', table: 'table', poker: 'table',
+}
+
+function rowToWxgameGame(r: RowDataPacket): DbGame {
+  const gameBrand = String(r.game_brand)
+  const gameId = String(r.game_id)
+  const image = (r.icon_local ?? r.icon_url) as string | null
+  return {
+    uuid: `wxgame:${gameBrand}:${gameId}`,
+    aggregator: 'wxgame',
+    name: String(r.name_full || r.name_en || `${gameBrand} ${gameId}`),
+    nameId: null,
+    nameVi: null,
+    nameZh: null,
+    provider: gameBrand,
+    category: null,
+    subCategory: null,
+    sortCategory: WXGAME_SORT_CATEGORY[String(r.game_type)] ?? 'other',
+    siteCategory: null,
+    rtp: null,
+    imageUrl: cdnImg(image),
+    imageHqUrl: cdnImg(image),
+    imageAnim: null,
+    imageSource: null,
+    imageWidth: null,
+    imageHeight: null,
+    hasLobby: false,
+    isMobile: true,
+    weight: 1,
+    isFeatured: false,
+    isAvailable: Boolean(r.is_enabled) && !Boolean(r.is_maintain),
+    createdAt: r.created_at ? new Date(r.created_at as Date).toISOString() : null,
+    supportedCurrencies: ['PHP', 'IDR'],
+  }
+}
+
 export async function loadGamesCache(env: Env): Promise<number> {
   const db = getMysqlPool(env)
   const redis = getRedis(env)
@@ -234,16 +278,24 @@ export async function loadGamesCache(env: Env): Promise<number> {
        AND COALESCE(o.site_category, g.site_category_auto, 'other') <> 'lobby'
        AND (g.supported_currencies IS NULL
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('PHP'))
+         OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('IDR'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USDT'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('UCC'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USD'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USDC')))
        AND (g.device IS NULL OR FIND_IN_SET('m', REPLACE(REPLACE(g.device, ' ', ''), '/', ',')) > 0)`,
   )
+  const [wxgameRows] = await db.query<RowDataPacket[]>(
+    `SELECT game_brand, game_id, name_en, name_full, game_type, icon_url, icon_local,
+            is_enabled, is_maintain, created_at
+     FROM bg_wxgame_game
+     WHERE is_enabled = 1 AND is_maintain = 0`,
+  )
   const sportsbookGame = await loadWin568SportsbookGame(db)
   const games = [
     ...(sportsbookGame ? [sportsbookGame] : []),
     ...(win568Rows as RowDataPacket[]).map(rowToWin568Game),
+    ...(wxgameRows as RowDataPacket[]).map(rowToWxgameGame),
   ]
   // Cashback 精选档位角标（elite=2%/pro=1.5%，纯展示不参与结算）
   const [featRows] = await db.query<RowDataPacket[]>(
@@ -273,7 +325,11 @@ function setMemGames(games: DbGame[]) {
   memGamesAt = Date.now()
 }
 
-export async function getGamesFromCache(env: Env): Promise<DbGame[]> {
+export async function getGamesFromCache(env: Env, currency?: string): Promise<DbGame[]> {
+  return projectGameCatalog(env, await getRawGamesFromCache(env), currency)
+}
+
+export async function getRawGamesFromCache(env: Env): Promise<DbGame[]> {
   if (memGames && Date.now() - memGamesAt < MEM_GAMES_TTL) return memGames
   const redis = getRedis(env)
   const raw = await redis.get(GAMES_CACHE_KEY)
@@ -441,10 +497,11 @@ function serverWeightedSample(
 // 首页选品按币种预生成：板块内容不因上游维护而变动——维护/下线的游戏(is_maintain / provider 离线)
 // 仍进选品池、按原选品结果占位返回，由客户端置灰(能看见、点不动)。避免 568Win 同步状态临时改变
 // 首页板块(整块塌缩/消失)。仅按币种拆池：切币种后不支持该币种的游戏排到末尾并标 unavailable。
-const HOMEPAGE_CURRENCIES = ['PHP', 'USDT'] as const
+const HOMEPAGE_CURRENCIES = ['PHP', 'IDR', 'USDT'] as const
 
 function homepageBucket(currency?: string): string {
-  return normalizeGameCurrency(currency) === 'USDT' ? 'USDT' : 'PHP'
+  const normalized = normalizeGameCurrency(currency)
+  return normalized === 'IDR' ? 'IDR' : normalized === 'USDT' ? 'USDT' : 'PHP'
 }
 
 // 同款游戏系列键：去掉商标符与结尾的代数记号（数字/罗马数字/Deluxe），
@@ -567,7 +624,11 @@ export function buildSectionList(rows: HomeSectionLayoutRow[], cur: string): Hom
 // 不跑算法(维护游戏保留在名单里、前端置灰)；其余板块不受影响。
 // hidden: 本币种被后台隐藏的板块 key，只写进 hiddenSections 供前端跳过渲染，不影响选品本身。
 function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOverrides, frozen: Map<string, string[]> = new Map(), hidden: string[] = []): HomepageSelection {
-  const gameByUuid = new Map(all.map((g) => [g.uuid, g]))
+  const gameByUuid = gameAliasIndex(all)
+  if (all.some((g) => g.aliases)) {
+    overrides = new Map([...overrides].map(([key, entries]) => [key, entries.map((e) => ({ ...e, gameUuid: gameByUuid.get(e.gameUuid)?.uuid ?? e.gameUuid }))]))
+    frozen = new Map([...frozen].map(([key, uuids]) => [key, [...new Set(uuids.map((u) => gameByUuid.get(u)?.uuid ?? u))]]))
+  }
   // 冻结名单 → 游戏对象(保序，缓存里已不存在的uuid跳过)，并登记 seen 供其它板块跨块去重
   const frozenList = (key: string): DbGame[] | null => {
     const f = frozen.get(key)
@@ -781,13 +842,13 @@ function frozenForCurrency(frozenAll: Map<string, string[]>, cur: string): Map<s
 
 export async function refreshHomepageSelection(env: Env): Promise<void> {
   const redis = getRedis(env)
-  const allGames = await getGamesFromCache(env)
-  if (!allGames.length) return
   const overrides = await loadSectionOverrides(env)
   const frozenAll = await loadFrozenBoards(env)
   const layoutRows = await loadSectionLayout(env)
 
   for (const cur of HOMEPAGE_CURRENCIES) {
+    const allGames = await getGamesFromCache(env, cur)
+    if (!allGames.length) continue
     const pool = allGames.filter((g) => supportsCurrency(g, cur))
     const hidden = layoutRows.filter((r) => r.currency === cur && r.hidden).map((r) => r.sectionKey)
     const selection = buildHomepageSelection(pool, cur, overrides, frozenForCurrency(frozenAll, cur), hidden)
@@ -800,7 +861,7 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
 // 生成某板块某币种的「冻结快照」：用纯算法(空 frozen)重算当前 popular/recommended/highRebate 的实际内容，
 // 返回有序 uuid 列表供写入冻结表。运营点「(重新)生成并冻结」时调用——这样每次都吃当前钉/权重的最新结果。
 export async function computeFrozenSnapshot(env: Env, sectionKey: string, currency: string): Promise<string[]> {
-  const allGames = await getGamesFromCache(env)
+  const allGames = await getGamesFromCache(env, currency)
   const overrides = await loadSectionOverrides(env)
   const pool = allGames.filter((g) => supportsCurrency(g, currency))
   const selection = buildHomepageSelection(pool, currency, overrides, new Map())
@@ -808,7 +869,7 @@ export async function computeFrozenSnapshot(env: Env, sectionKey: string, curren
   return Array.isArray(board) ? (board as DbGame[]).map((g) => g.uuid) : []
 }
 
-// 后台单游戏改动后的缓存重建去抖：全量重建(大 JOIN + 双币种选品)代价高，
+// 后台单游戏改动后的缓存重建去抖：全量重建(大 JOIN + 多币种选品)代价高，
 // 批量操作时合并触发、不阻塞管理端响应；配置类操作(板块保存/手动刷新)仍走同步路径
 let cacheRefreshTimer: ReturnType<typeof setTimeout> | null = null
 export function scheduleCacheRefresh(env: Env, delayMs = 2000): void {
@@ -824,10 +885,19 @@ export function scheduleCacheRefresh(env: Env, delayMs = 2000): void {
 // 选品快照 3 小时才重算，但 isAvailable 会被烤进快照——上游维护/恢复(is_maintain 变化)
 // 需最多等 3 小时才反映。这里按实时游戏缓存(25 分钟重载)重新校准每款游戏的可用状态，
 // 使置灰/复亮在缓存周期内生效，达成「不可用立刻置灰、恢复及时变亮」。缓存里已不存在的游戏(下架)保持置灰。
-async function hydrateAvailability(env: Env, selection: HomepageSelection): Promise<HomepageSelection> {
-  const liveByUuid = new Map((await getGamesFromCache(env)).map((g) => [g.uuid, g.isAvailable !== false]))
-  const rehydrate = (games: DbGame[]) =>
-    games.map((g) => ({ ...g, isAvailable: liveByUuid.get(g.uuid) ?? false }))
+async function hydrateAvailability(env: Env, selection: HomepageSelection, currency?: string): Promise<HomepageSelection> {
+  const liveByUuid = gameAliasIndex(await getGamesFromCache(env, currency))
+  const rehydrate = (games: DbGame[]) => {
+    const seen = new Set<string>()
+    return games.map((g) => {
+      const live = liveByUuid.get(g.uuid)
+      return live?.aliases ? live : { ...g, isAvailable: live?.isAvailable !== false && !!live }
+    }).filter((g) => {
+      if (seen.has(g.uuid)) return false
+      seen.add(g.uuid)
+      return true
+    })
+  }
   const out = { ...selection } as Record<string, unknown>
   for (const [k, v] of Object.entries(out)) {
     if (k !== 'hiddenSections' && k !== 'sections' && Array.isArray(v)) out[k] = rehydrate(v as DbGame[])
@@ -839,11 +909,11 @@ export async function getHomepageSelection(env: Env, currency?: string): Promise
   const redis = getRedis(env)
   const key = `${HOMEPAGE_KEY}:${homepageBucket(currency)}`
   const raw = await redis.get(key)
-  if (raw) return hydrateAvailability(env, JSON.parse(raw) as HomepageSelection)
+  if (raw) return hydrateAvailability(env, JSON.parse(raw) as HomepageSelection, currency)
   // 缓存不存在则立即生成
   await refreshHomepageSelection(env)
   const raw2 = await redis.get(key)
-  return raw2 ? hydrateAvailability(env, JSON.parse(raw2) as HomepageSelection) : null
+  return raw2 ? hydrateAvailability(env, JSON.parse(raw2) as HomepageSelection, currency) : null
 }
 
 export function applyHomepageCurrency(selection: HomepageSelection, currency?: string): HomepageSelection {
@@ -923,7 +993,7 @@ export async function listGames(
 ): Promise<GameListResult> {
   const { page = 1, limit = 30, search, provider, category, sortCategory, siteCategory, cashbackTier, rtpMin, sortBy = 'weight', currency, blockedSortCategories } = opts
 
-  let games = await getGamesFromCache(env)
+  let games = await getGamesFromCache(env, currency)
 
   // 品类屏蔽放在所有过滤之前：关掉的品类不该出现在任何列表、任何计数里
   if (blockedSortCategories && blockedSortCategories.length > 0) {
@@ -976,7 +1046,12 @@ export async function listGames(
     // 让 2%/1.5%/1% 三档在整列表里持续穿插露出，而非纯热度把 basic 全顶到前面
     games = orderByCashbackQuota(games)
   } else if (pinnedOrder && pinnedOrder.length) {
-    const posByUuid = new Map(pinnedOrder.map((u, i) => [u, i]))
+    const aliases = gameAliasIndex(games)
+    const posByUuid = new Map<string, number>()
+    pinnedOrder.forEach((u, i) => {
+      const uuid = aliases.get(u)?.uuid ?? u
+      if (!posByUuid.has(uuid)) posByUuid.set(uuid, i)
+    })
     games = [...games].sort((a, b) => {
       const pa = posByUuid.get(a.uuid)
       const pb = posByUuid.get(b.uuid)
@@ -1030,6 +1105,28 @@ export async function getUserGameHistory(
   limit = 10,
 ): Promise<GameHistoryItem[]> {
   const db = getMysqlPool(env)
+  const config = await readRoutingConfig(db)
+  if (config.games.some((g) => g.enabled)) {
+    const [history] = await db.query<RowDataPacket[]>(`SELECT COALESCE(g.uuid, l.game_uuid) AS uuid, MAX(l.last_launched_at) AS last_played_at
+      FROM bg_game_launch l LEFT JOIN bg_game_source s ON s.source_uuid = l.game_uuid
+      LEFT JOIN bg_game_catalog g ON g.id = s.game_id AND g.enabled = 1
+      WHERE l.user_id = ? GROUP BY COALESCE(g.uuid, l.game_uuid) ORDER BY last_played_at DESC LIMIT ?`, [userId, limit])
+    const byUuid = gameAliasIndex(await getGamesFromCache(env))
+    return history.flatMap((r) => {
+      const g = byUuid.get(String(r.uuid))
+      return g ? [{
+        uuid: g.uuid,
+        name: g.name,
+        nameId: g.nameId,
+        nameVi: g.nameVi,
+        nameZh: g.nameZh,
+        provider: g.provider,
+        imageUrl: g.imageUrl,
+        imageHqUrl: g.imageHqUrl,
+        lastPlayedAt: new Date(r.last_played_at as Date).toISOString(),
+      }] : []
+    })
+  }
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT l.game_uuid,
             COALESCE(o.name_override, w.name_en, w.name_zh) AS name,
@@ -1081,7 +1178,7 @@ export async function getProviderWeights(env: Env): Promise<Map<string, number>>
 
 /** Returns distinct provider codes from cached games, optionally filtered by sortCategory / siteCategory (comma-separated) */
 export async function listProviders(env: Env, sortCategory?: string, siteCategory?: string, rtpMin?: number, currency?: string): Promise<string[]> {
-  let games = await getGamesFromCache(env)
+  let games = await getGamesFromCache(env, currency)
   if (sortCategory && sortCategory !== 'all') {
     const cats = new Set(sortCategory.split(',').map((s) => s.trim()).filter(Boolean))
     games = games.filter((g) => g.sortCategory !== null && cats.has(g.sortCategory))

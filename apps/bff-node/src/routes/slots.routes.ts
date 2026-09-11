@@ -16,6 +16,7 @@ import { isMysqlEnabled } from '../clients/mysql.client.js'
 import { getBettingActivity, type BetTab } from '../services/betting-activity.service.js'
 import type { Env } from '../config/env.js'
 import { getTenantFeatures } from '../services/tenant-feature.service.js'
+import { resolveGameRoute } from '../services/game-routing.service.js'
 
 const router = new Router({ prefix: '/slots' })
 
@@ -36,6 +37,18 @@ async function blockedCategories(ctx: import('koa').Context): Promise<string[]> 
   return CATEGORY_FEATURE.filter(([, key]) => features[key] === false).map(([cat]) => cat)
 }
 
+/**
+ * core-node 内部接口的租户前缀。
+ *
+ * core-node 从 URL 里的 :tenantCode 解析归属，不看 Host。不带租户段时它会回落自营站
+ * 并打警告——包网租户的玩家起游戏会落到自营站的库上，拿错人的账号和余额。
+ * 自营站返回空串，路径与改造前逐字相同，所以现有流量行为不变。
+ */
+function tenantPrefix(ctx: import('koa').Context): string {
+  const tenant = ctx.state.tenant
+  return !tenant || tenant.selfOperated ? '' : `/t/${tenant.code}`
+}
+
 async function launchWin568GameUrl(input: {
   env: Env
   userId: string
@@ -43,12 +56,13 @@ async function launchWin568GameUrl(input: {
   gameUuid: string
   device?: string
   currency?: string
+  prefix: string
 }) {
   const device = input.device === 'desktop' ? 'desktop' : 'mobile'
   const language = input.userLocale ?? 'en'
 
   if (input.gameUuid === WIN568_SPORTSBOOK_UUID) {
-    const res = await fetch(`${input.env.CORE_NODE_URL}/internal/win568/sports/launch`, {
+    const res = await fetch(`${input.env.CORE_NODE_URL}${input.prefix}/internal/win568/sports/launch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Internal-Token': input.env.INTERNAL_TOKEN },
       body: JSON.stringify({ userId: input.userId, device, language, currency: input.currency }),
@@ -65,7 +79,7 @@ async function launchWin568GameUrl(input: {
   if (!Number.isInteger(gameId) || (gpId !== undefined && !Number.isInteger(gpId))) {
     throw new Error('invalid 568Win game id')
   }
-  const res = await fetch(`${input.env.CORE_NODE_URL}/internal/win568/game/launch`, {
+  const res = await fetch(`${input.env.CORE_NODE_URL}${input.prefix}/internal/win568/game/launch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Internal-Token': input.env.INTERNAL_TOKEN },
     body: JSON.stringify({ userId: input.userId, gpId, gameId, device, language, currency: input.currency }),
@@ -73,6 +87,41 @@ async function launchWin568GameUrl(input: {
   const payload = await res.json() as { url?: string; error?: { id?: number; msg?: string }; message?: string }
   if (!res.ok || payload.error?.id) throw new Error(payload.error?.msg || payload.message || 'Failed to launch 568Win game')
   if (!payload.url) throw new Error('568Win login URL missing')
+  return payload.url
+}
+
+// uuid 形如 wxgame:<brand>:<gameId>。不能 split(':')：上游 gameId 自身含冒号
+// （如 TombstoneSlaughter:ElGordo'sRevenge），split 会切出不存在的 id。
+function parseWxgameUuid(uuid: string): { gameBrand: string; gameId: string } | null {
+  const first = uuid.indexOf(':')
+  if (first < 0 || uuid.slice(0, first) !== 'wxgame') return null
+  const second = uuid.indexOf(':', first + 1)
+  if (second < 0) return null
+  const gameBrand = uuid.slice(first + 1, second)
+  const gameId = uuid.slice(second + 1)
+  return gameBrand && gameId ? { gameBrand, gameId } : null
+}
+
+async function launchWxgameGameUrl(input: {
+  env: Env
+  userId: string
+  userLocale?: string
+  gameUuid: string
+  currency?: string
+  prefix: string
+}) {
+  const ref = parseWxgameUuid(input.gameUuid)
+  if (!ref) throw new Error('invalid WXGame game uuid')
+  const res = await fetch(`${input.env.CORE_NODE_URL}${input.prefix}/internal/wxgame/game/launch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Internal-Token': input.env.INTERNAL_TOKEN },
+    body: JSON.stringify({
+      userId: input.userId, gameBrand: ref.gameBrand, gameId: ref.gameId,
+      language: input.userLocale, currency: input.currency,
+    }),
+  })
+  const payload = await res.json() as { url?: string; error?: string }
+  if (!res.ok || !payload.url) throw new Error(payload.error || 'Failed to launch WXGame game')
   return payload.url
 }
 
@@ -200,6 +249,7 @@ router.get('/win568-test-launch', async (ctx) => {
       userLocale: 'en',
       gameUuid,
       device: typeof ctx.query.device === 'string' ? ctx.query.device : 'mobile',
+      prefix: tenantPrefix(ctx),
     })
     ctx.redirect(url)
   } catch (e) {
@@ -226,15 +276,26 @@ router.post('/init', async (ctx) => {
     return
   }
 
-  if (!(await isGameAvailable(env, body.gameUuid))) {
+  let canonicalUuid = body.gameUuid
+  let managed = false
+  try {
+    const resolved = await resolveGameRoute(env, body.gameUuid, body.currency, body.device)
+    body.gameUuid = resolved.uuid
+    canonicalUuid = resolved.canonicalUuid
+    managed = resolved.managed
+  } catch (e) {
+    fail(ctx, 409, e instanceof Error ? e.message : 'Game unavailable')
+    return
+  }
+  if (!managed && !(await isGameAvailable(env, body.gameUuid))) {
     fail(ctx, 409, 'This game is under maintenance')
     return
   }
 
   if (body.gameUuid === WIN568_SPORTSBOOK_UUID) {
     try {
-      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency })
-      void recordGameLaunch(env, userId, body.gameUuid)
+      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency, prefix: tenantPrefix(ctx) })
+      void recordGameLaunch(env, userId, canonicalUuid)
       ok(ctx, { url })
     } catch (e) {
       fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win Sports')
@@ -242,10 +303,21 @@ router.post('/init', async (ctx) => {
     return
   }
 
+  if (body.gameUuid.startsWith('wxgame:')) {
+    try {
+      const url = await launchWxgameGameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, currency: body.currency, prefix: tenantPrefix(ctx) })
+      void recordGameLaunch(env, userId, canonicalUuid)
+      ok(ctx, { url })
+    } catch (e) {
+      fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch WXGame game')
+    }
+    return
+  }
+
   if (body.gameUuid.startsWith('568win:')) {
     try {
-      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency })
-      void recordGameLaunch(env, userId, body.gameUuid)
+      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency, prefix: tenantPrefix(ctx) })
+      void recordGameLaunch(env, userId, canonicalUuid)
       ok(ctx, { url })
     } catch (e) {
       fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win game')

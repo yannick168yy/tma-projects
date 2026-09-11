@@ -25,6 +25,14 @@ const schema = z.object({
   WIN568_SW_ALLOWED_IPS: z.string().default(''),
   WIN568_DEFAULT_CURRENCY: z.enum(['PHP', 'IDR', 'USDT']).default('PHP'),
 
+  // WXGame 聚合商（第二家，无缝钱包 + 点控 RTP）
+  WXGAME_BASE_URL: z.string().default('https://test-openapi.cpigame.com'),
+  WXGAME_ACCESS_KEY_ID: z.string().default(''),
+  WXGAME_ACCESS_KEY_SECRET: z.string().default(''),
+  WXGAME_ALLOWED_IPS: z.string().default(''),
+  WXGAME_DEFAULT_CURRENCY: z.enum(['PHP', 'IDR']).default('PHP'),
+  WXGAME_LAUNCH_TOKEN_TTL_SEC: z.coerce.number().default(300),
+
   // feature/免费旋转彩金薅羊毛闸：非平台活动派彩(IsGameProviderPromotion=false)中，
   // 单笔派彩 ÷ 触发注 ≥ MIN_MULTIPLE（小注爆奖=farming 签名）时，按 WAGER_MULT 倍补一条
   // 彩金流水锁；巨鲸大奖/正常小奖都是低倍，不受影响。MIN_AMOUNT 以下不查库、直接放行。

@@ -13,7 +13,7 @@
  * 判断「该不该抽象」的标准很实际：等真有第二家的接口文档在手，
  * 两家的差异点摆在一起才知道该抽在哪一层。
  */
-export const AGGREGATOR_IDS = ['568win'] as const
+export const AGGREGATOR_IDS = ['568win', 'wxgame'] as const
 export type AggregatorId = (typeof AGGREGATOR_IDS)[number]
 
 /**
@@ -25,6 +25,10 @@ export type AggregatorId = (typeof AGGREGATOR_IDS)[number]
  * 没有注入面。
  */
 export const DEFAULT_AGGREGATOR: AggregatorId = '568win'
+
+/** SQL 里按「全部游戏聚合商」过滤用。注单表还混着别的来源，不能省掉这个 IN 直接不过滤。 */
+export const AGGREGATOR_IDS_SQL = AGGREGATOR_IDS.map((id) => `'${id}'`).join(', ')
+
 
 export function isAggregatorId(v: unknown): v is AggregatorId {
   return typeof v === 'string' && (AGGREGATOR_IDS as readonly string[]).includes(v)
