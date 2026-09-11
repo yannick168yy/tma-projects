@@ -27,6 +27,7 @@ import { notifyTasksRefresh } from '@/api/tasks'
 import { useActiveTaskStore } from '@/stores/activeTask'
 import { claimAppdlBonus, fetchNewPlayerSummary, fetchRedepOffer, matchPopupAudience, type NewPlayerSummary, type RedepOffer } from '@/api/promotion'
 import { fetchAnnouncements, type PublicAnnouncements } from '@/api/announcements'
+import WalletModalSkeleton from '@/components/wallet/WalletModalSkeleton'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
 import AnnouncementBar from '@/components/AnnouncementBar'
 import ActiveTaskBar from '@/components/tasks/ActiveTaskBar'
@@ -38,7 +39,8 @@ import { localizedImage } from '@/utils/localizedImage'
 /** 任务条实测高度，用于给 main 补底部内边距，避免盖住页面最后一行内容 */
 const TASK_BAR_HEIGHT = 58
 
-const WalletModal = lazyWithReload(() => import('@/components/wallet/WalletModal'))
+const importWalletModal = () => import('@/components/wallet/WalletModal')
+const WalletModal = lazyWithReload(importWalletModal)
 const SearchOverlay = lazyWithReload(() => import('@/components/search/SearchOverlay'))
 const HomeContent = lazyWithReload(() => import('@/views/HomeContent'))
 const BonusesPage = lazyWithReload(() => import('@/views/BonusesPage'))
@@ -225,6 +227,14 @@ export default function AppShell() {
 
   useEffect(() => {
     fetchAnnouncements().then(setAnnouncements).catch(() => setAnnouncements({}))
+  }, [])
+
+  // 空闲预热钱包弹窗 chunk：充值是最高频入口，慢网下首次点"Top up"要等 chunk 下载完才有画面
+  useEffect(() => {
+    const warm = () => { void importWalletModal().catch(() => {}) }
+    const idle = (window as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
+    if (idle) idle(warm)
+    else setTimeout(warm, 2000)
   }, [])
 
   // 空闲预热游戏加载宣传图：进游戏瞬间图已在缓存，慢网下不会出现"加载图还在加载"
@@ -840,8 +850,11 @@ export default function AppShell() {
       </div>
 
       <Suspense fallback={null}>
+        {/* 钱包弹窗单独套 Suspense：外层 fallback 是 null，慢网下点"Top up"到 chunk 落地这段时间屏幕毫无反应，用户会以为没点上 */}
         {walletModalOpen && (
-          <WalletModal open onClose={() => { setWalletModalOpen(false); notifyTasksRefresh() }} initialTab={walletInitialTab} fullscreen={walletFullscreen} />
+          <Suspense fallback={<WalletModalSkeleton fullscreen={walletFullscreen} />}>
+            <WalletModal open onClose={() => { setWalletModalOpen(false); notifyTasksRefresh() }} initialTab={walletInitialTab} fullscreen={walletFullscreen} />
+          </Suspense>
         )}
 
         {csOpen && (

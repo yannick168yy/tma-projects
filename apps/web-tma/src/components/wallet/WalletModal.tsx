@@ -400,6 +400,18 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     ewallet: liveFiatDeposit, crypto: liveCryptoDeposit, telegram: liveTgWalletDeposit,
   }), [liveFiatDeposit, liveCryptoDeposit, liveTgWalletDeposit])
   const currentCategoryMethods = depositCategoryMethods[depositCategory]
+  // 同一渠道可能由多个支付商承接（印尼 e-wallet = UnisPay + WZPAY），按支付商拆成独立分组，一行一个商户
+  const currentCategoryGroups = useMemo(() => {
+    const groups: { provider: string; methods: PayMethod[] }[] = []
+    for (const m of currentCategoryMethods) {
+      const provider = m.paymentProvider ?? ''
+      const g = groups.find((x) => x.provider === provider)
+      if (g) g.methods.push(m)
+      else groups.push({ provider, methods: [m] })
+    }
+    return groups
+  }, [currentCategoryMethods])
+  const groupedByProvider = currentCategoryGroups.length > 1
   const firstDepEligible = isLoggedIn && firstDepDone === false && (promoConfig?.firstdep.enabled ?? false)
   // 复充限时优惠：按当前选择的充值币种拉取；窗口生效期间每秒走倒计时（每币种独立）
   useEffect(() => {
@@ -630,6 +642,20 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     resetToSelect()
     setDepositMessage(''); setDepositSuccess(false)
     setWithdrawMessage(''); setWithdrawSuccess(false)
+  }
+
+  function renderDepositChip(m: PayMethod, showTag: boolean) {
+    const disabled=m.enabled===false; const sel=selectedMethod===m.id
+    return (
+      <button key={m.id} type="button" disabled={disabled} onClick={()=>{setSelectedMethod(m.id);setAmount('');setCopiedDepositAmount(false);setDepositMessage('');setPaymentCheckout(null);setCopiedPaymentLink(false)}}
+        className={`relative flex-shrink-0 w-[27%] rounded-2xl border p-2 flex flex-col items-center justify-center gap-1.5 transition-colors ${sel?'border-primary bg-primary/10 shadow-[0_0_22px_rgba(245,158,11,0.20)]':'border-white/10 bg-[#101a2c]'} ${disabled?'opacity-40':''}`}>
+        {sel&&<span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-black"><Check size={10} strokeWidth={3}/></span>}
+        {m.iconUrl ? <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0"><img src={m.iconUrl} alt={m.name} className="w-full h-full object-contain" /></div>
+          : <div className={`w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center flex-shrink-0 ${m.color}`}>{m.iconKind==='telegram'?<Send size={18} className="text-white" strokeWidth={2.5}/>:<span className="text-white text-base font-black">{m.icon}</span>}</div>}
+        <span className="text-xs font-black text-white truncate w-full text-center leading-tight">{m.name}</span>
+        {showTag&&m.tag&&<span className="text-[9px] font-bold text-white/45 truncate w-full text-center leading-none uppercase tracking-wide">{m.tag}</span>}
+      </button>
+    )
   }
 
   function renderCryptoFirstDepGuide() {
@@ -897,28 +923,28 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                       <button key={id} type="button" onClick={()=>setDepositCategory(id)} className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black transition-colors border ${depositCategory===id?'border-primary bg-primary/10 text-primary shadow-[0_0_18px_rgba(245,158,11,0.20)]':'border-transparent text-white/45 hover:text-white/75'}`}><Icon size={14} />{label}</button>
                     ))}
                   </div>
-                  {/* 渠道 chips：单行横向滑动，可见约 3.5 个 */}
+                  {/* 渠道 chips：横向滑动，可见约 3.5 个；多支付商时按商户分行 */}
                   {currentCategoryMethods.length===0 ? (channelsLoading ? (
                     <div className="flex gap-2 overflow-hidden -mx-1 px-1 pb-1">
                       {Array.from({length:4}).map((_,i)=><div key={i} className="flex-shrink-0 w-[27%] h-[92px] rounded-2xl bg-white/5 animate-pulse" />)}
                     </div>
                   ) : <p className="text-xs text-muted-foreground py-3">{t('wallet.comingSoon')}</p>) : (
-                  <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-1">
-                    {currentCategoryMethods.map((m)=>{
-                      const disabled=m.enabled===false; const sel=selectedMethod===m.id
-                      return (
-                        <button key={m.id} type="button" disabled={disabled} onClick={()=>{setSelectedMethod(m.id);setAmount('');setCopiedDepositAmount(false);setDepositMessage('');setPaymentCheckout(null);setCopiedPaymentLink(false)}}
-                          className={`relative flex-shrink-0 w-[27%] rounded-2xl border p-2 flex flex-col items-center justify-center gap-1.5 transition-colors ${sel?'border-primary bg-primary/10 shadow-[0_0_22px_rgba(245,158,11,0.20)]':'border-white/10 bg-[#101a2c]'} ${disabled?'opacity-40':''}`}>
-                          {sel&&<span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-black"><Check size={10} strokeWidth={3}/></span>}
-                          {m.iconUrl ? <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0"><img src={m.iconUrl} alt={m.name} className="w-full h-full object-contain" /></div>
-                            : <div className={`w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center flex-shrink-0 ${m.color}`}>{m.iconKind==='telegram'?<Send size={18} className="text-white" strokeWidth={2.5}/>:<span className="text-white text-base font-black">{m.icon}</span>}</div>}
-                          <span className="text-xs font-black text-white truncate w-full text-center leading-tight">{m.name}</span>
-                          {m.tag&&<span className="text-[9px] font-bold text-white/45 truncate w-full text-center leading-none uppercase tracking-wide">{m.tag}</span>}
-                        </button>
-                      )
-                    })}
+                  groupedByProvider ? (
+                  <div className="space-y-3">
+                    {currentCategoryGroups.map((g)=>(
+                      <div key={g.provider} className="space-y-1.5">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-white/40">{paymentProviderName(g.provider)}</p>
+                        <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-1">
+                          {g.methods.map((m)=>renderDepositChip(m,false))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  )}
+                  ) : (
+                  <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-1">
+                    {currentCategoryMethods.map((m)=>renderDepositChip(m,true))}
+                  </div>
+                  ))}
                   {renderCryptoFirstDepGuide()}
                   {renderCryptoRedepGuide()}
                   {renderCryptoRegularRedepGuide()}
