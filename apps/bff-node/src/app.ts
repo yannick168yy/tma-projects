@@ -9,6 +9,7 @@ import { accessLogMiddleware } from './middleware/accessLog.js'
 import { rateLimitMiddleware } from './middleware/rateLimit.js'
 import { tenantMiddleware } from './middleware/tenant.js'
 import { tenantGateMiddleware } from './middleware/tenant-gate.js'
+import { demoGuardMiddleware } from './middleware/demo-guard.js'
 import { runBillingSnapshot } from './services/billing/billing-daily.service.js'
 import { runDunning } from './services/billing/dunning.service.js'
 import { runPlatformBi } from './services/billing/platform-bi.service.js'
@@ -373,6 +374,9 @@ export function createApp(env: Env): Koa {
 
   // 欠费降级：停提现/停充值/停站的真正生效点（P2-10）
   app.use(tenantGateMiddleware())
+  // 演示站的对外副作用闸门。放在 tenantGate 之后：两者都依赖租户上下文，
+  // 而停站降级（tenantGate）的优先级高于演示环境拦截
+  app.use(demoGuardMiddleware())
 
   // 开放 API（P3-7）：自带 X-Api-Key 鉴权与按 key 限流，不走 admin/平台的会话体系。
   // 挂在 /api/open/v1，与内部 /api/v1 分开 —— 两者的版本号不是一回事

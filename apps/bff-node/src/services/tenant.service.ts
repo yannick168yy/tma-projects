@@ -30,6 +30,7 @@ interface TenantRow extends RowDataPacket {
   db_name: string
   status: TenantStatus
   self_operated: number
+  is_demo: number
   pool_min: number
   pool_max: number
   queue_limit: number
@@ -42,13 +43,14 @@ function toContext(row: TenantRow): TenantContext {
     database: row.db_name,
     status: row.status,
     selfOperated: row.self_operated === 1,
+    isDemo: row.is_demo === 1,
     pool: { min: row.pool_min, max: row.pool_max, queueLimit: row.queue_limit },
   }
 }
 
 async function queryByHost(host: string): Promise<TenantContext | null> {
   const [rows] = await getPlatformPool().query<TenantRow[]>(
-    `SELECT t.id, t.code, t.db_name, t.status, t.self_operated,
+    `SELECT t.id, t.code, t.db_name, t.status, t.self_operated, t.is_demo,
             t.pool_min, t.pool_max, t.queue_limit
        FROM pf_tenant_domain d
        JOIN pf_tenant t ON t.id = d.tenant_id
@@ -65,7 +67,7 @@ async function queryByHost(host: string): Promise<TenantContext | null> {
  */
 export async function tenantById(id: number): Promise<TenantContext | null> {
   const [rows] = await getPlatformPool().query<TenantRow[]>(
-    `SELECT id, code, db_name, status, self_operated, pool_min, pool_max, queue_limit
+    `SELECT id, code, db_name, status, self_operated, is_demo, pool_min, pool_max, queue_limit
        FROM pf_tenant WHERE id = ? LIMIT 1`,
     [id],
   )
@@ -75,7 +77,7 @@ export async function tenantById(id: number): Promise<TenantContext | null> {
 /** 自营站兜底。P0 阶段只有它一个租户，未登记域名先落到这里而不是直接 404 */
 export async function selfOperatedTenant(): Promise<TenantContext | null> {
   const [rows] = await getPlatformPool().query<TenantRow[]>(
-    `SELECT id, code, db_name, status, self_operated, pool_min, pool_max, queue_limit
+    `SELECT id, code, db_name, status, self_operated, is_demo, pool_min, pool_max, queue_limit
        FROM pf_tenant WHERE self_operated = 1 ORDER BY id LIMIT 1`,
   )
   return rows[0] ? toContext(rows[0]) : null

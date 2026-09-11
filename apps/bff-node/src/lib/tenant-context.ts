@@ -15,6 +15,11 @@ export interface TenantContext {
   database: string
   status: TenantStatus
   selfOperated: boolean
+  /**
+   * 演示站。数据是脱敏样本，不能参与跨租户机制，也不能触发任何对外副作用。
+   * 定时任务那一侧由 listRunnableTenants 挡掉；后台按钮触发的那一侧靠 demoGuard。
+   */
+  isDemo?: boolean
   /** 连接池策略。来自平台库 pf_tenant；兜底上下文没有此配置，回落环境变量默认值 */
   pool?: TenantPoolConfig
 }
