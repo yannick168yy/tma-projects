@@ -95,7 +95,9 @@ export function fakeIp(real) {
   const parts = str.split('.')
   if (parts.length !== 4) return preserveFormat(str, 'ip')
   const s = seed('ip', str)
-  return `${parts[0]}.${parts[1]}.${s % 256}.${(s >> 8) % 254 + 1}`
+  // 不能用 >>：seed 返回 48 位整数，JS 位运算先截成 32 位有符号数，
+  // 大数会变负，生成出 136.158.53.-50 这种非法 IP（实测踩到过）
+  return `${parts[0]}.${parts[1]}.${s % 256}.${Math.floor(s / 256) % 254 + 1}`
 }
 
 export function fakeDeviceId(real) {

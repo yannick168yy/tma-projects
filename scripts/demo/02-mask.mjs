@@ -12,12 +12,20 @@
  *   node scripts/demo/02-mask.mjs
  */
 import { createRequire } from 'node:module'
-import { COPY, SKIP, PURGED_SETTINGS, PURGED_COLUMNS, MASK_FIELDS, JSON_MASK_KEYS, NO_SCALE_PATTERN } from './config.mjs'
+import { COPY, SKIP, PURGED_SETTINGS, PURGED_COLUMNS, MASK_FIELDS, JSON_MASK_KEYS, JSON_KEEP_KEYS, NO_SCALE_PATTERN } from './config.mjs'
 import * as M from './lib/mask.mjs'
 import { messageFor } from './lib/conversations.mjs'
 
-const require = createRequire(new URL('../../apps/bff-node/package.json', import.meta.url))
-const mysql = require('mysql2/promise')
+// mysql2 从 bff-node 借用，不给这个目录单独装依赖。
+// 两条路径是因为脚本要在两种环境跑：仓库里（开发调试）和 bff 容器内
+// （生产走"就地脱敏"，明文数据不离开生产机，也省掉 AWS 出网流量）。
+function loadMysql() {
+  for (const base of [new URL('../../apps/bff-node/package.json', import.meta.url), 'file:///app/package.json']) {
+    try { return createRequire(base)('mysql2/promise') } catch { /* 换下一个 */ }
+  }
+  throw new Error('找不到 mysql2。仓库里跑需要 apps/bff-node/node_modules，容器内跑需要 /app/node_modules')
+}
+const mysql = loadMysql()
 
 const STAGE_DB = process.env.STAGE_DB
 if (!STAGE_DB || !STAGE_DB.endsWith('_stage')) {
@@ -86,15 +94,21 @@ const RULES = {
     if (row.type === 'device') return M.fakeDeviceId(v)
     return M.preserveFormat(v)
   },
+  // 白名单：脱敏规则内的按规则换，KEEP 内的保留，其余一律删掉。
+  // 不认识的 key 默认删除，是因为 extra 里装的是第三方回调结构 ——
+  // 我们无法预知支付商下次会往里塞什么。
   jsonMask: (v) => {
     if (!v) return v
     let obj
     try { obj = typeof v === 'string' ? JSON.parse(v) : v } catch { return null }  // 解析不了就清空，不冒险留着
     if (obj === null || typeof obj !== 'object') return v
-    for (const [k, rule] of Object.entries(JSON_MASK_KEYS)) {
-      if (obj[k] != null) obj[k] = RULES[rule](String(obj[k]), {})
+    const out = {}
+    for (const [k, val] of Object.entries(obj)) {
+      if (JSON_MASK_KEYS[k]) out[k] = RULES[JSON_MASK_KEYS[k]](String(val), {})
+      else if (JSON_KEEP_KEYS.includes(k)) out[k] = val
+      // 其余丢弃
     }
-    return JSON.stringify(obj)
+    return JSON.stringify(out)
   },
 }
 
@@ -108,8 +122,22 @@ async function primaryKeyOf(table) {
 
 async function columnsOf(table) {
   return await q(
-    `SELECT column_name AS c, data_type AS t FROM information_schema.columns
+    `SELECT column_name AS c, data_type AS t, is_nullable AS nullable
+       FROM information_schema.columns
       WHERE table_schema = ? AND table_name = ?`, [STAGE_DB, table])
+}
+
+/**
+ * clear 规则想写 NULL，但列可能是 NOT NULL（bg_agent_domain.label 就是）。
+ * 在引擎这层兜底，比让每条规则自己去关心列定义干净 —— 规则关心的是语义，
+ * 列能不能为空是 schema 的事。
+ */
+function emptyValueFor(col) {
+  if (col.nullable === 'YES') return null
+  if (col.t === 'json') return '{}'          // NOT NULL 的 JSON 列，空串不是合法 JSON
+  if (/int|decimal|float|double|bit/.test(col.t)) return 0
+  if (/date|time/.test(col.t)) return null   // NOT NULL 的时间列交给下面报错，不猜
+  return ''
 }
 
 let maskedRows = 0
@@ -119,7 +147,9 @@ for (const [table, fieldRules] of Object.entries(MASK_FIELDS)) {
   const pk = await primaryKeyOf(table)
   if (pk.length === 0) { log(`  ⚠️  ${table} 无主键，跳过逐行脱敏`); continue }
 
-  const cols = (await columnsOf(table)).map((r) => r.c)
+  const colMeta = await columnsOf(table)
+  const cols = colMeta.map((r) => r.c)
+  const metaOf = new Map(colMeta.map((m) => [m.c, m]))
   // 规则可能依赖同行的其它列（market 决定名字池、provider 决定 identifier 形态）
   const ctxCols = ['market', 'provider', 'type'].filter((c) => cols.includes(c))
   const targets = Object.keys(fieldRules).filter((c) => cols.includes(c))
@@ -134,7 +164,8 @@ for (const [table, fieldRules] of Object.entries(MASK_FIELDS)) {
     for (const col of targets) {
       const rule = RULES[fieldRules[col]]
       if (!rule) throw new Error(`未知规则 ${fieldRules[col]}（${table}.${col}）`)
-      const next = rule(row[col], row)
+      let next = rule(row[col], row)
+      if (next === null) next = emptyValueFor(metaOf.get(col))
       if (next === row[col]) continue
       sets.push(`\`${col}\` = ?`)
       vals.push(next)

@@ -79,7 +79,14 @@ export const COPY_WINDOWED = {
   bg_exchange_rate: { column: 'created_at', days: 7 },
 }
 
-/** payment_channels / payment_channel_rules 里的凭据字段，复制后清空 */
+/**
+ * 表里的凭据字段，复制后清空。字段不存在就跳过。
+ *
+ * 当前 schema 下 payment_channels 其实**不含**任何凭据（只有费率、限额、展示配置），
+ * 真正的密钥在 bg_admin_settings（已由 PURGED_SETTINGS 清除）和平台库
+ * pf_tenant_provider（不属于租户库，压根不在演示库范围内）。
+ * 这份配置留着是防御性的：哪天有人往渠道表加了 api_key，这里能兜住。
+ */
 export const PURGED_COLUMNS = {
   payment_channels: ['merchant_id', 'api_key', 'secret_key', 'private_key', 'public_key', 'callback_secret'],
 }
@@ -96,7 +103,12 @@ export const MASK_FIELDS = {
     register_ip: 'ip', last_login_ip: 'ip', register_device_id: 'device',
   },
   // identifier 按 provider 分流：phone 走号段保留，telegram/google 是不透明 id
-  bg_user_identity: { identifier: 'identityByProvider' },
+  // display_label 是自检抓出来的漏网之鱼：里面存着真实邮箱。
+  // credential_hash 虽是哈希，但同一份口令在别处也能对上，一并换掉
+  bg_user_identity: {
+    identifier: 'identityByProvider', display_label: 'identityByProvider',
+    credential_hash: 'preserve',
+  },
 
   bg_kyc: { full_name: 'name', extracted_id_no: 'preserve', phone: 'phone' },
   bg_kyc_doc_log: { full_name: 'name' },
@@ -135,12 +147,28 @@ export const MASK_FIELDS = {
   bg_568win_report_bet: { raw_bet: 'clear', raw_response: 'clear' },
 }
 
-/** extra JSON 里这些 key 要脱敏，其余原样（结算模式、渠道码这类不敏感） */
+/**
+ * extra JSON 的处理：白名单，不是黑名单。
+ *
+ * 🔴 这里原本写成黑名单（列出要脱敏的 key，其余原样），端到端验证时发现
+ * bg_deposit_order.extra 里带着 `notifyRaw` —— 支付商回调的原始报文，
+ * 含 RSA 加密数据、AES 密钥和签名，整段原封不动留在演示库里。
+ * 黑名单对第三方结构必漏：支付商什么时候加个新字段，我们不会知道。
+ *
+ * 现在的规则：MASK 里的按规则脱敏，KEEP 里的原样保留，**其余一律删除**。
+ */
 export const JSON_MASK_KEYS = {
-  targetAccount: 'bank', accountNo: 'bank', accountName: 'name',
+  targetAccount: 'bank', targetOwner: 'name', accountNo: 'bank', accountName: 'name',
   bankAccount: 'bank', cardNo: 'bank', holderName: 'name',
   phone: 'phone', email: 'email', address: 'addr', idNo: 'preserve',
 }
+
+/** 确认不含个人信息与凭据的 key，原样保留 —— 后台订单详情页要靠它们显示渠道 */
+export const JSON_KEEP_KEYS = [
+  'channelCode', 'channelName', 'platformId', 'providerRef',
+  'finishTime', 'onChainTime', 'completedAt', 'depositStatusSync',
+  'settlementMode', 'currency', 'amount',
+]
 
 /** 比率类：绝不能乘缩放系数，乘了就把返水率、汇率一起改错 */
 export const NO_SCALE_PATTERN = /rate|ratio|pct|percent|multiplier|weight|rtp|confidence|deviation/i

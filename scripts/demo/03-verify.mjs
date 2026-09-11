@@ -9,8 +9,16 @@ import { createRequire } from 'node:module'
 import { SKIP, MASK_FIELDS, PURGED_SETTINGS } from './config.mjs'
 import { SCRIPTS } from './lib/conversations.mjs'
 
-const require = createRequire(new URL('../../apps/bff-node/package.json', import.meta.url))
-const mysql = require('mysql2/promise')
+// mysql2 从 bff-node 借用，不给这个目录单独装依赖。
+// 两条路径是因为脚本要在两种环境跑：仓库里（开发调试）和 bff 容器内
+// （生产走"就地脱敏"，明文数据不离开生产机，也省掉 AWS 出网流量）。
+function loadMysql() {
+  for (const base of [new URL('../../apps/bff-node/package.json', import.meta.url), 'file:///app/package.json']) {
+    try { return createRequire(base)('mysql2/promise') } catch { /* 换下一个 */ }
+  }
+  throw new Error('找不到 mysql2。仓库里跑需要 apps/bff-node/node_modules，容器内跑需要 /app/node_modules')
+}
+const mysql = loadMysql()
 
 const DB = process.env.STAGE_DB
 if (!DB) { console.error('需要 STAGE_DB'); process.exit(1) }
