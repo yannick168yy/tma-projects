@@ -163,6 +163,11 @@ if (tables.includes('cs_message')) {
 }
 
 // ── 5. 金额缩放：按类型自动识别，避开比率字段 ──
+// SCALE=1 直接跳过。这不只是省时间 —— 对 132 个 decimal 字段逐个跑全表 UPDATE
+// 会把 MySQL 的 buffer pool 打满，测试机上做过一次，直接把 mysqld 送进了 OOM killer。
+if (M.SCALE === 1) {
+  log('⏭  金额缩放已跳过（DEMO_AMOUNT_SCALE=1，演示库金额与源库一致）\n')
+} else {
 const decimals = await q(
   `SELECT table_name AS t, column_name AS c FROM information_schema.columns
     WHERE table_schema = ? AND data_type = 'decimal'`, [STAGE_DB])
@@ -181,6 +186,7 @@ for (const { t, c } of decimals) {
 }
 log(`✅ 金额缩放完成（系数 ${M.SCALE}）：${scaled} 个字段有数据被缩放`)
 log(`   跳过的比率/汇率字段 ${skippedCols.length} 个\n`)
+}
 
 // ── 6. 清掉不能外露的配置 ──
 if (tables.includes('bg_admin_settings')) {

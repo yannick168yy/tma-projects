@@ -133,13 +133,19 @@ export function fakeAvatar(real) {
 }
 
 /**
- * 金额缩放。演示不该暴露真实营收规模 —— 看演示的人里有同行。
- * 🔴 只乘金额是不够的，调用方必须一并重算派生字段（钱包余额、流水 balance_after、
- * 累计流水、VIP 等级、团队业绩）。VIP 阈值这类配置保持真实值不动，
- * 流水缩了而等级没重算，用户详情页里等级和累计流水就对不上，一眼穿帮。
+ * 金额缩放。默认 1 = 不缩放，演示库的金额与源库逐字相同。
+ *
+ * 保留这个开关是因为演示对象里可能有同行，真实营收规模未必想给看。要开的话
+ * 注意：配置表里的阈值（VIP 门槛、活动档位、返水门槛）必须跟着一起缩，
+ * 02-mask.mjs 已经是这么做的。只缩金额不缩阈值会让 VIP 等级和累计流水对不上，
+ * 点开用户详情立刻穿帮；而重算派生字段要复刻散在好几个 service 里的判定逻辑。
+ *
+ * 若要启用，建议取 0.5 这类能让配置缩完仍是整数的系数
+ * （充 1000 送 100 → 充 500 送 50），0.3 会变成 300/30 这种一看就被动过的数。
  */
-export const SCALE = Number(process.env.DEMO_AMOUNT_SCALE ?? 0.3)
+export const SCALE = Number(process.env.DEMO_AMOUNT_SCALE ?? 1)
 export function scaleAmount(v) {
+  if (SCALE === 1) return v
   if (v == null) return v
   const n = Number(v)
   if (!Number.isFinite(n)) return v
