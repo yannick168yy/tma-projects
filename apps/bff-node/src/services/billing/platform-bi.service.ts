@@ -116,7 +116,12 @@ export interface OverviewRow {
   skippedRows: number
 }
 
-/** 各租户区间汇总。总览页的主表 */
+/**
+ * 各租户区间汇总。总览页的主表。
+ *
+ * 演示站排除在外：它的抽数早在 forEachTenant 就被挡掉了，pf_bi_daily 里本来就没有它
+ * 的行，但这里是 `FROM pf_tenant` 起算的，不滤掉会在总览里挂一行全 0 的演示站。
+ */
 export async function tenantOverview(from: string, to: string): Promise<OverviewRow[]> {
   const [rows] = await getPlatformPool().query<RowDataPacket[]>(
     `SELECT t.id AS tenant_id, t.code, t.name, t.status, bp.name AS plan_name,
@@ -135,7 +140,7 @@ export async function tenantOverview(from: string, to: string): Promise<Overview
        LEFT JOIN pf_bi_daily b ON b.tenant_id = t.id AND b.stat_date BETWEEN ? AND ?
        LEFT JOIN pf_tenant_billing_plan tbp ON tbp.tenant_id = t.id AND tbp.ended_at IS NULL
        LEFT JOIN pf_billing_plan bp ON bp.id = tbp.billing_plan_id
-      WHERE t.status <> 'closed'
+      WHERE t.status <> 'closed' AND t.is_demo = 0
       GROUP BY t.id, t.code, t.name, t.status, bp.name
       ORDER BY ggr_usdt DESC`, [from, to])
   return rows.map((r) => ({

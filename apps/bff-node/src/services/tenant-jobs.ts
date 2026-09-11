@@ -32,6 +32,15 @@ const CACHE_MS = 60_000
  * 需要跑定时任务的租户。
  * 只排除 closed（已关站）：停站/停充提的租户仍要继续结算、对账、发放已产生的权益，
  * 否则关停期间的数据会永久缺失。
+ *
+ * 以及排除 is_demo（演示站）。这是整个包网体系里唯一一处需要认识演示站的地方 ——
+ * 所有跨租户机制都收敛到这个函数：16 个定时任务、风控联防身份采集
+ * （runIdentityCollection）、平台 BI 抽数（runPlatformBi）、计费日切
+ * （runBillingSnapshot）全都经由 forEachTenant 取清单。
+ *
+ * 演示站的数据是脱敏样本，放进来的后果不是"报表脏一点"：broadcast-tick 会拿假
+ * 用户真发 TG 消息，deposit-status 会拿假订单号去问支付商，payout-reversal 会
+ * 调代付撤销。这些都不走 HTTP 路由，中间件层的护栏拦不住。
  */
 export async function listRunnableTenants(): Promise<TenantContext[]> {
   if (cache && cache.expiresAt > Date.now()) return cache.value
@@ -39,7 +48,7 @@ export async function listRunnableTenants(): Promise<TenantContext[]> {
   // 重试一次盖住抖动；仍失败才让调用方按失败处理。
   const [rows] = await withRetry(() => getPlatformPool().query<TenantRow[]>(
     `SELECT id, code, db_name, status, self_operated, pool_min, pool_max, queue_limit
-       FROM pf_tenant WHERE status <> 'closed' ORDER BY id`,
+       FROM pf_tenant WHERE status <> 'closed' AND is_demo = 0 ORDER BY id`,
   ))
   const tenants = rows.map((row) => ({
     id: row.id,
