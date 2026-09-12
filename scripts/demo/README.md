@@ -170,3 +170,31 @@ curl -s -X POST http://127.0.0.1:8085/api/v1/admin/auth/login \
 **点某个按钮没反应，返回"演示环境已拦截该操作"** —— 正常。
 该操作会打到第三方（TG、支付商、聚合商、AI）或能导出整库备份，
 拦截清单在 `apps/bff-node/src/middleware/demo-guard.ts`。
+
+## MySQL 内存
+
+演示站与自营测试站共用一个 MySQL 容器，目标是**这两个库都能常驻 buffer pool**；
+包网租户库（`betogo_demo1`）不作保证，被 LRU 淘汰掉也无所谓。
+
+| 项 | 值 |
+|---|---|
+| 容器内存限额 | 768 MB |
+| `innodb_buffer_pool_size` | 256 MB |
+| betogo（自营测试） | 47 MB |
+| betogo_demo | 32 MB（灌真实数据后约 60 MB） |
+
+**有一个陷阱**：容器启动参数里写 `--innodb_buffer_pool_size=256M`，但只要容器
+内存限额是 512MB，InnoDB 就分配不出 256MB，会**静默降级回 128MB** —— 日志里
+没有任何告警，只能查 `@@innodb_buffer_pool_size` 才发现。而 `podman update`
+改的是 cgroup，容器一重启又回退。两者叠加的结果是：重启一次，buffer pool 悄悄
+掉回 128MB，演示翻页开始走磁盘 IO，却没有任何地方报错。
+
+`deploy/single-node/ensure-mysql-memory.sh` 就是用来兜这个的，幂等，已由 cron
+每小时执行。手动检查：
+
+```bash
+podman exec tma-mysql mysql -uroot -p"$PW" -N \
+  -e 'SELECT @@innodb_buffer_pool_size DIV 1048576'
+```
+
+真正永久生效需要用新的 `--memory` 重建 MySQL 容器。在那之前由上面这个脚本兜底。

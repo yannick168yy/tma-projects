@@ -23,7 +23,10 @@ services:
       - --collation-server=utf8mb4_unicode_ci
       - --default-authentication-plugin=mysql_native_password
       - --max_connections=200
-      - --innodb_buffer_pool_size=128M
+      # 128M 装不下自营站(47MB)+演示站(32MB，灌真实数据后约 60MB)，翻页就会走磁盘。
+      # 注意容器内存限额要留够：限额 512MB 时 InnoDB 分配不出 256MB，会**静默降级
+      # 回 128MB**，日志里没有任何提示。见 deploy/single-node/ensure-mysql-memory.sh
+      - --innodb_buffer_pool_size=256M
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_dev_only}"]
       interval: 10s

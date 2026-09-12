@@ -1,4 +1,4 @@
-# 演示库每日重置。装到测试机：
+# 测试机运维 cron（演示库重置 + MySQL 内存保障）。装法：
 #   crontab -l | { cat; cat deploy/single-node/demo-reset.cron; } | crontab -
 #
 # 03:00 选在演示时段之外（客户多在白天看演示），且与凌晨的结算类定时任务错开。
@@ -6,3 +6,8 @@
 #
 # 日志留着：重置失败时演示站的数据会停在前一天，不看日志发现不了。
 0 3 * * * cd /root/workspace/tma-projects && APP_DIR=/root/workspace/tma-projects DEMO_TENANT=demo bash scripts/demo/reset-demo.sh >> /var/log/demo-reset.log 2>&1
+
+# MySQL 内存保障，每小时一次。
+# 容器一重启，podman update 设的 cgroup 限额就回退到创建时的值，buffer pool
+# 跟着从 256MB 静默掉回 128MB —— 不会报错，只是演示翻页开始变慢。靠这条兜住。
+0 * * * * APP_DIR=/root/workspace/tma-projects bash /root/workspace/tma-projects/deploy/single-node/ensure-mysql-memory.sh >> /var/log/mysql-mem.log 2>&1
