@@ -33,24 +33,8 @@ PF_DB="${PF_DB:-betogo_platform}"
 cd "$APP_DIR" || { echo "进不去 $APP_DIR" >&2; exit 1; }
 [ -f "$SNAPSHOT" ] || { echo "找不到快照 $SNAPSHOT" >&2; exit 1; }
 
-# root 密码有两个来源，生产上它们并不一致：.env 里那份与 MySQL 容器初始化时用的
-# 已经对不上（历史手工改过）。容器环境变量里那把才是建库时用的，优先试它。
-# 与 remote-migrate.sh 的 resolve_root_pw 同源，踩过同一个坑。
-resolve_pw() {
-  local from_ctr from_env cand
-  from_ctr=$($CTR inspect "$MYSQL_CTR" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
-    | grep -m1 '^MYSQL_ROOT_PASSWORD=' | cut -d= -f2-)
-  from_env=$(grep -m1 '^MYSQL_ROOT_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
-  for cand in "$from_ctr" "$from_env"; do
-    [ -n "$cand" ] || continue
-    if $CTR exec "$MYSQL_CTR" mysql -uroot -p"$cand" -e 'SELECT 1' >/dev/null 2>&1; then
-      PW="$cand"; return 0
-    fi
-  done
-  echo "🔴 容器环境变量与 .env 里的 root 密码都连不上 MySQL" >&2
-  return 1
-}
-resolve_pw || exit 1
+. "$(dirname "$0")/lib/mysql-pw.sh"
+resolve_mysql_pw || exit 1
 MY() { $CTR exec -i "$MYSQL_CTR" mysql --default-character-set=utf8mb4 -uroot -p"$PW" "$@" 2>/dev/null; }
 MYQ() { $CTR exec "$MYSQL_CTR" mysql --default-character-set=utf8mb4 -uroot -p"$PW" -sN -e "$1" 2>/dev/null; }
 

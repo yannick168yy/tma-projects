@@ -12,7 +12,8 @@ CTR="${CTR:-podman}"
 MYSQL_CTR="${MYSQL_CTR:-tma-mysql}"
 
 cd "$APP_DIR"
-PW=$(grep -m1 '^MYSQL_ROOT_PASSWORD=' .env | cut -d= -f2- | tr -d "\"'")
+. "$(dirname "$0")/lib/mysql-pw.sh"
+resolve_mysql_pw || exit 1
 MYQ() { $CTR exec "$MYSQL_CTR" mysql --default-character-set=utf8mb4 -uroot -p"$PW" -sN -e "$1" 2>/dev/null; }
 
 N=$(MYQ "SELECT COUNT(*) FROM $STAGE_DB.admin_accounts")

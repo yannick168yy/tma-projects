@@ -9,7 +9,10 @@
 export const COPY = [
   'bg_admin_settings', 'bg_promo_config', 'bg_turnover_requirements', 'bg_game_turnover_rates',
   'bg_rebate_config', 'bg_rebate_level_config', 'bg_rebate_level_threshold', 'bg_rebate_featured_game',
-  'bg_firstdep_tiers', 'bg_redep_tier', 'bg_redep_offer', 'bg_regular_redep_tier',
+  'bg_firstdep_tiers', 'bg_redep_tier', 'bg_redep_offer',
+  // bg_regular_redep_tier 刻意不在这里：它是张幽灵表 —— 建表的 200_regular_redep.sql
+  // 从未进过 git（只躺在某台测试机的文件系统里），生产库压根没有它，业务代码也不用。
+  // 留在清单里只会让每次开站都报一次 Table doesn't exist。
   'bg_spin_deposit_rule', 'bg_spin_prize', 'bg_spin_config', 'bg_task_social',
   'bg_risk_policy', 'bg_team_config', 'bg_team_rate_plan', 'bg_withdraw_review_config',
   'bg_home_content', 'bg_home_content_image', 'bg_homepage_frozen_board',
@@ -20,6 +23,9 @@ export const COPY = [
   'payment_channels', 'payment_channel_rules',
   'cs_faq', 'bg_announcement', 'bg_exchange_rate', 'cm_template', 'cm_rule',
   'bg_user_id_seq',
+  // 行数极少的配置/状态表，全量带走比按关联抽更省事
+  'bg_team_settlement_state', 'bg_promo_claim_whitelist',   // bg_team_config 上面已有，别重复
+  'bg_team_commission',   // 源库仅 12 行，且 beneficiary_id 不是 user_id，按配置处理
   // 🔴 迁移记录必须进快照。不进的话，reset 导入后迁移执行器看到"有表但没有版本
   // 记录"，会把全部迁移一次性标记为已执行 —— 快照放几周、中间上线过新迁移，
   // 那些迁移就被跳过了，演示库从此缺表，而且不报错。带上版本记录，执行器才知道
@@ -81,6 +87,52 @@ export const PURGED_SETTINGS = [
  */
 export const COPY_WINDOWED = {
   bg_exchange_rate: { column: 'fetched_at', days: 7 },   // 这张表的时间列叫 fetched_at，不是 created_at
+}
+
+/**
+ * 二级关联表：没有 user_id，挂在另一张已导入的表下面。
+ *
+ * 不处理它们的后果是静默缺内容 —— cs_message 全空时，客服工单点进去
+ * 只有会话没有对话；bg_turnover_allocations 空了流水分配查不到明细。
+ * 这类表不会报错，只是页面空着，验收时很容易漏掉。
+ */
+export const RELATED_BY = {
+  cs_message: { parent: 'cs_conversation', fk: 'conversation_id', parentKey: 'id' },
+  bg_turnover_allocations: { parent: 'bg_turnover_logs', fk: 'log_id', parentKey: 'id' },
+}
+
+/**
+ * 时间列不叫 created_at 的表。不指定就按 created_at 找，找不到则不做时间过滤。
+ *
+ * bg_bet_round 就栽在这里：它有 user_id 但时间列叫 first_at，脚本没找到
+ * created_at 就退化成"该用户全部历史"，1 天窗口形同虚设，实际导进 58 万行、
+ * 281MB，占了整个演示库的 75%。
+ */
+export const TIME_COLUMN = {
+  bg_bet_round: 'first_at',
+}
+
+/**
+ * 明细表里体积过大的，单独用更短的时间窗。
+ *
+ * 生产实测：按「近 30 天有充值的用户」采样，仅 71 个用户就带出 29.7 万注单、
+ * 30.7 万流水 —— 重度玩家的注单量极大。演示要的是"每个页面都有数据可点"，
+ * 不是完整历史，全量搬过来只会让演示库臃肿、每日重置变慢。
+ *
+ * 注单流水取 3 天（约 3.4 万行）足够撑起用户详情、报表和风控页面；
+ * 充值提现单反而要留长窗口（90 天也才 1300 + 300 条），
+ * 否则审核队列空着，那恰恰是演示的重点。
+ */
+export const DETAIL_WINDOWED = {
+  bg_bet_order: 3,
+  bg_bet_round: 1,          // 每局一行，3 天就有 58 万行；1 天足够撑注单详情
+  bg_wallet_ledger: 3,
+  bg_turnover_logs: 3,
+  bg_turnover_allocations: 3,
+  bg_568win_report_bet: 3,
+  bg_game_launch: 3,
+  bg_login_log: 7,
+  bg_capi_event: 7,
 }
 
 /**

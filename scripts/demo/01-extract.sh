@@ -31,7 +31,8 @@ BFF_CTR="${BFF_CTR:-tma-bff-node}"
 [[ "$STAGE_DB" == *_stage ]] || { echo "STAGE_DB 必须以 _stage 结尾" >&2; exit 1; }
 
 cd "$APP_DIR"
-PW=$(grep -m1 '^MYSQL_ROOT_PASSWORD=' .env | cut -d= -f2- | tr -d "\"'")
+. "$(dirname "$0")/lib/mysql-pw.sh"
+resolve_mysql_pw || exit 1
 
 # 把脚本送进容器，后续 node 调用（含 02/03 两步）都从这里读
 $CTR exec "$BFF_CTR" rm -rf /tmp/demo-scripts
@@ -82,8 +83,6 @@ if [ "${PICKED:-0}" -eq 0 ]; then
   echo "    选中 $PICKED 个用户"
 fi
 
-echo "==> 按 user_id 关联导入明细（近 $DAYS 天）"
-
 # SKIP 表在这一步就排除，不等 02-mask 去 TRUNCATE。
 # 让敏感数据先进来再清掉，中间任何一步失败都会把它留在库里
 SKIP_TABLES=$(echo "import { SKIP } from '/tmp/demo-scripts/config.mjs'; console.log(Object.keys(SKIP).join(' '))" | NODE_IN_CTR)
@@ -95,6 +94,23 @@ COPY_TABLES=$(echo "import { COPY } from '/tmp/demo-scripts/config.mjs'; console
 # 按"哪个阶段的规则更合适"来分配归属：配置表走 COPY（要全量），
 # BI 表走 BI 阶段（按 stat_date 窗口），user_id 阶段把这两类都让出去。
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+
+echo "==> 导入配置与参考表"
+echo "import { COPY } from '/tmp/demo-scripts/config.mjs'; console.log(COPY.join(' '))" \
+  | NODE_IN_CTR | tr ' ' '\n' | while read -r T; do
+  [ -n "$T" ] || continue
+  in_list "$T" "$SKIP_TABLES" && continue
+  # 大表带时间窗，不全量搬 —— 全量复制 5 万行汇率表足以把单机 IO 打满
+  WIN=$(echo "import { COPY_WINDOWED } from '/tmp/demo-scripts/config.mjs'
+const w = COPY_WINDOWED['$T']
+if (w) console.log(\`WHERE \${w.column} >= DATE_SUB(NOW(), INTERVAL \${w.days} DAY)\`)" | NODE_IN_CTR)
+  N=$(MYQ "SET FOREIGN_KEY_CHECKS=0; INSERT INTO $STAGE_DB.\`$T\` SELECT * FROM $SRC_DB.\`$T\` ${WIN}; SELECT ROW_COUNT()") || continue
+  [ "${N:-0}" -gt 0 ] && printf "    %-34s %s 行\n" "$T" "$N"
+done
+
+echo "==> 按 user_id 关联导入明细（近 $DAYS 天）"
+
+
 
 # bg_user.id 的 collation 要显式带上：源库里部分表的 user_id 是
 # utf8mb4_0900_ai_ci（MySQL 8 默认），与 bg_user.id 的 utf8mb4_unicode_ci
@@ -109,29 +125,37 @@ for T in $(MYQ "SELECT DISTINCT c.table_name FROM information_schema.columns c
   in_list "$T" "$SKIP_TABLES" && continue
   in_list "$T" "$COPY_TABLES" && continue          # 配置表由 COPY 阶段全量导
   case "$T" in bi_*) continue ;; esac              # BI 表由 BI 阶段按窗口导
+  # 时间列不一定叫 created_at（bg_bet_round 叫 first_at）。找错了会退化成
+  # "该用户全部历史"，时间窗形同虚设 —— 实测因此多导了 58 万行、281MB
+  TCOL=$(echo "import { TIME_COLUMN } from '/tmp/demo-scripts/config.mjs'
+console.log(TIME_COLUMN['$T'] ?? 'created_at')" | NODE_IN_CTR)
   HAS_CREATED=$(MYQ "SELECT COUNT(*) FROM information_schema.columns
-                     WHERE table_schema='$SRC_DB' AND table_name='$T' AND column_name='created_at'")
+                     WHERE table_schema='$SRC_DB' AND table_name='$T' AND column_name='$TCOL'")
   IN_USERS="user_id COLLATE $UID_COLL IN (SELECT id FROM $STAGE_DB.bg_user)"
+  # 大表用自己的短窗口，其余用 DAYS。注单流水按 DAYS 取会是几十万行
+  TDAYS=$(echo "import { DETAIL_WINDOWED } from '/tmp/demo-scripts/config.mjs'
+console.log(DETAIL_WINDOWED['$T'] ?? '')" | NODE_IN_CTR)
+  TDAYS=${TDAYS:-$DAYS}
   if [ "$HAS_CREATED" = "1" ]; then
-    WHERE="$IN_USERS AND created_at >= DATE_SUB(NOW(), INTERVAL $DAYS DAY)"
+    WHERE="$IN_USERS AND \`$TCOL\` >= DATE_SUB(NOW(), INTERVAL $TDAYS DAY)"
   else
     WHERE="$IN_USERS"
   fi
-  N=$(MYQ "INSERT INTO $STAGE_DB.\`$T\` SELECT * FROM $SRC_DB.\`$T\` WHERE $WHERE; SELECT ROW_COUNT()")
-  [ "${N:-0}" -gt 0 ] && printf "    %-34s %s 行\n" "$T" "$N"
+  # 关外键检查：按用户采样必然切断跨表引用（注单引用的游戏、活动规则未必在样本里），
+  # 开着检查会让整批导入失败。会话级变量，每条 MYQ 都是新连接，所以要逐条带上。
+  N=$(MYQ "SET FOREIGN_KEY_CHECKS=0; INSERT INTO $STAGE_DB.\`$T\` SELECT * FROM $SRC_DB.\`$T\` WHERE $WHERE; SELECT ROW_COUNT()")
+  [ "${N:-0}" -gt 0 ] && printf "    %-34s %8s 行 (%s 天)\n" "$T" "$N" "$TDAYS"
 done
 
-echo "==> 导入配置与参考表"
-echo "import { COPY } from '/tmp/demo-scripts/config.mjs'; console.log(COPY.join(' '))" \
-  | NODE_IN_CTR | tr ' ' '\n' | while read -r T; do
+echo "==> 导入二级关联表（挂在已导入的父表下）"
+echo "import { RELATED_BY } from '/tmp/demo-scripts/config.mjs'
+for (const [t, r] of Object.entries(RELATED_BY)) console.log(\`\${t} \${r.parent} \${r.fk} \${r.parentKey}\`)" \
+  | NODE_IN_CTR | while read -r T PARENT FK PKEY; do
   [ -n "$T" ] || continue
   in_list "$T" "$SKIP_TABLES" && continue
-  # 大表带时间窗，不全量搬 —— 全量复制 5 万行汇率表足以把单机 IO 打满
-  WIN=$(echo "import { COPY_WINDOWED } from '/tmp/demo-scripts/config.mjs'
-const w = COPY_WINDOWED['$T']
-if (w) console.log(\`WHERE \${w.column} >= DATE_SUB(NOW(), INTERVAL \${w.days} DAY)\`)" | NODE_IN_CTR)
-  N=$(MYQ "INSERT INTO $STAGE_DB.\`$T\` SELECT * FROM $SRC_DB.\`$T\` ${WIN}; SELECT ROW_COUNT()") || continue
-  [ "${N:-0}" -gt 0 ] && printf "    %-34s %s 行\n" "$T" "$N"
+  N=$(MYQ "SET FOREIGN_KEY_CHECKS=0; INSERT INTO $STAGE_DB.\`$T\` SELECT * FROM $SRC_DB.\`$T\`
+           WHERE \`$FK\` IN (SELECT \`$PKEY\` FROM $STAGE_DB.\`$PARENT\`); SELECT ROW_COUNT()") || continue
+  [ "${N:-0}" -gt 0 ] && printf "    %-34s %8s 行 (挂 %s)\n" "$T" "$N" "$PARENT"
 done
 
 echo "==> 导入 BI 日表（近 $BI_DAYS 天，让报表曲线连续）"
@@ -142,7 +166,7 @@ for T in $(MYQ "SELECT table_name FROM information_schema.tables
               WHERE table_schema='$SRC_DB' AND table_name='$T'
                 AND column_name IN ('stat_date','date','day') LIMIT 1")
   [ -n "$DCOL" ] || continue
-  N=$(MYQ "INSERT INTO $STAGE_DB.\`$T\` SELECT * FROM $SRC_DB.\`$T\`
+  N=$(MYQ "SET FOREIGN_KEY_CHECKS=0; INSERT INTO $STAGE_DB.\`$T\` SELECT * FROM $SRC_DB.\`$T\`
            WHERE \`$DCOL\` >= DATE_SUB(CURDATE(), INTERVAL $BI_DAYS DAY); SELECT ROW_COUNT()")
   [ "${N:-0}" -gt 0 ] && printf "    %-34s %s 行\n" "$T" "$N"
 done
