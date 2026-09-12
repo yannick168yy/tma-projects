@@ -1,0 +1,8 @@
+# 演示库每日重置。装到测试机：
+#   crontab -l | { cat; cat deploy/single-node/demo-reset.cron; } | crontab -
+#
+# 03:00 选在演示时段之外（客户多在白天看演示），且与凌晨的结算类定时任务错开。
+# 重置本身很快（导入现成快照 + 补跑迁移 + 平移时间戳），实测十几秒。
+#
+# 日志留着：重置失败时演示站的数据会停在前一天，不看日志发现不了。
+0 3 * * * cd /root/workspace/tma-projects && APP_DIR=/root/workspace/tma-projects DEMO_TENANT=demo bash scripts/demo/reset-demo.sh >> /var/log/demo-reset.log 2>&1

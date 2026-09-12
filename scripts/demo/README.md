@@ -82,3 +82,91 @@ mysqld 被 OOM killer 干掉，容器自动重启做了 XA crash recovery 才恢
 - `SCALE=1` 时跳过缩放，避免 132 个字段的全表 UPDATE
 - 灌数据后要实测 demo 库体积。如果它让 MySQL 长期贴着 512MB 跑，
   客人演示时页面会卡 —— 那就得升配，或者把演示站挪到内存更大的机器
+
+---
+
+# 运维手册
+
+## 演示站的构成
+
+| 项 | 值 |
+|---|---|
+| 租户 | `demo`（`pf_tenant.id=11`，`is_demo=1`） |
+| 业务库 | `betogo_demo` |
+| 后台域名 | `demo-admin.betogo.games` |
+| 账号 | `demoadmin` / `Demo5vjrGarM8g5VShow`（super_admin） |
+| 宿主 | 阿里云测试机 `47.84.34.139`，与自营测试站共用一套容器 |
+| 快照 | `data/demo/demo-snapshot.sql.gz` |
+| 账号种子 | `data/demo/demo-admin-seed.sql` |
+
+`is_demo=1` 这一个标记同时管住两件事：定时任务不遍历它
+（`listRunnableTenants`），后台按钮触发的对外调用被拦截（`demoGuard`）。
+
+## 上线剩余步骤
+
+1. **DNS**：`demo-admin.betogo.games` A 记录 → `47.84.34.139`
+2. **证书**：
+   ```bash
+   certbot certonly --webroot -w /www/wwwroot/188facai.com -d demo-admin.betogo.games
+   ```
+3. **nginx**：`deploy/single-node/nginx-demo-admin.conf`
+   复制到 `/www/server/panel/vhost/nginx/`，`nginx -t && nginx -s reload`
+4. **定时重置**：把 `deploy/single-node/demo-reset.cron` 加进 crontab
+
+## 刷新快照（换一批演示数据）
+
+盐值每次都要换新的：同一个盐跨两次快照，两批数据能被关联比对。
+
+```bash
+export DEMO_MASK_SALT=$(openssl rand -hex 24)
+cd /root/workspace/tma-projects
+
+# 1. 抽取（源库只读）
+APP_DIR=$PWD SRC_DB=betogo DAYS=30 USERS=500 bash scripts/demo/01-extract.sh
+
+# 2~3. 脱敏与自检都在 bff 容器里跑（宿主机没有 node 和 mysql2）
+PW=$(grep -m1 '^MYSQL_ROOT_PASSWORD=' .env | cut -d= -f2-)
+E="-e DEMO_MASK_SALT=$DEMO_MASK_SALT -e STAGE_DB=betogo_demo_stage \
+   -e MYSQL_HOST=tma-mysql -e MYSQL_PORT=3306 -e MYSQL_USER=root -e MYSQL_PASSWORD=$PW"
+podman exec $E tma-bff-node node /tmp/demo-scripts/02-mask.mjs
+podman exec $E tma-bff-node node /tmp/demo-scripts/03-verify.mjs   # 不过就不要继续
+
+# 4. 出快照，然后导进演示库
+APP_DIR=$PWD STAGE_DB=betogo_demo_stage bash scripts/demo/04-snapshot.sh
+APP_DIR=$PWD DEMO_TENANT=demo bash scripts/demo/reset-demo.sh
+
+# 5. 收尾：临时库里是脱敏后的数据，但没必要留着
+podman exec tma-mysql mysql -uroot -p"$PW" -e "DROP DATABASE betogo_demo_stage"
+```
+
+## 改演示账号密码
+
+改完要重新生成种子，否则第二天重置会还原成旧密码：
+
+```bash
+# 在演示后台改完密码后
+podman exec tma-mysql mysqldump -uroot -p"$PW" --no-create-info --complete-insert \
+  betogo_demo admin_accounts > data/demo/demo-admin-seed.sql
+```
+
+## 排查
+
+**演示后台显示的是自营站的数据** —— 最要命的一种故障。
+按 Host 链路逐段查：浏览器 → 外层 nginx → web-admin:8085 → bff:3000，
+每一跳都必须是 `demo-admin.betogo.games`。另外确认
+`TENANT_RESOLVE_STRICT=true`：false 时未登记域名会**静默回落自营站**。
+
+```bash
+curl -s -X POST http://127.0.0.1:8085/api/v1/admin/auth/login \
+  -H 'Host: demo-admin.betogo.games' -H 'Content-Type: application/json' \
+  -d '{"username":"demoadmin","password":"..."}'
+```
+
+**演示后台登不进去** —— 多半是重置时管理员没恢复。看
+`/var/log/demo-reset.log` 里第 4 步的输出，以及 `demo-admin-seed.sql` 是否还在。
+
+**数据停在前一天** —— 重置失败了。同样看那个日志。
+
+**点某个按钮没反应，返回"演示环境已拦截该操作"** —— 正常。
+该操作会打到第三方（TG、支付商、聚合商、AI）或能导出整库备份，
+拦截清单在 `apps/bff-node/src/middleware/demo-guard.ts`。
