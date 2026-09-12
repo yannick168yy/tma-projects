@@ -74,18 +74,32 @@ SHIFT=${SHIFT:-0}
 if [ "$SHIFT" -gt 0 ]; then
   # 所有 datetime/timestamp/date 字段统一平移。用 information_schema 生成语句，
   # 避免漏表 —— 手写清单在 132 张表上必漏，漏掉的那张就会显示成几个月前
-  # 用 LEAST 卡住上限：源库里 updated_at 这类字段本就接近抽取当天，
-  # 再 +N 天会落到未来（实测出现过 2026-10-23），后台按时间排序、按"最近"
-  # 筛选的地方都会被这种未来时间带偏。
-  MYQ "SELECT CONCAT('UPDATE \`', table_name, '\` SET \`', column_name, '\` = LEAST(DATE_ADD(\`', column_name, '\`, INTERVAL $SHIFT DAY), ',
-              IF(data_type='date', 'CURDATE()', 'NOW(3)'),
-              ') WHERE \`', column_name, '\` IS NOT NULL;')
+  # 两步走，不能合成一步。
+  #
+  # 第一步整体平移：相对关系原样保持，绝不会撞唯一键。
+  # 曾经试过一步到位写成 LEAST(DATE_ADD(...), CURDATE())，结果 bg_checkin_log
+  # 的唯一键 (user_id, date) 直接炸了 —— 多条超过今天的签到被 LEAST 压平到
+  # 同一天，Duplicate entry。而 SQL 文件是一次性喂给 mysql 的，那条一失败，
+  # 后面所有表的平移全部没执行，库里一半平移过一半没有，比不平移还糟。
+  MYQ "SELECT CONCAT('UPDATE \`', table_name, '\` SET \`', column_name, '\` = DATE_ADD(\`', column_name, '\`, INTERVAL $SHIFT DAY) WHERE \`', column_name, '\` IS NOT NULL;')
        FROM information_schema.columns
        WHERE table_schema='$DEMO_DB' AND data_type IN ('datetime','timestamp','date')
          AND table_name <> 'schema_migrations'" > /tmp/demo_shift.sql
-  $CTR exec -i "$MYSQL_CTR" mysql --default-character-set=utf8mb4 -uroot -p"$PW" "$DEMO_DB" < /tmp/demo_shift.sql 2>/dev/null
-  rm -f /tmp/demo_shift.sql
+
+  # 第二步把越过当下的拉回来。SHIFT 是按业务时间（注单 created_at）算的，
+  # 业务时间平移后正好落在今天，不会越界；越界的是 updated_at 这类记录
+  # 抽取时刻的字段 —— 它们本就接近抽取当天，再加 41 天就到了未来。
+  # 只处理 datetime/timestamp：date 列多是业务日期且常在唯一键里，
+  # 把它们往回压就会重演上面那个 Duplicate entry。
+  MYQ "SELECT CONCAT('UPDATE \`', table_name, '\` SET \`', column_name, '\` = NOW(3) WHERE \`', column_name, '\` > NOW(3);')
+       FROM information_schema.columns
+       WHERE table_schema='$DEMO_DB' AND data_type IN ('datetime','timestamp')
+         AND table_name <> 'schema_migrations'" >> /tmp/demo_shift.sql
+
+  $CTR exec -i "$MYSQL_CTR" mysql --default-character-set=utf8mb4 -uroot -p"$PW" "$DEMO_DB" < /tmp/demo_shift.sql 2>&1 \
+    | grep -v "Using a password" | grep "^ERROR" && { echo "  🔴 平移出错，演示库时间处于半平移状态" >&2; exit 1; }
   echo "    已平移 $SHIFT 天"
+  rm -f /tmp/demo_shift.sql
 else
   echo "    快照已是当天数据，无需平移"
 fi

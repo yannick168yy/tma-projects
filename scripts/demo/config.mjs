@@ -43,7 +43,6 @@ export const SKIP = {
 
   // 第三方原始报文：非结构化 JSON，逐字段脱敏的思路覆盖不到，且可能含密钥
   bg_568win_agent: '聚合商子代理凭据，raw_response 里是密钥',
-  bg_568win_wallet_txn: 'raw_request 是聚合商原始报文，含玩家账号',
   bg_aggregator_player: 'raw_response 同上',
   bg_payment_callback_issue: 'detail 是支付商原始回调报文',
 
@@ -148,6 +147,7 @@ export const COUNT_SCALE_COLUMNS = {
  * 实现依赖单列 id 主键 + ROW_NUMBER() 窗口函数，这几张表都满足。
  */
 export const PER_USER_LIMIT = {
+  bg_568win_wallet_txn: 100,   // BI today 靠它算，要保证最后一天（平移后=今天）有量
   bg_bet_order: 50,
   bg_bet_round: 30,
   bg_wallet_ledger: 50,
@@ -238,6 +238,12 @@ export const MASK_FIELDS = {
 
   // 聚合商原始报文：整表跳过的已在 SKIP，这张表要留着出注单报表，只清 raw
   bg_568win_report_bet: { raw_bet: 'clear', raw_response: 'clear' },
+
+  // 🔴 这张表不能跳过：BI 总览的「今日投注额 / GGR」正是从它实时算的
+  // （bi.service.ts 的 windowStats 直接 SUM 这张表），跳过它等于让运营驾驶舱
+  // 的核心指标永远是 0。当初因为 raw_request 是聚合商原始报文就整表 SKIP 了，
+  // 其实只要把那一列清掉，剩下的就是干净的投注流水。
+  bg_568win_wallet_txn: { raw_request: 'clear', external_username: 'preserve' },
 }
 
 /**
