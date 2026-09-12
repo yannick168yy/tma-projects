@@ -5,6 +5,14 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>BetoGo 管理后台</title>
+    <!--
+      演示站改标题。放在这里而不是等 JS bundle 起来再改：bundle 有 3MB，
+      加载期间浏览器标签会先闪一下「BetoGo 管理后台」，演示时被客人看见不合适。
+      判断逻辑与 src/site.ts 一致（域名以 demo- 开头）。
+    -->
+    <script>
+      if (location.hostname.indexOf('demo-') === 0) document.title = 'BetoGo 演示后台'
+    </script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0A0C14" />
     <link rel="apple-touch-icon" href="/icon-180.png" />
