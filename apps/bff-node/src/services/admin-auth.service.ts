@@ -1,4 +1,5 @@
 import { scrypt, randomBytes, timingSafeEqual } from 'node:crypto'
+import { currentTenantOrNull } from '../lib/tenant-context.js'
 import { promisify } from 'node:util'
 import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
@@ -52,6 +53,12 @@ export interface AdminSession {
 const TOTP_REQUIRED_ROLES = new Set(['super_admin', 'finance'])
 
 export function shouldRequireAdminTotp(env: Pick<Env, 'BFF_ADMIN_TOTP_REQUIRED'>, role: string): boolean {
+  // 演示站豁免。BFF_ADMIN_TOTP_REQUIRED 是进程级的，关掉它等于把自营站后台的
+  // 二步验证也一起关了，所以只能在这里按租户放行。
+  //
+  // 演示账号要交给销售和客人用，每次登录都掏手机扫码不现实；而演示库里是脱敏
+  // 样本、每天重置、对外副作用又有 demoGuard 挡着，二步验证在这里保护不了什么。
+  if (currentTenantOrNull()?.isDemo) return false
   return env.BFF_ADMIN_TOTP_REQUIRED && TOTP_REQUIRED_ROLES.has(role)
 }
 

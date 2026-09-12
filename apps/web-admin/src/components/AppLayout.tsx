@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { SITE_TITLE, SITE_BRAND, SITE_BRAND_MINI, IS_DEMO_SITE } from '../site'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { MarketScopeSelector } from './MarketScope'
 import {
@@ -339,7 +340,7 @@ export default function AppLayout() {
       color: '#fff', fontSize: 18, fontWeight: 'bold', background: 'rgba(255,255,255,.1)',
       marginBottom: 4,
     }}>
-      {mini ? 'BG' : '🎰 BetoGo'}
+      {mini ? SITE_BRAND_MINI : SITE_BRAND}
     </div>
   )
 
@@ -381,7 +382,7 @@ export default function AppLayout() {
             {isMobile && (
               <Button type="text" icon={<MenuOutlined />} onClick={() => setDrawerOpen(true)} />
             )}
-            {isMobile ? 'BetoGo' : 'BetoGo 管理后台'}
+            {isMobile ? (IS_DEMO_SITE ? 'BetoGo 演示' : 'BetoGo') : SITE_TITLE}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {showMarketScope && <MarketScopeSelector />}

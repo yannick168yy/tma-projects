@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SITE_TITLE } from '../site'
 import { useNavigate } from 'react-router-dom'
 import { Card, Form, Input, Button, message } from 'antd'
 import { UserOutlined, LockOutlined, SafetyCertificateOutlined } from '@ant-design/icons'
@@ -51,7 +52,7 @@ export default function Login() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0f2f5' }}>
-      <Card title="BetoGo 管理后台" style={{ width: 380 }}>
+      <Card title={SITE_TITLE} style={{ width: 380 }}>
         {challengeToken ? (
           <Form onFinish={handleTotp} layout="vertical">
             <Form.Item name="code" rules={[{ required: true, message: '请输入验证码' }]}>
