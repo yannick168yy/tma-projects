@@ -48,8 +48,17 @@ const put = <T>(url: string, data?: unknown) => req<T>('PUT', url, data)
 export type AdminLoginResult =
   | { token: string; expiresIn: number; role: string; requiresTotp?: false; totpSetupRequired?: boolean }
   | { requiresTotp: true; challengeToken: string; expiresIn: number }
-export const adminLogin = (username: string, password: string) =>
-  post<AdminLoginResult>('/admin/auth/login', { username, password })
+export const adminLogin = (
+  username: string,
+  password: string,
+  captcha?: { captchaId: string; captchaCode: string },
+) => post<AdminLoginResult>('/admin/auth/login', { username, password, ...captcha })
+
+/** 演示站登录要过图形验证码；其他站点返回 { required: false } */
+export type AdminCaptcha =
+  | { required: false }
+  | { required: true; captchaId: string; image: string; expiresIn: number }
+export const adminCaptcha = () => get<AdminCaptcha>('/admin/auth/captcha')
 export const adminLoginTotp = (challengeToken: string, code: string) =>
   post<{ token: string; expiresIn: number; role: string }>('/admin/auth/login/totp', { challengeToken, code })
 export const adminLogout = () => post('/admin/auth/logout')

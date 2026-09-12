@@ -6,17 +6,57 @@ import { consumeImpersonateTicket } from '../../services/impersonate.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { getAdminById, writeAuditLog } from '../../services/admin-store.js'
 import type { RowDataPacket } from 'mysql2/promise'
+import type { Redis } from 'ioredis'
 import { adminAuthMiddleware } from '../../middleware/admin-auth.js'
+import { currentTenantOrNull } from '../../lib/tenant-context.js'
+import { generateCaptcha } from '../../utils/captcha.js'
+import { randomToken } from '../../utils/id.js'
 import { fail, ok } from '../../utils/response.js'
 
 const router = new Router({ prefix: '/auth' })
+
+const CAPTCHA_TTL = 120
 
 function cleanIp(raw: string): string {
   return raw.replace(/^::ffff:/i, '')
 }
 
+function captchaKey(id: string): string {
+  return `admin:captcha:${id}`
+}
+
+/**
+ * 登录是否要过图形验证码。
+ *
+ * 只卡演示站：它公网可访问、账号密码是公开发给客人的，又按租户豁免了二步验证
+ * （见 shouldRequireAdminTotp），验证码是挡自动化撞库的唯一一道。自营站后台
+ * 走的是 TOTP，不给它加这个额外步骤。
+ */
+function captchaRequired(): boolean {
+  return currentTenantOrNull()?.isDemo === true
+}
+
+/** 校验并立即销毁。一次性消费，防止同一张图的答案被重放 */
+async function consumeCaptcha(redis: Redis, id?: string, code?: string): Promise<boolean> {
+  if (!id || !code) return false
+  const answer = await redis.get(captchaKey(id))
+  await redis.del(captchaKey(id))
+  return !!answer && answer === code.trim().toUpperCase()
+}
+
+router.get('/captcha', async (ctx) => {
+  if (!captchaRequired()) {
+    ok(ctx, { required: false })
+    return
+  }
+  const { text, image } = generateCaptcha()
+  const captchaId = randomToken()
+  await ctx.state.redis.setex(captchaKey(captchaId), CAPTCHA_TTL, text)
+  ok(ctx, { required: true, captchaId, image, expiresIn: CAPTCHA_TTL })
+})
+
 router.post('/login', async (ctx) => {
-  const body = ctx.request.body as { username?: string; password?: string }
+  const body = ctx.request.body as { username?: string; password?: string; captchaId?: string; captchaCode?: string }
   if (!body.username || !body.password) {
     fail(ctx, 400, 'username and password required')
     return
@@ -27,6 +67,12 @@ router.post('/login', async (ctx) => {
   const lockKey = `admin:login:lock:${ip}:${username}`
   if (await ctx.state.redis.get(lockKey)) {
     fail(ctx, 429, 'errors.tooManyAttempts', 429)
+    return
+  }
+  // 验证码校验放在密码校验之前，且失败不计入上面那个 5 次锁定计数 ——
+  // 否则客人看错一个字符两次就把自己锁 15 分钟，演示现场很难收场
+  if (captchaRequired() && !(await consumeCaptcha(ctx.state.redis, body.captchaId, body.captchaCode))) {
+    fail(ctx, 400, 'errors.invalidCaptcha')
     return
   }
   const result = await loginAdmin(ctx.state.redis, ctx.state.env, body.username, body.password)
