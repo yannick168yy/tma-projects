@@ -86,7 +86,7 @@ export const PURGED_SETTINGS = [
  * 全量搬运会实打实影响在线用户。
  */
 export const COPY_WINDOWED = {
-  bg_exchange_rate: { column: 'fetched_at', days: 7 },   // 这张表的时间列叫 fetched_at，不是 created_at
+  bg_exchange_rate: { column: 'fetched_at', days: 7 },   // 只取演示区间末尾附近的汇率，够做金额换算
 }
 
 /**
@@ -113,26 +113,23 @@ export const TIME_COLUMN = {
 }
 
 /**
- * 明细表里体积过大的，单独用更短的时间窗。
+ * 百万级明细表：按「每个用户最多 N 条」限量，而不是缩短时间窗。
  *
- * 生产实测：按「近 30 天有充值的用户」采样，仅 71 个用户就带出 29.7 万注单、
- * 30.7 万流水 —— 重度玩家的注单量极大。演示要的是"每个页面都有数据可点"，
- * 不是完整历史，全量搬过来只会让演示库臃肿、每日重置变慢。
+ * 演示区间取的是买量高峰（7/27-8/2），那 7 天光注单就有 86 万条，
+ * 500 个用户名下 58 万条，全量搬过来演示库会涨到 GB 级。
  *
- * 注单流水取 3 天（约 3.4 万行）足够撑起用户详情、报表和风控页面；
- * 充值提现单反而要留长窗口（90 天也才 1300 + 300 条），
- * 否则审核队列空着，那恰恰是演示的重点。
+ * 为什么不缩时间窗：缩到 1 天固然小了，但大部分用户在那天没下注，
+ * 点进用户详情就是空的 —— 演示时最怕的就是点开什么都没有。
+ * 按用户限量则是每个人都有 50 条可看，够翻两页，而总量只有 2.5 万。
+ *
+ * 实现依赖单列 id 主键 + ROW_NUMBER() 窗口函数，这几张表都满足。
  */
-export const DETAIL_WINDOWED = {
-  bg_bet_order: 3,
-  bg_bet_round: 1,          // 每局一行，3 天就有 58 万行；1 天足够撑注单详情
-  bg_wallet_ledger: 3,
-  bg_turnover_logs: 3,
-  bg_turnover_allocations: 3,
-  bg_568win_report_bet: 3,
-  bg_game_launch: 3,
-  bg_login_log: 7,
-  bg_capi_event: 7,
+export const PER_USER_LIMIT = {
+  bg_bet_order: 50,
+  bg_bet_round: 30,
+  bg_wallet_ledger: 50,
+  bg_turnover_logs: 30,
+  bg_568win_report_bet: 30,
 }
 
 /**
