@@ -74,7 +74,12 @@ SHIFT=${SHIFT:-0}
 if [ "$SHIFT" -gt 0 ]; then
   # 所有 datetime/timestamp/date 字段统一平移。用 information_schema 生成语句，
   # 避免漏表 —— 手写清单在 132 张表上必漏，漏掉的那张就会显示成几个月前
-  MYQ "SELECT CONCAT('UPDATE \`', table_name, '\` SET \`', column_name, '\` = DATE_ADD(\`', column_name, '\`, INTERVAL $SHIFT DAY) WHERE \`', column_name, '\` IS NOT NULL;')
+  # 用 LEAST 卡住上限：源库里 updated_at 这类字段本就接近抽取当天，
+  # 再 +N 天会落到未来（实测出现过 2026-10-23），后台按时间排序、按"最近"
+  # 筛选的地方都会被这种未来时间带偏。
+  MYQ "SELECT CONCAT('UPDATE \`', table_name, '\` SET \`', column_name, '\` = LEAST(DATE_ADD(\`', column_name, '\`, INTERVAL $SHIFT DAY), ',
+              IF(data_type='date', 'CURDATE()', 'NOW(3)'),
+              ') WHERE \`', column_name, '\` IS NOT NULL;')
        FROM information_schema.columns
        WHERE table_schema='$DEMO_DB' AND data_type IN ('datetime','timestamp','date')
          AND table_name <> 'schema_migrations'" > /tmp/demo_shift.sql

@@ -12,7 +12,7 @@
  *   node scripts/demo/02-mask.mjs
  */
 import { createRequire } from 'node:module'
-import { COPY, SKIP, PURGED_SETTINGS, PURGED_COLUMNS, MASK_FIELDS, JSON_MASK_KEYS, JSON_KEEP_KEYS, NO_SCALE_PATTERN } from './config.mjs'
+import { COPY, SKIP, PURGED_SETTINGS, PURGED_COLUMNS, MASK_FIELDS, JSON_MASK_KEYS, JSON_KEEP_KEYS, NO_SCALE_PATTERN, COUNT_SCALE_COLUMNS } from './config.mjs'
 import * as M from './lib/mask.mjs'
 import { messageFor } from './lib/conversations.mjs'
 
@@ -218,6 +218,27 @@ for (const { t, c } of decimals) {
 }
 log(`✅ 金额缩放完成（系数 ${M.SCALE}）：${scaled} 个字段有数据被缩放`)
 log(`   跳过的比率/汇率字段 ${skippedCols.length} 个\n`)
+}
+
+// ── 5b. 统计表的人数/计数放大 ──
+// 金额走类型识别（decimal），计数只能按列名白名单 —— int 列里混着 ID、
+// 平均值这些不能乘的东西，靠类型认不出来。
+if (M.COUNT_SCALE === 1) {
+  log('⏭  计数放大已跳过（DEMO_COUNT_SCALE=1）\n')
+} else {
+  let touched = 0
+  for (const [table, cols] of Object.entries(COUNT_SCALE_COLUMNS)) {
+    if (!tables.includes(table)) continue
+    const existing = (await columnsOf(table)).map((r) => r.c)
+    const hit = cols.filter((c) => existing.includes(c))
+    if (hit.length === 0) continue
+    await conn.query(
+      `UPDATE \`${table}\` SET ${hit.map((c) => `\`${c}\` = ROUND(\`${c}\` * ?)`).join(', ')}`,
+      hit.map(() => M.COUNT_SCALE))
+    log(`  放大 ${table.padEnd(26)} ${hit.length} 个计数列`)
+    touched++
+  }
+  log(`\n✅ 计数放大完成（系数 ${M.COUNT_SCALE}）：${touched} 张统计表\n`)
 }
 
 // ── 6. 清掉不能外露的配置 ──

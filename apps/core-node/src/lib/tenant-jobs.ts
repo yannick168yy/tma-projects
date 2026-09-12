@@ -26,14 +26,22 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 let cache: { value: TenantContext[]; expiresAt: number } | null = null
 const CACHE_MS = 60_000
 
-/** 只排除 closed：停站/停充提的租户仍要继续结算与对账，否则关停期间数据永久缺失 */
+/**
+ * 只排除 closed：停站/停充提的租户仍要继续结算与对账，否则关停期间数据永久缺失。
+ *
+ * 以及排除 is_demo。bff 侧早就有这道过滤，core-node 这份清单当时漏了 ——
+ * 后果是 bi-aggregate 每天在演示库上 DELETE 当天的 bi_daily_active 再按明细
+ * 重算：演示库的注单是按「每用户 N 条」限量的，重算出来的 DAU、bet_count
+ * 全被改小甚至清零，工作台的今日 GGR / 投注额直接变 0。
+ * 实测演示库比源库多出一行 ID 市场、DAU 从 393 变 285，就是这么来的。
+ */
 export async function listRunnableTenants(): Promise<TenantContext[]> {
   if (cache && cache.expiresAt > Date.now()) return cache.value
   // 容器网络的 DNS 偶发 ENOTFOUND，取不到租户清单会让整轮定时任务被跳过。
   // 重试一次盖住抖动；仍失败才让调用方按失败处理。
   const [rows] = await withRetry(() => getPlatformPool().query<TenantRow[]>(
     `SELECT id, code, db_name, status, self_operated, pool_min, pool_max, queue_limit
-       FROM pf_tenant WHERE status <> 'closed' ORDER BY id`,
+       FROM pf_tenant WHERE status <> 'closed' AND is_demo = 0 ORDER BY id`,
   ))
   const tenants = rows.map((row) => ({
     id: row.id,
@@ -106,7 +114,7 @@ export async function runForProviderTenants(
            FROM pf_tenant t
            JOIN pf_tenant_provider p ON p.tenant_id = t.id
           WHERE p.provider = ? AND p.status = 'active'
-                AND t.self_operated = 0 AND t.status <> 'closed'
+                AND t.self_operated = 0 AND t.status <> 'closed' AND t.is_demo = 0
           ORDER BY t.id`, [provider]))
       for (const row of rows) {
         targets.push({

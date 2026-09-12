@@ -168,6 +168,12 @@ export function scaleAmount(v) {
   return Math.round(n * SCALE * 100) / 100
 }
 
+/**
+ * 计数放大系数。与金额分开是因为两者作用的列类型不同：
+ * 金额是 decimal（自动按类型识别），计数是 int（只能按列名白名单）。
+ */
+export const COUNT_SCALE = Number(process.env.DEMO_COUNT_SCALE ?? 1)
+
 /** 自检用：判断一个值是否还残留真实数据的特征 */
 export function looksReal(value) {
   if (value == null) return false

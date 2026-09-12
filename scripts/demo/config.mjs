@@ -113,6 +113,29 @@ export const TIME_COLUMN = {
 }
 
 /**
+ * 统计表里的「人数 / 计数」列，按 DEMO_COUNT_SCALE 放大。
+ *
+ * 金额放大了而人数不变，人均充值就会变成 99 倍（几百人贡献上亿流水），
+ * 比不放大还假，所以两者要一起动。
+ *
+ * 🔴 已知且已接受的矛盾：放大后 BI 报表的 DAU 会超过用户列表的总数
+ * （工作台的总用户数读的是 COUNT(bg_user) 实时值，没法靠改数据放大）。
+ * 与「BI 汇总和明细对不上」是同一类取舍。
+ *
+ * 只列纯计数列。刻意排除：game_provider_id / game_id（是 ID 不是量）、
+ * avg_secs（平均值，放大后就不是"平均"了）。
+ */
+export const COUNT_SCALE_COLUMNS = {
+  bi_daily_active: ['new_users', 'dau', 'login_count'],
+  bi_daily_platform: ['deposit_count', 'deposit_users', 'withdraw_count', 'bet_count', 'bet_users', 'first_dep_users'],
+  bi_daily_acquisition: ['new_users', 'dau', 'first_dep_users'],
+  bi_daily_game: ['bet_count', 'bet_users'],
+  bi_daily_provider: ['bet_count', 'bet_users'],
+  bi_daily_user: ['bet_count'],
+  bi_daily_channel: ['total', 'success'],
+}
+
+/**
  * 百万级明细表：按「每个用户最多 N 条」限量，而不是缩短时间窗。
  *
  * 演示区间取的是买量高峰（7/27-8/2），那 7 天光注单就有 86 万条，
