@@ -20,6 +20,21 @@ reset-demo.sh    每日重置：drop → 建库 → 导快照 → 补迁移 → 
 
 前四步按需手动跑（刷新快照时），`reset-demo.sh` 由 cron 每日调用。
 
+## 改演示后台密码
+
+```bash
+sudo env APP_DIR=/opt/tma-projects DEMO_PASSWORD=88888888 \
+  bash /opt/tma-projects/scripts/demo/set-demo-password.sh
+```
+
+脚本会同时改库和重出 `demo-admin-seed.sql`。**只改库没用** —— 每日重置第 4 步
+会拿种子文件恢复账号，第二天密码就回到旧值。
+
+## 登录验证码
+
+演示后台按租户豁免了二步验证，登录改用图形验证码挡撞库（`GET /admin/auth/captcha`）。
+是否需要验证码由服务端看 `pf_tenant.is_demo` 决定，答案存 Redis 120 秒、校验后即删。
+
 ## 脱敏原则
 
 **不打码，用确定性假值**：`hash(真值 + salt)` 生成同格式的假数据。
