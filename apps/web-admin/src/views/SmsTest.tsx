@@ -3,6 +3,7 @@ import { Card, Alert, Typography, message, Switch, Table, Tag, Button } from 'an
 import { ReloadOutlined } from '@ant-design/icons'
 import { getSmsSettings, updateSmsSettings, getSmsSendLogs, type SmsSendLogEntry } from '../api'
 import { useAuthStore } from '../stores/auth'
+import { maskPhone } from '../site'
 
 const SCENE_LABELS: Record<string, string> = {
   kyc_otp: 'KYC 手机验证',
@@ -103,7 +104,7 @@ export default function SmsTest() {
               render: (v: string) => SCENE_LABELS[v] ?? v,
             },
             { title: '用户', dataIndex: 'userId', width: 100 },
-            { title: '手机号', dataIndex: 'phone', width: 140 },
+            { title: '手机号', dataIndex: 'phone', width: 140, render: (v: string) => maskPhone(v) },
             {
               title: '验证码',
               dataIndex: 'code',

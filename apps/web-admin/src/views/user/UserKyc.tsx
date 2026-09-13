@@ -7,6 +7,7 @@ import {
   type KycOverrideMode,
   type KycUserConfig,
 } from '../../api'
+import { maskPhone } from '../../site'
 
 function kycStatusTag(status: string) {
   const map: Record<string, { color: string; label: string }> = {
@@ -125,7 +126,7 @@ export default function UserKyc({ userId, kyc, kycConfig, onSuccess }: Props) {
             <Descriptions.Item label="手机验证">{kyc.phoneVerified ? '已完成' : '未完成'}</Descriptions.Item>
             <Descriptions.Item label="证件验证">{kyc.docVerified ? '已通过' : '未完成'}</Descriptions.Item>
             <Descriptions.Item label="人脸验证">{kyc.faceVerified ? '已通过' : '未完成'}</Descriptions.Item>
-            <Descriptions.Item label="手机">{kyc.phone ?? '—'}</Descriptions.Item>
+            <Descriptions.Item label="手机">{maskPhone(kyc.phone) || '—'}</Descriptions.Item>
             <Descriptions.Item label="姓名">{kyc.fullName ?? '—'}</Descriptions.Item>
             <Descriptions.Item label="证件类型">{docTypeLabel(kyc.docType)}</Descriptions.Item>
             <Descriptions.Item label="认证时间">{fmtDate(kyc.reviewedAt ?? kyc.faceSubmittedAt ?? kyc.docSubmittedAt)}</Descriptions.Item>

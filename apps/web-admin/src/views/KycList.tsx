@@ -5,6 +5,7 @@ import { getKycList, getKycSettings, setKycSettings, type AdminKycListItem, type
 import { MobileCardList } from '../components/MobileCardList'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 import { loadListState, saveListState } from '../listState'
+import { maskPhone } from '../site'
 
 function kycStatusTag(status: string) {
   const map: Record<string, { color: string; label: string }> = {
@@ -81,7 +82,7 @@ export default function KycList() {
     { title: '用户 ID', dataIndex: 'userId', key: 'userId', width: 120 },
     { title: '昵称', dataIndex: 'displayName', key: 'displayName', render: (v: string | null) => v ?? '—' },
     { title: '姓名', dataIndex: 'fullName', key: 'fullName', render: (v: string | null) => v ?? '—' },
-    { title: '手机', dataIndex: 'phone', key: 'phone', render: (v: string | null) => v ?? '—' },
+    { title: '手机', dataIndex: 'phone', key: 'phone', render: (v: string | null) => maskPhone(v) || '—' },
     { title: '状态', dataIndex: 'status', key: 'status', render: (_: string, r: AdminKycListItem) => kycStatusTags(r) },
     {
       title: '进度',
@@ -187,7 +188,7 @@ export default function KycList() {
                 title={<Space>{r.displayName || r.userId} {kycStatusTags(r)}</Space>}
               >
                 <div style={{ color: '#999', fontSize: 12 }}>
-                  ID {r.userId}{r.fullName ? ` · ${r.fullName}` : ''}{r.phone ? ` · ${r.phone}` : ''}
+                  ID {r.userId}{r.fullName ? ` · ${r.fullName}` : ''}{r.phone ? ` · ${maskPhone(r.phone)}` : ''}
                 </div>
                 <div style={{ marginTop: 6 }}>
                   <Space size={4}>

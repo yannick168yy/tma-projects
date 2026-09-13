@@ -3,6 +3,7 @@ import { Avatar, Card, Descriptions, Tag, Typography, Button, Modal, Form, Input
 import { UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { getUserDetail, resetUserPassword, fmtCurrencyAmounts, platformMeta } from '../../api'
+import { maskPhone } from '../../site'
 
 type Detail = Awaited<ReturnType<typeof getUserDetail>>
 
@@ -38,7 +39,7 @@ export default function UserInfo({ detail, onSuccess }: Props) {
   const u = detail.user as Record<string, unknown>
   const avatarUrl = typeof u.avatarUrl === 'string' ? u.avatarUrl : undefined
   const userId = String(u.id ?? '')
-  const phone = String(u.phone ?? '')
+  const phone = maskPhone(String(u.phone ?? ''))
   const walletBalances = detail.walletBalances?.length
     ? detail.walletBalances
     : [{ currency: 'PHP', available: detail.wallet.available, frozen: detail.wallet.frozen }]

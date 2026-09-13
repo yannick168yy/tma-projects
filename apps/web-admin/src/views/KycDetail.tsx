@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Card, Descriptions, Tag, Button, Space, Spin, Alert, Image, Collapse, Modal, Input, Table, Progress, message } from 'antd'
 import { fetchKycImageBlob, getKycDetail, getKycDocLog, reviewKyc, ignoreKyc, type AdminKycDetail, type KycDocLogItem } from '../api'
+import { maskPhone } from '../site'
 
 function kycStatusTag(status: string) {
   const map: Record<string, { color: string; label: string }> = {
@@ -162,7 +163,7 @@ export default function KycDetail() {
               <Tag color="warning">证件自动验证未通过，等待操作员人工通过或驳回</Tag>
             </Descriptions.Item>
           )}
-          <Descriptions.Item label="手机">{kyc.phone ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="手机">{maskPhone(kyc.phone) || '—'}</Descriptions.Item>
           <Descriptions.Item label="姓名">{kyc.fullName ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="证件类型">{kyc.docType ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="证件号">{kyc.extractedIdNo ?? '—'}</Descriptions.Item>
