@@ -49,8 +49,42 @@ T 系列积分：t4g.medium 基线 = 20% × 2 vCPU = 0.4 vCPU，日常用量 0.0
 | bg_turnover_allocations | 328,989 | 10.5 MB | log_id（跟随 logs） |
 | **合计** | **5,796,744 行（全库 74%）** | 2970.9 MB | |
 
-**归档后预估：betogo 约 800–850 MB**（六张大表 ~770MB + 其余小表 80.9MB）。
-1280M buffer pool 可以把整个库装进内存，命中率比现在还好看。
+**归档后预估：betogo 约 1.2–1.5 GB**（OPTIMIZE 回收碎片后）。
+
+> ⚠️ 体积必须看真实 .ibd 文件，不能信 `information_schema.tables` 的统计值 ——
+> 实测两者差最多 2.8 倍（`bg_568win_report_bet` 统计 405.7MB，实际 1140MB），
+> 因为该统计对 InnoDB 是估算值且不计碎片。betogo 目录实际 **4.7GB**，不是 3041MB。
+> 好消息是碎片这么多，说明 OPTIMIZE 的回收收益很大。
+
+```
+表                      统计值      真实 .ibd
+bg_568win_report_bet    405.7 MB →  1140 MB
+bg_568win_wallet_txn    869.1 MB →  1008 MB
+bg_bet_order            755.7 MB →   972 MB
+bg_wallet_ledger        685.0 MB →   864 MB
+bg_bet_round            138.2 MB →   308 MB
+bg_turnover_logs        106.8 MB →   140 MB
+```
+
+### 热工作集实测（决定 buffer pool 该给多大）
+
+库大小不等于内存需求 —— InnoDB 只缓存热页。实测 LRU young 区（被反复访问的页）：
+
+```
+bg_568win_report_bet   833 MB      bg_bet_order      321 MB
+bg_568win_wallet_txn   620 MB      bg_bet_round      185 MB
+bg_wallet_ledger       339 MB      bg_turnover_logs  103 MB
+betogo 合计 ≈ 2.4 GB
+```
+
+注意这是**上界**不是稳态值：当前 `Free buffers` 常年剩 3.22GB、
+`evicted without access 0.00/s`，说明 pool 从未满过、从未淘汰过任何页，
+young 页只进不出地累积。真实稳态工作集在 790MB（近 30 天数据量）～2.4GB 之间，
+不制造淘汰压力无法精确测定。
+
+**这就是必须归档的真正理由**：不是"库装不进内存"，而是 2.4GB 的工作集上界
+明显超过 t4g.medium 能给的 1280M pool。归档把冷数据移走后，工作集随之落到
+1GB 以内，1280M 才站得住。
 
 ### 为什么分两种删除策略
 
