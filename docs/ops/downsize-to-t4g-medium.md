@@ -33,8 +33,65 @@ T 系列积分：t4g.medium 基线 = 20% × 2 vCPU = 0.4 vCPU，日常用量 0.0
   `bg_login_log`（4.7MB），**不在归档清单内**，永不归档。
 - **报表不受影响**：`bi_daily_platform` / `bi_daily_game` / `bi_daily_user` / `bi_daily_provider`
   / `bi_daily_active` 等 BI 日汇总表从 2026-07-19 起持续填充至今，明细归档后报表仍有数据源。
-- **代价**：后台「用户投注明细 / 流水明细」查不到 30 天前的记录，需要时从 `archives/` 的
-  `.sql.gz` 离线恢复。这是本方案唯一的功能性损失，**上线前请与运营确认能接受**。
+### 归档的业务影响（逐个接口实测确认）
+
+**A. 不受影响 —— 已有增量维护的累计列或日汇总表**
+
+| 业务 | 为什么安全 |
+|---|---|
+| VIP 等级 | 读 `bg_user_vip_state.turnover_total`，由 core 写侧事务内增量维护（迁移 151），不 SUM 明细 |
+| 返水累计 | 同上，读累加列 |
+| 打码量 / 提现门槛 | `bg_turnover_requirements.completed_amount` 独立累计，写侧维护 |
+| 团队流水 | 历史读 `bg_team_turnover_daily`，只有当天才读 `bg_bet_order` |
+| 代理佣金 | `bg_agent_ggr_monthly` |
+| 全部 BI 报表 | `bi_daily_platform/game/user/provider/active`，7/19 起持续填充 |
+
+`vip.service.ts` 里那处 `SUM(bg_turnover_logs) GROUP BY user_id` 也安全 ——
+它是 `INSERT IGNORE` 建行语句，已有行不会被覆盖（代码注释也标了它很可能已是死代码）。
+
+**B. 明细查询 —— 查不到 30 天前，这是预期内的功能损失**
+
+- 后台「投注订单」`admin/bet-orders.routes.ts`
+- 后台「流水明细」`admin/ledger.routes.ts`
+- 后台「用户详情 → 投注/流水」`admin/users.routes.ts`
+- 后台「代理报表明细」`admin/agent.routes.ts`
+- 用户端「投注记录」`bets.routes.ts`
+- 用户端「流水」`ledger.routes.ts`（本来就只返回 7 天，无影响）
+
+需要时从 `archives/*.sql.gz` 离线恢复。
+
+**C. 🔴 提现风控统计失真 —— 必须先解决，否则不能归档**
+
+`withdraw-review.service.ts:655`：
+
+```js
+const sinceDate = wd?.last_at ? new Date(wd.last_at) : registeredAt
+```
+
+风控窗口 = **上次成功提现时间，从未提现过则 = 注册时间**，**没有时间下界**。
+归档 30 天前数据后，这类用户的存款额、投注额、盈亏、高倍中奖检测全部只剩 30 天内的数据。
+
+生产实测受影响规模：
+
+```
+总用户                                    2329
+注册超 30 天且从未成功提现                1989  (85%)
+  其中近 30 天有投注（会真实触发风控）     161  ← 高危
+```
+
+后果：这 161 人发起提现时，`large_profit` / 存提比 / `high_multiple_profit`
+等规则基于残缺数据判断，**可能放行本该转人工审核的提现**。这是资金安全问题，不是体验问题。
+
+**归档前必须先做的补救**（三选一）：
+1. 建用户级风控快照表，归档前把历史存款/投注/盈亏固化进去，风控改读快照 + 近期明细
+2. 给 `bg_bet_order` / `bg_wallet_ledger` 保留按用户聚合的汇总行，只删明细行
+3. 放弃归档，改用 t4g.large（8GB）—— 工作集 2.4GB 完全装得下，这些问题全部不存在
+
+**D. 撤单回滚的边缘情况**
+
+`turnover.service.ts:reverseBetTurnover` 需要 JOIN `bg_bet_order` + `bg_turnover_logs`
+找原始记录来回退打码量。30 天后才发生的撤单会找不到记录，打码量无法回滚。
+实际极罕见，但如果上游厂商有长周期对账撤单，需要确认。
 
 ### 归档范围与实测量（2026-09-13 预演结果）
 
