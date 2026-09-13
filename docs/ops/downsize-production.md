@@ -163,6 +163,39 @@ curl -sf https://admin.betogo.games/ > /dev/null && echo ADMIN-OK
 TARGET_MEM=5g TARGET_POOL_MB=4096 bash deploy/single-node/ensure-mysql-memory.sh
 ```
 
+## 实际执行记录（2026-09-13 完成）
+
+阶段一已执行完毕。实际过程与本手册预案的**五处偏差**，供阶段二参考：
+
+1. **生产已有 4GB swap**（`/swapfile`，已在 fstab），无需新建。`fallocate` 会报
+   `Text file busy`。手册原写"建 2G swap"是多余步骤。
+2. **`/opt/tma-projects` 不是 git 仓库**，代码走 rsync 部署。`git pull` 会失败，
+   新脚本要用 `scp` 传。
+3. **实例启动后 9 个容器会自动拉起**（`restart=always`），且用的是**创建时的旧配置** ——
+   MySQL 带着 `--memory=10240MB --innodb_buffer_pool_size=8G` 在 7.8GB 机器上跑起来了。
+   必须立即处理，否则 pool 填充时会 OOM。
+4. **止血手段**：MySQL 8 支持在线调整，`SET GLOBAL innodb_buffer_pool_size=4294967296`
+   几秒完成、零停机，可先消除 OOM 风险再从容重建容器。
+   （注意这只是运行时值，重启回退，必须重建容器才永久生效。）
+5. **不需要跑 `podman-prod-minimal.sh` 全栈重建**。只有 MySQL 的限额超出机器规格，
+   其余容器（bff 256m×2 / core 192m / redis 512m / nats 256m / web 128m×2）在 8G 上都安全。
+   只重建 MySQL 风险小得多 —— 用新增的 `deploy/single-node/recreate-mysql.sh`。
+
+**实测结果**：
+
+```
+规格      4C16G → 2C8G (7802MB)
+pool      8192MB → 4096MB（永久，容器重建生效）
+max_conn  200 → 120
+停机      EC2 停止到启动约 5 分钟；MySQL 容器重建仅 4 秒
+影响      nginx 日志中仅 4 个 502
+数据      用户 2329 一致；订单/流水与降配前对齐
+内存      used 1547MB / 7802MB，available 6254MB
+验证      bff:3000/3001、core:4000 健康检查均 200
+          https://www.betogo.games/ 与 admin 均 200，响应 0.29s
+          EIP 13.213.107.231 未变，DNS 无需调整
+```
+
 ## 观察期
 
 降配后跟踪一周：
