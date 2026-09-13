@@ -1,0 +1,51 @@
+# cc-connect（Telegram 桥接）
+
+本项目可通过 cc-connect 从 Telegram 驱动 Cursor Agent。
+
+## 定时任务
+用户要用自然语言安排周期性任务时，用 shell 执行：
+
+```bash
+cc-connect cron add --cron "<min> <hour> <day> <month> <weekday>" --prompt "<任务描述>" --desc "<简短标签>"
+```
+
+环境变量 `CC_PROJECT`、`CC_SESSION_KEY` 已设置，不要传 `--project` 或 `--session-key`。
+
+## 主动发消息到当前会话
+```bash
+cc-connect send --stdin <<'CCEOF'
+消息内容
+CCEOF
+```
+
+短消息：`cc-connect send -m "简短内容"`
+
+## Workspace Trust（cursor-agent 非交互调用）
+
+cursor-agent 更新后可能要求「信任工作区」：cc-connect 用 `-p` 调用时若未信任，agent 只打印 `Workspace Trust Required` 然后退出，Telegram bot 会**完全无回复**。
+
+信任按**工作区目录**持久化，不在 `cli-config.json`，而在：
+
+`~/.cursor/projects/<项目哈希>/.workspace-trusted`
+
+### 自检
+
+```bash
+cd /Users/yannicky/tma-projects && ~/.local/bin/agent -p "reply exactly: OK"
+```
+
+输出应为 `OK`；若出现 trust 提示则未信任。
+
+### 修复（副作用最小，不用 --force）
+
+```bash
+bash scripts/ensure-agent-trust.sh
+# 其他 work_dir（如 tma-cursor）：
+bash scripts/ensure-agent-trust.sh /path/to/tma-cursor
+```
+
+或手动：`cd <work_dir> && ~/.local/bin/agent --trust -p ok`
+
+### 复发
+
+cursor-agent **自动更新**后可能清空信任，症状同上。cc-connect / LaunchAgent 可在启动前调用 `ensure-agent-trust.sh` 自愈。
