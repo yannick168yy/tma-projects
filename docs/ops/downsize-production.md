@@ -1,5 +1,61 @@
 # 生产降配方案（两阶段）
 
+> ## ⚠️ 2026-09-14 结论反转：本文下方的降配方案**不要再执行**
+>
+> 账户里存在一份被忽略的 **EC2 Instance Savings Plan**，它让"降配省钱"这个前提整个失效。
+> 已于 2026-09-14 把生产从 t4g.large **换回 m8g.large**，详见文末《回切记录》。
+>
+> ### SP 事实（AWS 官方账单原文确认）
+>
+> ```
+> 3 year No Upfront m8g EC2 Instance Savings Plan in ap-southeast-1
+> 720 Hrs   USD 60.48
+> ```
+>
+> | 项 | 值 |
+> |---|---|
+> | 承诺额 | **$0.084/小时**（每月固定 $60.48–62.50，**按月全额出账**）|
+> | 锁定范围 | **m8g 家族 + ap-southeast-1**（不锁具体实例/规格/数量）|
+> | 期限 | 3 年无预付，约 2026-07-29 生效 → **2029-07-29 到期** |
+> | 折扣率 | 54.6%（m8g.xlarge 按需 $0.2244/h → SP 费率 $0.1018/h）|
+>
+> ### 为什么降配反而更贵
+>
+> SP 承诺的**不是机器，是每小时的消费金额**。降到 t4g（非 m8g 家族）后这笔额度
+> 完全无法使用，于是变成"既付 SP 又付 t4g"的双重支出：
+>
+> | 方案 | 月成本（含 12% 税）|
+> |---|---|
+> | t4g.large + SP 空转 | **$155.58** |
+> | m8g.xlarge（降配前）| $115.03 |
+> | **m8g.large（当前）** | **$84.92** ← 实例费被 SP 全额覆盖，按需为 $0 |
+>
+> 账单里的 `Savings` 一节自己给出了证据：9 月 SP 只省下 $54.30，却付了 $60.48，**净亏 $6.18**；
+> 而 8 月（m8g 在跑）是付 $62.50 省 $137.77，**净赚 $75.27**。
+>
+> ### 选机型的硬约束（SP 到期前一律适用）
+>
+> 1. **必须留在 m8g 家族**，否则 $60.48/月 直接打水漂
+> 2. m8g.large 每小时消耗 $0.0509 < 额度 $0.084 → **完全覆盖，实例费 $0**
+> 3. m8g.xlarge 消耗 $0.1018 > 额度 → 超出部分按需付（约 $13/月）
+> 4. 当前 SP 利用率仅 **60.6%**，剩余约 $24.6/月仍在浪费。加一台
+>    **m8g.medium（1C4G，消耗 $0.0255/h）**可把利用率提到 **91%**，
+>    该实例费同样为 $0，只需付其 EBS（30GB 约 $2.9/月）—— 可用于替代阿里云测试机。
+>
+> ### 仍未确认
+>
+> - SP 的**确切 End date 与签约人**：账单只写 "3 year"。需在
+>   Billing → Savings Plans → Inventory 核对，或用 CloudTrail 查 `CreateSavingsPlan`
+>   （90 天保留期，7/29 起算，**约 2026-10-27 前有效**）。
+> - 当前 IAM `betogo_IAM_user` 缺 `savingsplans:DescribeSavingsPlans`、
+>   `cloudtrail:LookupEvents`，补上后可直接查。
+>
+> ### 下方原方案的技术结论仍然有效
+>
+> CPU/内存实测、工作集分析、归档脚本都没错，错的只是"降配省钱"的经济前提。
+> **阶段二（t4g.medium）已作废**；归档降级为独立的库体积治理事项，不再是降配前置。
+
+
 生产 m8g.xlarge（4C16G）严重过剩，实测只用掉约 1/5。分两阶段降配：
 
 | 阶段 | 机型 | 月成本 | 节省 | 前置条件 | 状态 |
@@ -342,3 +398,59 @@ bash scripts/archive/archive-cold-data.sh --apply --optimize    # 执行 + 回�
 - **binlog 保留 30 天 → 7 天**：当前 11 个文件占 12GB，调整省约 8GB 磁盘。磁盘目前不紧张。
 - **demo 库挪出生产**：`betogo_demo` + `betogo_demo_stage` 占 539MB 磁盘、约 140MB buffer pool。
   挪走能直接腾出工作集，对阶段二有帮助。需确认演示站是否必须跑在生产机。
+
+---
+
+# 回切记录：t4g.large → m8g.large（2026-09-14 完成）
+
+起因见文首《结论反转》。**同一台实例改机型属性，不是新建实例** ——
+实例 `i-0fcc483b5d6d11a61`、卷 `vol-0e3f98a7d4fe42545`、网卡 `eni-00102f8d24ee6f0ab`
+全程不变，因此 t4g.large 的计费在切换瞬间即停止（累计仅产生约 $2.26）。
+
+## 与 9/13 降配相比，这次简单得多
+
+**不需要重建任何容器**：m8g.large 同为 8GB，`env-aws-8g.sh` 的参数
+（MySQL 5120MB / pool 4096MB / max_conn 120）原样适用。实例启动后 9 个容器
+靠 `restart=always` 自动拉起，配置沿用，无需 `podman-prod-minimal.sh`，
+也不必单独起 web-platform。`ensure-mysql-memory.sh` 的 cron 目标值
+（TARGET_MEM=5g / TARGET_POOL_MB=4096）同样无需改动。
+
+## 执行
+
+```bash
+R=ap-southeast-1; I=i-0fcc483b5d6d11a61
+aws ec2 create-snapshot --region $R --volume-id vol-0e3f98a7d4fe42545 \
+  --description "pre-resize-back-m8g-large-$(date +%F)"          # snap-08af16af13c665aa4
+ssh ... 'cd /opt/tma-projects && sudo podman stop -a'
+aws ec2 stop-instances  --region $R --instance-ids $I
+aws ec2 wait instance-stopped --region $R --instance-ids $I
+aws ec2 modify-instance-attribute --region $R --instance-id $I --instance-type m8g.large
+aws ec2 start-instances --region $R --instance-ids $I
+# 容器自动拉起，无需任何重建步骤
+```
+
+## 实测结果
+
+```
+规格      t4g.large (2C8G, Graviton2 突发型) → m8g.large (2C8G, Graviton4 常规型)
+停机      07:59:07 → 07:59:52 UTC 实例 running；08:00:26 SSH 可用 —— 全程 79 秒
+影响      nginx 日志中仅 1 个 502（本地时间 15:59:01）
+容器      9 个全部 restart=always 自动拉起，无需干预
+pool      4096MB（已核，无静默降级）；max_conn 120
+数据      用户 2331 / 订单 1809375 / 流水 1875067 / 最新订单 06:42:43 —— 与切换前完全一致
+健康      bff:3000、bff:3001、core:4000 均 200
+          www.betogo.games 200 (0.069s)、admin.betogo.games 200 (0.034s)
+EIP       13.213.107.231 未变，DNS 无需调整
+```
+
+## 附带收益
+
+m8g.large 是**非突发型** Graviton4 实例，不再有 CPU 积分与 unlimited 模式的
+超额计费风险（t4g.large 此前为 unlimited，虽实测 Surplus 恒为 0）。
+
+## 待观察
+
+- 约 24h 后核对账单：`BoxUsage:m8g.large` 应出现 `covered by EC2 Instance Savings Plans`
+  的全额抵扣行，EC2 按需费应归零。
+- 账单中另有 CloudFront 在跑（约 13.7 万次 HTTPS 请求、2.7GB 流量、14 万次 Function 调用），
+  当前全部落在永久免费套餐内计 $0，流量增长后需重新评估。
