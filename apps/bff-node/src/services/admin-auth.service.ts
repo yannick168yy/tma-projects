@@ -115,6 +115,16 @@ export async function loginAdmin(
   return createAdminSession(redis, env, account)
 }
 
+export async function loginDemoAdmin(
+  redis: Redis,
+  env: Env,
+): Promise<{ token: string; expiresIn: number; role: string } | null> {
+  if (!currentTenantOrNull()?.isDemo) return null
+  const account = await getAdminByUsername(env, 'demoadmin')
+  if (!account || account.status !== 'active') return null
+  return createAdminSession(redis, env, account)
+}
+
 /** TOTP 绑定完成后解除 session 限制（保持原 TTL） */
 export async function clearTotpSetupRequired(redis: Redis, token: string): Promise<void> {
   const key = sessionKey(token)

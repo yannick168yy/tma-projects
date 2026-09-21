@@ -1,8 +1,12 @@
 import Redis from 'ioredis-mock'
 import { describe, expect, it } from 'vitest'
 import {
+  clearDemoAccessFailures,
   composeDemoAccessMessage,
+  DEMO_ACCESS_FAILURE_LIMIT,
   generateDemoAccessCode,
+  isDemoAccessBlocked,
+  recordDemoAccessFailure,
   setDemoAccessCode,
   verifyDemoAccessCode,
 } from '../services/demo-access-code.service.js'
@@ -29,9 +33,18 @@ describe('演示后台访问码', () => {
     expect(composeDemoAccessMessage('A2B3')).toBe(
       '演示后台\n' +
       'demo-admin.betogo.games\n' +
-      '账号 demoadmin\n' +
-      '密码 88888888\n' +
       '访问码 A2B3',
     )
+  })
+
+  it('同一 IP 每天最多输错 20 次，成功后清零', async () => {
+    const redis = new Redis()
+    for (let i = 0; i < DEMO_ACCESS_FAILURE_LIMIT; i += 1) {
+      await recordDemoAccessFailure(redis, '127.0.0.1')
+    }
+    await expect(isDemoAccessBlocked(redis, '127.0.0.1')).resolves.toBe(true)
+    await clearDemoAccessFailures(redis, '127.0.0.1')
+    await expect(isDemoAccessBlocked(redis, '127.0.0.1')).resolves.toBe(false)
+    redis.disconnect()
   })
 })

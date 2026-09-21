@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import {
-  changeAdminPassword, createImpersonationSession, loginAdmin, logoutAdmin, verifyAdminTotpLogin,
+  changeAdminPassword, createImpersonationSession, loginAdmin, loginDemoAdmin, logoutAdmin, verifyAdminTotpLogin,
 } from '../../services/admin-auth.service.js'
 import { consumeImpersonateTicket } from '../../services/impersonate.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
@@ -10,7 +10,13 @@ import type { Redis } from 'ioredis'
 import { adminAuthMiddleware } from '../../middleware/admin-auth.js'
 import { currentTenantOrNull } from '../../lib/tenant-context.js'
 import { getDefaultRedis } from '../../clients/redis.client.js'
-import { verifyDemoAccessCode } from '../../services/demo-access-code.service.js'
+import {
+  clearDemoAccessFailures,
+  DEMO_ACCESS_FAILURE_LIMIT,
+  isDemoAccessBlocked,
+  recordDemoAccessFailure,
+  verifyDemoAccessCode,
+} from '../../services/demo-access-code.service.js'
 import { generateCaptcha } from '../../utils/captcha.js'
 import { randomToken } from '../../utils/id.js'
 import { fail, ok } from '../../utils/response.js'
@@ -28,14 +34,11 @@ function captchaKey(id: string): string {
 }
 
 /**
- * 演示站登录：过每日访问码和图形验证码，但不锁账号。
+ * 演示站登录：过每日访问码和图形验证码后，直接进入固定演示账号。
  *
- * 演示站公网可访问、账号密码是公开发给客人的，又按租户豁免了二步验证
- * （见 shouldRequireAdminTotp），所以要加验证码挡自动化撞库。自营站后台
- * 走的是 TOTP，不给它加这个额外步骤。
- *
- * 反过来，连错 5 次锁 15 分钟那道对演示站只会伤到自己人 —— 销售当着客人的面
- * 被锁在门外没法演示，而撞库已经被访问码和验证码挡在密码校验之前了。
+ * 演示账号只操作每天重置的脱敏样本，且对外副作用有 demoGuard 拦截；访问码
+ * 每天随日报更换，图形验证码和每日 IP 失败上限负责挡自动化尝试。自营站后台
+ * 仍走账号密码和 TOTP，不受这里影响。
  */
 function isDemoLogin(): boolean {
   return currentTenantOrNull()?.isDemo === true
@@ -68,17 +71,21 @@ router.post('/login', async (ctx) => {
     captchaId?: string
     captchaCode?: string
   }
-  if (!body.username || !body.password) {
+  const demo = isDemoLogin()
+  if (!demo && (!body.username || !body.password)) {
     fail(ctx, 400, 'username and password required')
     return
   }
-  const username = body.username.trim().toLowerCase()
+  const username = demo ? 'demoadmin' : body.username!.trim().toLowerCase()
   const ip = cleanIp(ctx.ip)
-  const demo = isDemoLogin()
   const failureKey = `admin:login:fails:${ip}:${username}`
   const lockKey = `admin:login:lock:${ip}:${username}`
   if (!demo && await ctx.state.redis.get(lockKey)) {
     fail(ctx, 429, 'errors.tooManyAttempts', 429)
+    return
+  }
+  if (demo && await isDemoAccessBlocked(ctx.state.redis, ip)) {
+    fail(ctx, 429, `访问码今日已输错 ${DEMO_ACCESS_FAILURE_LIMIT} 次，请明天再试`, 429)
     return
   }
   // 验证码校验放在密码校验之前
@@ -87,10 +94,18 @@ router.post('/login', async (ctx) => {
     return
   }
   if (demo && !(await verifyDemoAccessCode(getDefaultRedis(ctx.state.env), body.accessCode))) {
+    const failed = await recordDemoAccessFailure(ctx.state.redis, ip)
+    if (failed >= DEMO_ACCESS_FAILURE_LIMIT) {
+      fail(ctx, 429, `访问码今日已输错 ${DEMO_ACCESS_FAILURE_LIMIT} 次，请明天再试`, 429)
+      return
+    }
     fail(ctx, 401, '登录信息或验证码错误', 401)
     return
   }
-  const result = await loginAdmin(ctx.state.redis, ctx.state.env, body.username, body.password)
+  if (demo) await clearDemoAccessFailures(ctx.state.redis, ip)
+  const result = demo
+    ? await loginDemoAdmin(ctx.state.redis, ctx.state.env)
+    : await loginAdmin(ctx.state.redis, ctx.state.env, body.username!, body.password!)
   if (!result) {
     if (!demo) {
       const failed = await ctx.state.redis.incr(failureKey)
@@ -105,7 +120,7 @@ router.post('/login', async (ctx) => {
     fail(ctx, 401, demo ? '登录信息或验证码错误' : 'Invalid credentials', 401)
     return
   }
-  await ctx.state.redis.del(failureKey, lockKey)
+  if (!demo) await ctx.state.redis.del(failureKey, lockKey)
   ok(ctx, result)
 })
 

@@ -49,13 +49,13 @@ export type AdminLoginResult =
   | { token: string; expiresIn: number; role: string; requiresTotp?: false; totpSetupRequired?: boolean }
   | { requiresTotp: true; challengeToken: string; expiresIn: number }
 export const adminLogin = (
-  username: string,
-  password: string,
+  username?: string,
+  password?: string,
   accessCode?: string,
   captcha?: { captchaId: string; captchaCode: string },
 ) => post<AdminLoginResult>('/admin/auth/login', { username, password, accessCode, ...captcha })
 
-/** 演示站登录要过图形验证码；其他站点返回 { required: false } */
+/** 演示站登录要过访问码和图形验证码；其他站点返回 { required: false } */
 export type AdminCaptcha =
   | { required: false }
   | { required: true; captchaId: string; image: string; expiresIn: number }

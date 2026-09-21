@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { SITE_TITLE } from '../site'
 import { useNavigate } from 'react-router-dom'
-import { Card, Form, Input, Button, message, Popover, Space } from 'antd'
+import { Card, Form, Input, Button, message, Popover, Space, Spin } from 'antd'
 import { UserOutlined, LockOutlined, SafetyCertificateOutlined, KeyOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminCaptcha, adminLogin, adminLoginTotp, type AdminCaptcha } from '../api'
@@ -13,21 +13,22 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [challengeToken, setChallengeToken] = useState('')
   // 是否需要验证码由服务端按租户判断，前端不自己看域名 —— 免得判断口径和后端不一致
-  const [captcha, setCaptcha] = useState<Extract<AdminCaptcha, { required: true }> | null>(null)
+  const [captchaConfig, setCaptchaConfig] = useState<AdminCaptcha | null>(null)
+  const captcha = captchaConfig?.required ? captchaConfig : null
 
   async function refreshCaptcha() {
     try {
       const res = await adminCaptcha()
-      setCaptcha(res.required ? res : null)
+      setCaptchaConfig(res)
     } catch {
-      setCaptcha(null)
+      setCaptchaConfig({ required: false })
     }
     form.resetFields(['captchaCode'])
   }
 
   useEffect(() => { void refreshCaptcha() }, [])
 
-  async function handleLogin(values: { username: string; password: string; accessCode?: string; captchaCode?: string }) {
+  async function handleLogin(values: { username?: string; password?: string; accessCode?: string; captchaCode?: string }) {
     setLoading(true)
     try {
       const res = await adminLogin(
@@ -75,7 +76,9 @@ export default function Login() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0f2f5' }}>
       <Card title={SITE_TITLE} style={{ width: 380 }}>
-        {challengeToken ? (
+        {captchaConfig === null ? (
+          <div style={{ padding: 32, textAlign: 'center' }}><Spin /></div>
+        ) : challengeToken ? (
           <Form onFinish={handleTotp} layout="vertical">
             <Form.Item name="code" rules={[{ required: true, message: '请输入验证码' }]}>
               <Input prefix={<SafetyCertificateOutlined />} placeholder="6 位验证码" size="large" maxLength={6} />
@@ -87,12 +90,16 @@ export default function Login() {
           </Form>
         ) : (
           <Form form={form} onFinish={handleLogin} layout="vertical">
-            <Form.Item name="username" rules={[{ required: true, message: '请输入用户名' }]}>
-              <Input prefix={<UserOutlined />} placeholder="用户名" size="large" />
-            </Form.Item>
-            <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
-              <Input.Password prefix={<LockOutlined />} placeholder="密码" size="large" />
-            </Form.Item>
+            {!captcha && (
+              <>
+                <Form.Item name="username" rules={[{ required: true, message: '请输入用户名' }]}>
+                  <Input prefix={<UserOutlined />} placeholder="用户名" size="large" />
+                </Form.Item>
+                <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
+                  <Input.Password prefix={<LockOutlined />} placeholder="密码" size="large" />
+                </Form.Item>
+              </>
+            )}
             {captcha && (
               <Form.Item name="accessCode" rules={[{ required: true, message: '请输入访问码' }]}>
                 <Input
