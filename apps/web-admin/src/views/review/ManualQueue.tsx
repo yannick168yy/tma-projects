@@ -60,9 +60,13 @@ export default function ManualQueue() {
       content: '忽略后该提案不再计入待人工处理和菜单角标，仍可在提案审核记录中查看并处理。',
       okText: '忽略提醒',
       onOk: async () => {
-        await ignoreReviewProposal(item.id)
-        message.success('已忽略，不再提醒')
-        void load(page)
+        try {
+          await ignoreReviewProposal(item.id)
+          message.success('已忽略，不再提醒')
+          void load(page)
+        } catch (e) {
+          message.warning(e instanceof Error ? e.message : '操作失败')
+        }
       },
     })
   }

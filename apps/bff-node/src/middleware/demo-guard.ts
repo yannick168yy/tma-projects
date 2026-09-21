@@ -23,6 +23,7 @@ const BLOCKED = [
 
   // 固定演示待办：保持每天展示的样本不被操作掉
   { re: /^\/api\/v1\/admin\/withdrawals\/[^/]+\/(approve|reject)$/, why: '提款审核样本仅供展示，不能批准或拒绝' },
+  { re: /^\/api\/v1\/admin\/review\/proposals\/[^/]+\/ignore$/, why: '提款审核样本仅供展示，不能忽略提醒' },
   { re: /^\/api\/v1\/admin\/kyc\/[^/]+\/(approve|reject)$/, why: '实名认证样本仅供展示，不能通过或驳回' },
   { re: /^\/api\/v1\/admin\/cs\/conversations\/[^/]+\/(takeover|resolve|close)$/, why: '客服工单样本仅供展示，不能接管或结束' },
 

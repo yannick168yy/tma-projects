@@ -26,6 +26,7 @@ describe('演示后台待办保护', () => {
     const paths = [
       '/api/v1/admin/withdrawals/WD-DEMO/approve',
       '/api/v1/admin/withdrawals/WD-DEMO/reject',
+      '/api/v1/admin/review/proposals/WD-DEMO/ignore',
       '/api/v1/admin/kyc/U-DEMO/approve',
       '/api/v1/admin/kyc/U-DEMO/reject',
       '/api/v1/admin/cs/conversations/1/translate',
