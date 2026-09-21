@@ -76,9 +76,9 @@ SELECT user_id, ROW_NUMBER() OVER (ORDER BY seed_priority, updated_at DESC, user
 FROM (
   SELECT user_id,
          updated_at,
-         CASE WHEN status = 'pending' AND reject_step = 'demo_seed_pending' THEN 0 ELSE 1 END AS seed_priority
+         CASE WHEN status = 'pending' AND JSON_UNQUOTE(JSON_EXTRACT(gemini_result, '$.demoSeedPending')) = 'true' THEN 0 ELSE 1 END AS seed_priority
   FROM bg_kyc
-  WHERE (status = 'pending' AND reject_step = 'demo_seed_pending')
+  WHERE (status = 'pending' AND JSON_UNQUOTE(JSON_EXTRACT(gemini_result, '$.demoSeedPending')) = 'true')
      OR (status = 'approved' AND full_name IS NOT NULL AND doc_submitted_at IS NOT NULL)
 ) candidates
 ORDER BY seed_priority, updated_at DESC, user_id
@@ -104,7 +104,8 @@ SET k.status = 'pending',
     k.reviewed_by = NULL,
     k.badge_ignored = 0,
     k.reject_reason = NULL,
-    k.reject_step = 'demo_seed_pending',
+    k.reject_step = NULL,
+    k.gemini_result = JSON_SET(COALESCE(k.gemini_result, JSON_OBJECT()), '$.demoSeedPending', TRUE),
     k.updated_at = NOW();
 
 DROP TEMPORARY TABLE demo_pending_kyc;
