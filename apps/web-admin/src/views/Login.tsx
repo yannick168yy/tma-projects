@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { SITE_TITLE } from '../site'
 import { useNavigate } from 'react-router-dom'
-import { Card, Form, Input, Button, message } from 'antd'
-import { UserOutlined, LockOutlined, SafetyCertificateOutlined } from '@ant-design/icons'
+import { Card, Form, Input, Button, message, Popover, Space } from 'antd'
+import { UserOutlined, LockOutlined, SafetyCertificateOutlined, KeyOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminCaptcha, adminLogin, adminLoginTotp, type AdminCaptcha } from '../api'
 
@@ -27,12 +27,13 @@ export default function Login() {
 
   useEffect(() => { void refreshCaptcha() }, [])
 
-  async function handleLogin(values: { username: string; password: string; captchaCode?: string }) {
+  async function handleLogin(values: { username: string; password: string; accessCode?: string; captchaCode?: string }) {
     setLoading(true)
     try {
       const res = await adminLogin(
         values.username,
         values.password,
+        values.accessCode,
         captcha ? { captchaId: captcha.captchaId, captchaCode: values.captchaCode ?? '' } : undefined,
       )
       if ('requiresTotp' in res && res.requiresTotp) {
@@ -92,6 +93,37 @@ export default function Login() {
             <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
               <Input.Password prefix={<LockOutlined />} placeholder="密码" size="large" />
             </Form.Item>
+            {captcha && (
+              <Form.Item name="accessCode" rules={[{ required: true, message: '请输入访问码' }]}>
+                <Input
+                  prefix={<KeyOutlined />}
+                  placeholder="联系管理员获取"
+                  size="large"
+                  maxLength={4}
+                  autoComplete="off"
+                  style={{ textTransform: 'uppercase' }}
+                  suffix={
+                    <Popover
+                      trigger="click"
+                      title="联系管理员获取访问码"
+                      content={
+                        <Space direction="vertical" size={8}>
+                          <a href="https://t.me/betogo777" target="_blank" rel="noreferrer">@betogo777</a>
+                          <a href="https://t.me/betogoop" target="_blank" rel="noreferrer">@betogoop</a>
+                          <a href="https://t.me/xinxiangshicheng66" target="_blank" rel="noreferrer">@xinxiangshicheng66</a>
+                        </Space>
+                      }
+                    >
+                      <QuestionCircleOutlined
+                        title="联系管理员"
+                        onClick={(event) => event.stopPropagation()}
+                        style={{ color: '#1677ff', cursor: 'pointer' }}
+                      />
+                    </Popover>
+                  }
+                />
+              </Form.Item>
+            )}
             {captcha && (
               <Form.Item name="captchaCode" rules={[{ required: true, message: '请输入验证码' }]}>
                 <Input

@@ -51,8 +51,9 @@ export type AdminLoginResult =
 export const adminLogin = (
   username: string,
   password: string,
+  accessCode?: string,
   captcha?: { captchaId: string; captchaCode: string },
-) => post<AdminLoginResult>('/admin/auth/login', { username, password, ...captcha })
+) => post<AdminLoginResult>('/admin/auth/login', { username, password, accessCode, ...captcha })
 
 /** 演示站登录要过图形验证码；其他站点返回 { required: false } */
 export type AdminCaptcha =

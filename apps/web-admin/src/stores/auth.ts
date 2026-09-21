@@ -33,7 +33,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ token, role, verifiedRole: role })
   },
   async login(username, password) {
-    const res = await adminLogin(username, password)
+    const res = await adminLogin(username, password, undefined)
     if ('requiresTotp' in res && res.requiresTotp) throw new Error('需要 Google Authenticator 验证')
     get().setSession(res.token, res.role)
   },

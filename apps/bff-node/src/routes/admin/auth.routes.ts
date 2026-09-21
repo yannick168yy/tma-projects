@@ -9,6 +9,8 @@ import type { RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
 import { adminAuthMiddleware } from '../../middleware/admin-auth.js'
 import { currentTenantOrNull } from '../../lib/tenant-context.js'
+import { getDefaultRedis } from '../../clients/redis.client.js'
+import { verifyDemoAccessCode } from '../../services/demo-access-code.service.js'
 import { generateCaptcha } from '../../utils/captcha.js'
 import { randomToken } from '../../utils/id.js'
 import { fail, ok } from '../../utils/response.js'
@@ -26,14 +28,14 @@ function captchaKey(id: string): string {
 }
 
 /**
- * 演示站登录：过图形验证码，但不锁账号。
+ * 演示站登录：过每日访问码和图形验证码，但不锁账号。
  *
  * 演示站公网可访问、账号密码是公开发给客人的，又按租户豁免了二步验证
  * （见 shouldRequireAdminTotp），所以要加验证码挡自动化撞库。自营站后台
  * 走的是 TOTP，不给它加这个额外步骤。
  *
  * 反过来，连错 5 次锁 15 分钟那道对演示站只会伤到自己人 —— 销售当着客人的面
- * 被锁在门外没法演示，而撞库已经被验证码挡在密码校验之前了。
+ * 被锁在门外没法演示，而撞库已经被访问码和验证码挡在密码校验之前了。
  */
 function isDemoLogin(): boolean {
   return currentTenantOrNull()?.isDemo === true
@@ -59,7 +61,13 @@ router.get('/captcha', async (ctx) => {
 })
 
 router.post('/login', async (ctx) => {
-  const body = ctx.request.body as { username?: string; password?: string; captchaId?: string; captchaCode?: string }
+  const body = ctx.request.body as {
+    username?: string
+    password?: string
+    accessCode?: string
+    captchaId?: string
+    captchaCode?: string
+  }
   if (!body.username || !body.password) {
     fail(ctx, 400, 'username and password required')
     return
@@ -75,7 +83,11 @@ router.post('/login', async (ctx) => {
   }
   // 验证码校验放在密码校验之前
   if (demo && !(await consumeCaptcha(ctx.state.redis, body.captchaId, body.captchaCode))) {
-    fail(ctx, 400, 'errors.invalidCaptcha')
+    fail(ctx, 400, '登录信息或验证码错误')
+    return
+  }
+  if (demo && !(await verifyDemoAccessCode(getDefaultRedis(ctx.state.env), body.accessCode))) {
+    fail(ctx, 401, '登录信息或验证码错误', 401)
     return
   }
   const result = await loginAdmin(ctx.state.redis, ctx.state.env, body.username, body.password)
@@ -90,7 +102,7 @@ router.post('/login', async (ctx) => {
         return
       }
     }
-    fail(ctx, 401, 'Invalid credentials', 401)
+    fail(ctx, 401, demo ? '登录信息或验证码错误' : 'Invalid credentials', 401)
     return
   }
   await ctx.state.redis.del(failureKey, lockKey)

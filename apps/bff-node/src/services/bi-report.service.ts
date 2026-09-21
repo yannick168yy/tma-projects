@@ -7,6 +7,13 @@ import { childLogger } from '../lib/logger.js'
 import { getRate } from './exchange-rate.service.js'
 import { getBiTargetProgress, listBiAlerts } from './bi.service.js'
 import { getAdminSetting, setAdminSetting } from './admin-store.js'
+import { getDefaultRedis } from '../clients/redis.client.js'
+import { currentTenantOrNull } from '../lib/tenant-context.js'
+import {
+  composeDemoAccessMessage,
+  generateDemoAccessCode,
+  setDemoAccessCode,
+} from './demo-access-code.service.js'
 
 const log = childLogger('bi-report')
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -131,15 +138,35 @@ export async function runBiReportTick(env: Env, redis: Redis): Promise<void> {
   try {
     const raw = await composeRawReport(env, redis, manilaDate(-1))
     const text = await polishWithGemini(env, raw)
+    const rotatesDemoAccessCode = currentTenantOrNull()?.selfOperated === true
+    const nextAccessCode = rotatesDemoAccessCode ? generateDemoAccessCode() : null
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 10_000)
-    await fetch(`https://api.telegram.org/bot${env.ADMIN_TG_BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: reportChat, text, disable_web_page_preview: true }),
-      signal: ctrl.signal,
-    })
-    clearTimeout(timer)
+    try {
+      const reportResp = await fetch(`https://api.telegram.org/bot${env.ADMIN_TG_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: reportChat, text, disable_web_page_preview: true }),
+        signal: ctrl.signal,
+      })
+      if (!reportResp.ok) throw new Error(`日报发送失败: HTTP ${reportResp.status}`)
+      if (nextAccessCode) {
+        const accessResp = await fetch(`https://api.telegram.org/bot${env.ADMIN_TG_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: reportChat,
+            text: composeDemoAccessMessage(nextAccessCode),
+            disable_web_page_preview: true,
+          }),
+          signal: ctrl.signal,
+        })
+        if (!accessResp.ok) throw new Error(`演示后台访问码发送失败: HTTP ${accessResp.status}`)
+        await setDemoAccessCode(getDefaultRedis(env), nextAccessCode)
+      }
+    } finally {
+      clearTimeout(timer)
+    }
     log.info({ date: manilaDate(-1) }, 'daily report sent')
   } catch (err) {
     // 失败释放锁，下一个 tick 重试
