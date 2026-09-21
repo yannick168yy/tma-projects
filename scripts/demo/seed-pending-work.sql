@@ -72,12 +72,16 @@ DROP TEMPORARY TABLE demo_pending_tickets;
 
 DROP TEMPORARY TABLE IF EXISTS demo_pending_kyc;
 CREATE TEMPORARY TABLE demo_pending_kyc AS
-SELECT user_id, ROW_NUMBER() OVER (ORDER BY updated_at DESC, user_id) AS slot
-FROM bg_kyc
-WHERE status = 'approved'
-  AND full_name IS NOT NULL
-  AND doc_submitted_at IS NOT NULL
-ORDER BY updated_at DESC, user_id
+SELECT user_id, ROW_NUMBER() OVER (ORDER BY seed_priority, updated_at DESC, user_id) AS slot
+FROM (
+  SELECT user_id,
+         updated_at,
+         CASE WHEN status = 'pending' AND reject_step = 'demo_seed_pending' THEN 0 ELSE 1 END AS seed_priority
+  FROM bg_kyc
+  WHERE (status = 'pending' AND reject_step = 'demo_seed_pending')
+     OR (status = 'approved' AND full_name IS NOT NULL AND doc_submitted_at IS NOT NULL)
+) candidates
+ORDER BY seed_priority, updated_at DESC, user_id
 LIMIT 2;
 
 UPDATE bg_kyc k
@@ -100,7 +104,7 @@ SET k.status = 'pending',
     k.reviewed_by = NULL,
     k.badge_ignored = 0,
     k.reject_reason = NULL,
-    k.reject_step = NULL,
+    k.reject_step = 'demo_seed_pending',
     k.updated_at = NOW();
 
 DROP TEMPORARY TABLE demo_pending_kyc;
