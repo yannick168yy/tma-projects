@@ -32,7 +32,9 @@ DROP TEMPORARY TABLE demo_pending_withdrawals;
 
 DROP TEMPORARY TABLE IF EXISTS demo_pending_tickets;
 CREATE TEMPORARY TABLE demo_pending_tickets AS
-SELECT c.id, ROW_NUMBER() OVER (ORDER BY c.updated_at DESC, c.id) AS slot
+SELECT c.id,
+       ROW_NUMBER() OVER (ORDER BY c.updated_at DESC, c.id) AS slot,
+       (SELECT COUNT(*) FROM cs_message m WHERE m.conversation_id = c.id) AS message_count
 FROM cs_conversation c
 WHERE c.escalated_at IS NOT NULL
   AND EXISTS (SELECT 1 FROM cs_message m WHERE m.conversation_id = c.id)
@@ -54,7 +56,17 @@ SET c.status = 'escalated',
       WHEN 1 THEN DATE_SUB(NOW(), INTERVAL 15 MINUTE)
       ELSE DATE_SUB(NOW(), INTERVAL 70 MINUTE)
     END,
-    c.resolved_at = NULL;
+    c.resolved_at = NULL,
+    c.ai_summary = CASE d.slot
+      WHEN 1 THEN '用户多次咨询账户相关问题，AI 已提供基础说明，但用户仍要求人工协助。建议查看完整对话后跟进处理。'
+      ELSE '用户反馈当前问题尚未解决，并请求人工客服介入。AI 已完成基础引导，建议结合对话记录核实情况后回复用户。'
+    END,
+    c.ai_summary_model = '演示数据',
+    c.ai_summary_message_count = d.message_count,
+    c.ai_summary_updated_at = CASE d.slot
+      WHEN 1 THEN DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+      ELSE DATE_SUB(NOW(), INTERVAL 70 MINUTE)
+    END;
 
 DROP TEMPORARY TABLE demo_pending_tickets;
 

@@ -132,17 +132,25 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
 
   async function takeover() {
     if (!selectedId) return
-    await csTakeover(selectedId)
-    message.success('已接管工单')
-    await refreshDetail(); await loadList(1)
+    try {
+      await csTakeover(selectedId)
+      message.success('已接管工单')
+      await refreshDetail(); await loadList(1)
+    } catch (e) {
+      message.warning(e instanceof Error ? e.message : '操作失败')
+    }
   }
 
   async function resolve() {
     if (!selectedId) return
-    await csClose(selectedId)
-    message.success('工单已结束')
-    setSelectedId(null); setMessages([])
-    await loadList(1)
+    try {
+      await csClose(selectedId)
+      message.success('工单已结束')
+      setSelectedId(null); setMessages([])
+      await loadList(1)
+    } catch (e) {
+      message.warning(e instanceof Error ? e.message : '操作失败')
+    }
   }
 
   function ignoreReminder() {
