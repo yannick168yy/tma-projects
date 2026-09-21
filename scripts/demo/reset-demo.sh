@@ -11,7 +11,8 @@
 #   4. 恢复管理员账号    —— 快照里 admin_accounts 是空的（脱敏时清掉了，不能
 #                          把源站管理员带出来），不补回来演示后台直接登不进去
 #   5. 时间戳平移        —— 否则第二天仪表盘显示"最近登录 3 天前"，一眼是死数据
-#   6. 清 Redis 租户前缀 —— 库换了但缓存还是旧的，页面数字和库里对不上
+#   6. 恢复演示待办    —— 待审提款、待处理工单、待审实名每天重置后仍有内容可演示
+#   7. 清 Redis 租户前缀 —— 库换了但缓存还是旧的，页面数字和库里对不上
 #
 # 用法：
 #   APP_DIR=/root/workspace/tma-projects DEMO_TENANT=demo bash reset-demo.sh
@@ -25,6 +26,7 @@ SNAPSHOT="${SNAPSHOT:-$APP_DIR/data/demo/demo-snapshot.sql.gz}"
 # 管理员种子与快照分开存：快照每次刷新数据都会重出，而演示账号要一直是同一个
 # （销售记住一套凭据就行）。客人在演示中改了密码，第二天重置会还原成初始密码。
 ADMIN_SEED="${ADMIN_SEED:-$APP_DIR/data/demo/demo-admin-seed.sql}"
+PENDING_WORK_SEED="${PENDING_WORK_SEED:-$APP_DIR/scripts/demo/seed-pending-work.sql}"
 CTR="${CTR:-podman}"
 MYSQL_CTR="${MYSQL_CTR:-tma-mysql}"
 REDIS_CTR="${REDIS_CTR:-tma-redis}"
@@ -46,17 +48,17 @@ if [ "$IS_DEMO" != "1" ]; then
 fi
 TENANT_ID=$(MYQ "SELECT id FROM $PF_DB.pf_tenant WHERE code='$DEMO_TENANT'")
 
-echo "==> [1/6] 重建 $DEMO_DB（pf_tenant 登记保持不动）"
+echo "==> [1/7] 重建 $DEMO_DB（pf_tenant 登记保持不动）"
 MY -e "DROP DATABASE IF EXISTS \`$DEMO_DB\`; CREATE DATABASE \`$DEMO_DB\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-echo "==> [2/6] 导入快照"
+echo "==> [2/7] 导入快照"
 gunzip -c "$SNAPSHOT" | $CTR exec -i "$MYSQL_CTR" mysql --default-character-set=utf8mb4 -uroot -p"$PW" "$DEMO_DB" 2>/dev/null
 
-echo "==> [3/6] 补跑快照之后的新迁移"
+echo "==> [3/7] 补跑快照之后的新迁移"
 APP_DIR="$APP_DIR" CTR="$CTR" MYSQL_CTR="$MYSQL_CTR" \
   bash "$APP_DIR/deploy/single-node/remote-migrate.sh" tenants 2>&1 | grep -E "$DEMO_DB|失败" || true
 
-echo "==> [4/6] 恢复演示管理员账号"
+echo "==> [4/7] 恢复演示管理员账号"
 if [ -f "$ADMIN_SEED" ]; then
   $CTR exec -i "$MYSQL_CTR" mysql --default-character-set=utf8mb4 -uroot -p"$PW" "$DEMO_DB" < "$ADMIN_SEED" 2>/dev/null
   N=$(MYQ "SELECT COUNT(*) FROM $DEMO_DB.admin_accounts")
@@ -67,7 +69,7 @@ else
   exit 1
 fi
 
-echo "==> [5/6] 时间戳平移到今天"
+echo "==> [5/7] 时间戳平移到今天"
 # 以注单最新时间为基准算偏移天数：演示时仪表盘要有"今天"的数据
 SHIFT=$(MYQ "SELECT GREATEST(0, DATEDIFF(CURDATE(), DATE(MAX(created_at)))) FROM $DEMO_DB.bg_bet_order")
 SHIFT=${SHIFT:-0}
@@ -104,7 +106,23 @@ else
   echo "    快照已是当天数据，无需平移"
 fi
 
-echo "==> [6/6] 清演示租户的 Redis 键（前缀 t${TENANT_ID}:）"
+echo "==> [6/7] 恢复演示后台待办样本"
+if [ -f "$PENDING_WORK_SEED" ]; then
+  MY "$DEMO_DB" < "$PENDING_WORK_SEED"
+  WITHDRAW_PENDING=$(MYQ "SELECT COUNT(*) FROM $DEMO_DB.bg_withdraw_order WHERE status='pending' AND review_verdict='manual' AND badge_ignored=0")
+  TICKET_PENDING=$(MYQ "SELECT COUNT(*) FROM $DEMO_DB.cs_conversation WHERE status='escalated' AND badge_ignored=0")
+  KYC_PENDING=$(MYQ "SELECT COUNT(*) FROM $DEMO_DB.bg_kyc WHERE status='pending' AND doc_submitted_at IS NOT NULL AND doc_verified=0 AND badge_ignored=0")
+  echo "    待审提款 ${WITHDRAW_PENDING:-0} 条 / 待处理工单 ${TICKET_PENDING:-0} 条 / 待审实名 ${KYC_PENDING:-0} 条"
+  if [ "${WITHDRAW_PENDING:-0}" -lt 2 ] || [ "${TICKET_PENDING:-0}" -lt 2 ] || [ "${KYC_PENDING:-0}" -lt 2 ]; then
+    echo "  🔴 演示待办样本不足 2 条，请检查快照候选数据" >&2
+    exit 1
+  fi
+else
+  echo "  🔴 找不到 $PENDING_WORK_SEED，演示后台待办列表将为空" >&2
+  exit 1
+fi
+
+echo "==> [7/7] 清演示租户的 Redis 键（前缀 t${TENANT_ID}:）"
 KEYS=$($CTR exec "$REDIS_CTR" redis-cli --scan --pattern "t${TENANT_ID}:*" 2>/dev/null | head -100000)
 if [ -n "$KEYS" ]; then
   echo "$KEYS" | xargs -r $CTR exec -i "$REDIS_CTR" redis-cli DEL >/dev/null 2>&1 || true
