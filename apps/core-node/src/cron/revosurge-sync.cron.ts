@@ -130,6 +130,79 @@ async function syncLogins(db: Pool, since: Date): Promise<number> {
   return rows.length
 }
 
+/**
+ * 优惠奖金生命周期。我方的 bg_turnover_requirements 就是流水要求表，
+ * source_type='promotion' 的那批即奖金——记录一建立就说明用户已领到，
+ * status 推进到 completed 即流水打满。
+ *
+ * 对方目录里还有 bonus_offered（已展示未领取）和 bonus_cashed_out（奖金提现），
+ * 我方没有这两个业务状态，不硬凑。
+ */
+async function syncBonuses(db: Pool, since: Date): Promise<number> {
+  const [claimed] = await db.query<RowDataPacket[]>(
+    `SELECT id, user_id, source_ref, base_amount, required_amount, currency
+     FROM bg_turnover_requirements
+     WHERE source_type = 'promotion' AND created_at >= ? LIMIT 500`,
+    [since],
+  )
+  for (const r of claimed) {
+    await sendEvent(db, {
+      userId: String(r.user_id),
+      eventName: 'bonus_claimed',
+      eventId: String(r.id),
+      fields: {
+        bonus_id: String(r.source_ref ?? 'promotion'),
+        bonus_value_granted: Number(r.base_amount),
+        currency: String(r.currency ?? 'PHP').toUpperCase(),
+        wagering_requirement: Number(r.required_amount),
+      },
+    })
+  }
+
+  const [completed] = await db.query<RowDataPacket[]>(
+    `SELECT id, user_id, source_ref, completed_amount, required_amount, currency,
+            TIMESTAMPDIFF(MINUTE, created_at, updated_at) minutes
+     FROM bg_turnover_requirements
+     WHERE source_type = 'promotion' AND status = 'completed' AND updated_at >= ? LIMIT 500`,
+    [since],
+  )
+  for (const r of completed) {
+    await sendEvent(db, {
+      userId: String(r.user_id),
+      eventName: 'bonus_completed',
+      eventId: String(r.id),
+      fields: {
+        bonus_id: String(r.source_ref ?? 'promotion'),
+        currency: String(r.currency ?? 'PHP').toUpperCase(),
+        total_wagered: Number(r.completed_amount),
+        wagering_requirement: Number(r.required_amount),
+        time_to_complete_minutes: Number(r.minutes ?? 0),
+      },
+    })
+  }
+  return claimed.length + completed.length
+}
+
+/** VIP 等级变化。表里只存当前状态没有历史，用「userId:等级」当幂等键——
+ *  升到新等级才是新键，同一等级内 updated_at 因流水累计频繁变动也不会重发。
+ *  我方 VIP 按季度流水累计，实际只升不降，direction 固定 upgrade。 */
+async function syncVipChanges(db: Pool, since: Date): Promise<number> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT user_id, current_level FROM bg_user_vip_state
+     WHERE current_level > 0 AND updated_at >= ? LIMIT 500`,
+    [since],
+  )
+  for (const r of rows) {
+    await sendEvent(db, {
+      userId: String(r.user_id),
+      eventName: 'vip_tier_changed',
+      eventId: `${r.user_id}:${r.current_level}`,
+      fields: { direction: 'upgrade', new_tier: String(r.current_level) },
+    })
+  }
+  return rows.length
+}
+
 /** 认证方式本身就是验证事实：google 注册的邮箱由 Google 验证过，phone 注册的手机号
  *  过了短信验证。我方没有独立的「已验证」标志位，这是唯一有真实依据的判定。
  *  每人各发一次——event_id 取 userId，后续再登录会被 claim 挡掉。 */
@@ -225,7 +298,7 @@ async function syncBets(db: Pool, since: Date): Promise<number> {
 async function runOnce(app: FastifyInstance): Promise<void> {
   const db = app.mysql
   const since = new Date(Date.now() - LOOKBACK_MS)
-  const [withdrawals, failedDeposits, kyc, blocked, logins, bets, verified, referrals] = [
+  const [withdrawals, failedDeposits, kyc, blocked, logins, bets, verified, referrals, bonuses, vip] = [
     await syncWithdrawals(db, since),
     await syncFailedDeposits(db, since),
     await syncKyc(db, since),
@@ -234,11 +307,14 @@ async function runOnce(app: FastifyInstance): Promise<void> {
     await syncBets(db, since),
     await syncVerifications(db, since),
     await syncReferralRegisters(db, since),
+    await syncBonuses(db, since),
+    await syncVipChanges(db, since),
   ]
-  const total = withdrawals + failedDeposits + kyc + blocked + logins + bets + verified + referrals
+  const total =
+    withdrawals + failedDeposits + kyc + blocked + logins + bets + verified + referrals + bonuses + vip
   if (total) {
     app.log.info(
-      { withdrawals, failedDeposits, kyc, blocked, logins, bets, verified, referrals },
+      { withdrawals, failedDeposits, kyc, blocked, logins, bets, verified, referrals, bonuses, vip },
       '[revosurge] synced',
     )
   }
