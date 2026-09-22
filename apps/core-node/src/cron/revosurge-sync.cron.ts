@@ -130,6 +130,38 @@ async function syncLogins(db: Pool, since: Date): Promise<number> {
   return rows.length
 }
 
+/** 认证方式本身就是验证事实：google 注册的邮箱由 Google 验证过，phone 注册的手机号
+ *  过了短信验证。我方没有独立的「已验证」标志位，这是唯一有真实依据的判定。
+ *  每人各发一次——event_id 取 userId，后续再登录会被 claim 挡掉。 */
+async function syncVerifications(db: Pool, since: Date): Promise<number> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT DISTINCT user_id, auth_method FROM bg_login_log
+     WHERE created_at >= ? AND auth_method IN ('google','phone') LIMIT 500`,
+    [since],
+  )
+  for (const r of rows) {
+    await sendEvent(db, {
+      userId: String(r.user_id),
+      eventName: String(r.auth_method) === 'google' ? 'email_verified' : 'phone_verified',
+      eventId: String(r.user_id),
+    })
+  }
+  return rows.length
+}
+
+/** 推荐注册。这是与 register 并列的独立事件（对方目录里就分两个），所以带推荐人的
+ *  用户会有两条注册类事件——广告流量几乎不会带推荐人，实际触发量接近零。 */
+async function syncReferralRegisters(db: Pool, since: Date): Promise<number> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT id FROM bg_user WHERE inviter_id IS NOT NULL AND created_at >= ? LIMIT 500`,
+    [since],
+  )
+  for (const r of rows) {
+    await sendEvent(db, { userId: String(r.id), eventName: 'referral_register', eventId: String(r.id) })
+  }
+  return rows.length
+}
+
 // 厂商 → RevoSurge game_type。对方枚举有 slot/live_casino/sportsbook/lottery/crash/
 // fishing/poker/bingo/esports/arcade，我方 provider_id 形如 "jili:103"，取冒号前的厂商名。
 // 568win 线的厂商是纯数字 ID（如 "165"）对不上任何名字，连同未知厂商一律落 slot——
@@ -193,16 +225,22 @@ async function syncBets(db: Pool, since: Date): Promise<number> {
 async function runOnce(app: FastifyInstance): Promise<void> {
   const db = app.mysql
   const since = new Date(Date.now() - LOOKBACK_MS)
-  const [withdrawals, failedDeposits, kyc, blocked, logins, bets] = [
+  const [withdrawals, failedDeposits, kyc, blocked, logins, bets, verified, referrals] = [
     await syncWithdrawals(db, since),
     await syncFailedDeposits(db, since),
     await syncKyc(db, since),
     await syncAccountStatus(db, since),
     await syncLogins(db, since),
     await syncBets(db, since),
+    await syncVerifications(db, since),
+    await syncReferralRegisters(db, since),
   ]
-  if (withdrawals || failedDeposits || kyc || blocked || logins || bets) {
-    app.log.info({ withdrawals, failedDeposits, kyc, blocked, logins, bets }, '[revosurge] synced')
+  const total = withdrawals + failedDeposits + kyc + blocked + logins + bets + verified + referrals
+  if (total) {
+    app.log.info(
+      { withdrawals, failedDeposits, kyc, blocked, logins, bets, verified, referrals },
+      '[revosurge] synced',
+    )
   }
 }
 
