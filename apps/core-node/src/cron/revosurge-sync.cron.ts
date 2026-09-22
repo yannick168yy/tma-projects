@@ -11,12 +11,14 @@
 import type { FastifyInstance } from 'fastify'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { env } from '../config/env.js'
-import { sendEvent } from '../services/revosurge.service.js'
+import { sendEvent, sendEventBatch } from '../services/revosurge.service.js'
 import { forEachTenant } from '../lib/tenant-jobs.js'
 
 const INTERVAL_MS = 2 * 60 * 1000
 // 扫描窗口远大于执行间隔：任务偶发失败或重启时能自行补上，重复部分被幂等表吃掉
 const LOOKBACK_MS = 30 * 60 * 1000
+// 对方批量接口硬上限 600，留余量
+const BET_BATCH_SIZE = 500
 
 /** 状态类事件没有订单号，用「userId:状态变更秒级时间戳」当幂等键——
  *  同一次变更反复扫到是同一个键，下一次真实变更则是新键，可以再发一条 */
@@ -128,18 +130,79 @@ async function syncLogins(db: Pool, since: Date): Promise<number> {
   return rows.length
 }
 
+// 厂商 → RevoSurge game_type。对方枚举有 slot/live_casino/sportsbook/lottery/crash/
+// fishing/poker/bingo/esports/arcade，我方 provider_id 形如 "jili:103"，取冒号前的厂商名。
+// 568win 线的厂商是纯数字 ID（如 "165"）对不上任何名字，连同未知厂商一律落 slot——
+// 我方流水绝大部分是老虎机，报非法值会让整条事件被拒，报 slot 至少不失真到别的品类。
+const VENDOR_GAME_TYPE: Record<string, string> = {
+  jili: 'slot',
+  pg: 'slot',
+  pp: 'slot',
+  pragmatic: 'slot',
+  spribe: 'crash',
+  evo: 'live_casino',
+  evolution: 'live_casino',
+  ag: 'live_casino',
+  saba: 'sportsbook',
+  im: 'sportsbook',
+}
+
+function gameType(providerId: string | null): string {
+  const vendor = String(providerId ?? '').split(':')[0].trim().toLowerCase()
+  return VENDOR_GAME_TYPE[vendor] ?? 'slot'
+}
+
+/** 投注按「局」上报：bg_bet_round 已是一局一条的聚合，把下注/派彩的流水明细
+ *  （bg_bet_order）拆开报对广告模型没有额外信息量，只会把事件量放大一倍。 */
+async function syncBets(db: Pool, since: Date): Promise<number> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT r.round_id, r.user_id, r.bet_amount, r.win_amount, r.currency_code, r.aggregator_id,
+            MIN(o.provider_id) provider_id
+     FROM bg_bet_round r
+     LEFT JOIN bg_bet_order o ON o.round_id = r.round_id
+     WHERE r.updated_at >= ? AND r.bet_amount > 0
+     GROUP BY r.round_id, r.user_id, r.bet_amount, r.win_amount, r.currency_code, r.aggregator_id
+     LIMIT ?`,
+    [since, BET_BATCH_SIZE],
+  )
+  if (!rows.length) return 0
+  return sendEventBatch(
+    db,
+    rows.map((r) => {
+      const bet = Number(r.bet_amount)
+      const win = Number(r.win_amount ?? 0)
+      return {
+        userId: String(r.user_id),
+        eventName: 'bet',
+        eventId: String(r.round_id),
+        fields: {
+          amount: bet,
+          currency: String(r.currency_code ?? 'PHP').toUpperCase(),
+          transaction_id: String(r.round_id),
+          game_provider: String(r.provider_id ?? r.aggregator_id ?? 'unknown'),
+          game_type: gameType(r.provider_id as string | null),
+          // 其 bet_result 枚举只有 win / loss，没有平局或退款——派彩未超过本金即算 loss
+          bet_result: win > bet ? 'win' : 'loss',
+          bet_result_amount: win,
+        },
+      }
+    }),
+  )
+}
+
 async function runOnce(app: FastifyInstance): Promise<void> {
   const db = app.mysql
   const since = new Date(Date.now() - LOOKBACK_MS)
-  const [withdrawals, failedDeposits, kyc, blocked, logins] = [
+  const [withdrawals, failedDeposits, kyc, blocked, logins, bets] = [
     await syncWithdrawals(db, since),
     await syncFailedDeposits(db, since),
     await syncKyc(db, since),
     await syncAccountStatus(db, since),
     await syncLogins(db, since),
+    await syncBets(db, since),
   ]
-  if (withdrawals || failedDeposits || kyc || blocked || logins) {
-    app.log.info({ withdrawals, failedDeposits, kyc, blocked, logins }, '[revosurge] synced')
+  if (withdrawals || failedDeposits || kyc || blocked || logins || bets) {
+    app.log.info({ withdrawals, failedDeposits, kyc, blocked, logins, bets }, '[revosurge] synced')
   }
 }
 
