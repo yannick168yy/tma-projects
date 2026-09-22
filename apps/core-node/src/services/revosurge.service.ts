@@ -34,17 +34,17 @@ async function loadAttribution(db: Pool, userId: string): Promise<RevosurgeAttri
   }
 }
 
-interface SendInput {
+export interface SendInput {
   userId: string
   /** RevoSurge 事件名，需在其事件目录内 */
   eventName: string
-  /** 幂等键：注册=userId，充值=orderId */
+  /** 幂等键：注册=userId，充值=orderId，状态类事件=userId:变更时间戳 */
   eventId: string
   /** 事件专属字段，合并进 context */
   fields?: Record<string, unknown>
 }
 
-async function send(db: Pool, input: SendInput): Promise<void> {
+export async function sendEvent(db: Pool, input: SendInput): Promise<void> {
   if (!env.REVOSURGE_API_KEY.trim()) return
   const attr = await loadAttribution(db, input.userId)
   if (!attr) return
@@ -74,7 +74,7 @@ async function send(db: Pool, input: SendInput): Promise<void> {
 }
 
 export async function sendRegisterEvent(db: Pool, userId: string): Promise<void> {
-  await send(db, { userId, eventName: 'register', eventId: userId })
+  await sendEvent(db, { userId, eventName: 'register', eventId: userId })
 }
 
 /**
@@ -86,7 +86,7 @@ export async function sendDepositEvent(
   db: Pool,
   input: { userId: string; orderId: string; amount: number; currency: string },
 ): Promise<void> {
-  await send(db, {
+  await sendEvent(db, {
     userId: input.userId,
     eventName: 'deposit',
     eventId: input.orderId,

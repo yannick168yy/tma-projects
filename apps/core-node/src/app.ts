@@ -15,6 +15,7 @@ import { startWin568ReportSyncCron } from './cron/win568-report-sync.cron.js'
 import { startSegmentRefreshCron } from './cron/segment-refresh.cron.js'
 import { startRiskSignalRefreshCron } from './cron/risk-signal-refresh.cron.js'
 import { startBiAggregateCron } from './cron/bi-aggregate.cron.js'
+import { startRevosurgeSyncCron } from './cron/revosurge-sync.cron.js'
 import { env } from './config/env.js'
 import { currentTenantOrNull } from './lib/tenant-context.js'
 
@@ -53,6 +54,7 @@ export async function buildApp() {
     startSegmentRefreshCron(app)
     startRiskSignalRefreshCron(app)
     startBiAggregateCron(app)
+    startRevosurgeSyncCron(app)
   })
 
   return app
