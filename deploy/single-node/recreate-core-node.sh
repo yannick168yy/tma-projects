@@ -87,6 +87,9 @@ run run -d --name tma-core-node --network "$NET" --ip "$PEER_IP_CORE_NODE" --res
   -e "MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY=${MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY:-}" \
   -e MATRIX_NOTIFY_URL="${MATRIX_NOTIFY_URL:-}" \
   -e MATRIX_WITHDRAW_CHECK_URL="${MATRIX_WITHDRAW_CHECK_URL:-}" \
+  -e REVOSURGE_API_KEY="${REVOSURGE_API_KEY:-}" \
+  -e REVOSURGE_DRYRUN="${REVOSURGE_DRYRUN:-}" \
+  -e REVOSURGE_JURISDICTION="${REVOSURGE_JURISDICTION:-PH}" \
   betogo-core-node:latest
 
 echo "tma-core-node recreated"
