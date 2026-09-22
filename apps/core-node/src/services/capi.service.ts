@@ -50,7 +50,7 @@ export async function loadAttribution(db: Pool, userId: string): Promise<Attribu
 }
 
 /** 抢占唯一键；返回 false 表示这条事件已发过（或正在发），本次跳过 */
-export async function claim(db: Pool, platform: string, eventName: string, eventId: string, userId: string): Promise<boolean> {
+async function claim(db: Pool, platform: string, eventName: string, eventId: string, userId: string): Promise<boolean> {
   const [res] = await db.execute<ResultSetHeader>(
     `INSERT IGNORE INTO bg_capi_event (platform, event_name, event_id, user_id) VALUES (?,?,?,?)`,
     [platform, eventName, eventId, userId],
@@ -58,7 +58,7 @@ export async function claim(db: Pool, platform: string, eventName: string, event
   return res.affectedRows > 0
 }
 
-export async function finish(db: Pool, platform: string, eventName: string, eventId: string, httpCode: number | null, error?: string): Promise<void> {
+async function finish(db: Pool, platform: string, eventName: string, eventId: string, httpCode: number | null, error?: string): Promise<void> {
   await db.execute(
     `UPDATE bg_capi_event SET status = ?, http_code = ?, error = ?
      WHERE platform = ? AND event_name = ? AND event_id = ?`,
