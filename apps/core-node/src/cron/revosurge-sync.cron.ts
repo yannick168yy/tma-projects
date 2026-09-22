@@ -4,14 +4,14 @@
 // （4 个支付回调 + 管理后台审核，还横跨 bff 的 Redis 路径），挨个挂必漏。扫 updated_at
 // 增量则只有一个入口，漏发的风险从「改代码时忘了挂」降为零。
 //
-// 幂等仍由 bg_capi_event 唯一键兜底，所以窗口可以放宽重叠扫描：某次任务失败，下一轮
-// 照样能补上，重复扫到的会被 claim 挡住。
+// 幂等由 Redis 去重键兜底（见 revosurge.service），所以窗口可以放宽重叠扫描：
+// 某次任务失败，下一轮照样能补上，重复扫到的会被去重键挡住。
 //
 // 注册与充值不在这里——那两个有唯一汇合点，走实时回传（capi 的触发点旁边）。
 import type { FastifyInstance } from 'fastify'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { env } from '../config/env.js'
-import { sendEvent, sendEventBatch } from '../services/revosurge.service.js'
+import { sendEvent, sendEventBatch, markBlocked, wasBlocked } from '../services/revosurge.service.js'
 import { forEachTenant } from '../lib/tenant-jobs.js'
 
 const INTERVAL_MS = 2 * 60 * 1000
@@ -109,6 +109,7 @@ async function syncAccountStatus(db: Pool, since: Date): Promise<number> {
       // 我方封禁原因是自由文本，映射不进其枚举，统一报 other
       fields: { block_reason: 'other' },
     })
+    await markBlocked(String(r.id))
   }
   return rows.length
 }
@@ -116,8 +117,8 @@ async function syncAccountStatus(db: Pool, since: Date): Promise<number> {
 /** 登录按「每人每天一条」收敛：原样上报量太大且没有额外信息量，日活信号一条就够 */
 async function syncLogins(db: Pool, since: Date): Promise<number> {
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT user_id, MAX(created_at) last_at, DATE(created_at) d FROM bg_login_log
-     WHERE created_at >= ? GROUP BY user_id, DATE(created_at) LIMIT 1000`,
+    `SELECT user_id, DATE_FORMAT(created_at,'%Y-%m-%d') d FROM bg_login_log
+     WHERE created_at >= ? GROUP BY user_id, DATE_FORMAT(created_at,'%Y-%m-%d') LIMIT 1000`,
     [since],
   )
   for (const r of rows) {
@@ -135,7 +136,7 @@ async function syncLogins(db: Pool, since: Date): Promise<number> {
  *  app_uninstall 没做：卸载后客户端已经发不出请求，要靠推送 token 失效反推，我方无此链路。 */
 async function syncAppEvents(db: Pool, since: Date): Promise<number> {
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT DISTINCT user_id, DATE(created_at) d FROM bg_login_log
+    `SELECT DISTINCT user_id, DATE_FORMAT(created_at,'%Y-%m-%d') d FROM bg_login_log
      WHERE platform = 'app' AND created_at >= ? LIMIT 500`,
     [since],
   )
@@ -180,27 +181,26 @@ async function syncInitiatedDeposits(db: Pool, since: Date): Promise<number> {
   return rows.length
 }
 
-/** 解封。用户表只有当前状态，判断不出「曾被封过」，靠回传日志里发过 account_blocked
- *  来筛——没发过封禁的用户转 active 只是普通状态变动，不该报解封。 */
+/** 解封。用户表只有当前状态判断不出「曾被封过」，靠封禁时打的 Redis 标记来筛——
+ *  没被封过的用户转 active 只是普通状态变动，不该报解封。 */
 async function syncUnblocked(db: Pool, since: Date): Promise<number> {
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT u.id, u.updated_at FROM bg_user u
-     WHERE u.status = 'active' AND u.updated_at >= ?
-       AND EXISTS (SELECT 1 FROM bg_capi_event e
-                   WHERE e.user_id = u.id AND e.platform = 'revosurge'
-                     AND e.event_name = 'account_blocked')
-     LIMIT 500`,
+    `SELECT id, updated_at FROM bg_user
+     WHERE status = 'active' AND updated_at >= ? LIMIT 500`,
     [since],
   )
+  let sent = 0
   for (const r of rows) {
+    if (!(await wasBlocked(String(r.id)))) continue
     await sendEvent(db, {
       userId: String(r.id),
       eventName: 'account_unblocked',
       eventId: stateEventId(String(r.id), r.updated_at),
       fields: { unblock_reason: 'other' },
     })
+    sent += 1
   }
-  return rows.length
+  return sent
 }
 
 /**

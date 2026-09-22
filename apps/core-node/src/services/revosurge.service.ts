@@ -42,6 +42,23 @@ async function releaseKey(eventName: string, eventId: string): Promise<void> {
     .catch(() => undefined)
 }
 
+// 「曾被封禁」标记。用户表只存当前状态、没有历史，而去重键 7 天就过期了，
+// 判断解封需要一个活得更久的痕迹。90 天覆盖对方 30 天归因窗口还有富余。
+const BLOCKED_MARK_TTL_SEC = 90 * 24 * 3600
+
+export async function markBlocked(userId: string): Promise<void> {
+  await getDefaultRedis()
+    .set(`${keyPrefixFor(currentTenantOrNull())}rs:blocked_once:${userId}`, '1', 'EX', BLOCKED_MARK_TTL_SEC)
+    .catch(() => undefined)
+}
+
+export async function wasBlocked(userId: string): Promise<boolean> {
+  const n = await getDefaultRedis()
+    .exists(`${keyPrefixFor(currentTenantOrNull())}rs:blocked_once:${userId}`)
+    .catch(() => 0)
+  return n > 0
+}
+
 /** 只记失败。ON DUPLICATE 是因为同一事件重试失败会再次落到这里 */
 async function logFailure(
   db: Pool,
