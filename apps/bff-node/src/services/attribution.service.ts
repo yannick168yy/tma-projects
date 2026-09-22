@@ -17,6 +17,7 @@ interface AttrPayload {
   ttp?: string
   px?: string
   tpx?: string
+  rsc?: string
   lh?: string
   lp?: string
   ref?: string
@@ -56,9 +57,9 @@ export async function saveUserAttribution(
   await db.execute(
     `INSERT IGNORE INTO bg_user_attribution
        (user_id, channel_code, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
-        click_platform, click_id, fbp, fbc, ttp, fb_pixel_id, tt_pixel_id,
+        click_platform, click_id, fbp, fbc, ttp, fb_pixel_id, tt_pixel_id, revosurge_click_id,
         landing_host, landing_path, referrer, user_agent, client_ip)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       userId,
       str(attr.c, 64),
@@ -74,6 +75,7 @@ export async function saveUserAttribution(
       str(attr.ttp, 128),
       str(attr.px, 32),
       str(attr.tpx, 32),
+      str(attr.rsc, 191),
       str(attr.lh, 191),
       str(attr.lp, 255),
       str(attr.ref, 255),
