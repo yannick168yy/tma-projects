@@ -130,6 +130,79 @@ async function syncLogins(db: Pool, since: Date): Promise<number> {
   return rows.length
 }
 
+/** App 启动。bg_login_log.platform='app' 即 APK 环境（我方只有 Android 包，无 iOS）。
+ *  install 用 userId 当幂等键——首次扫到即发、之后被 claim 挡掉；open 收敛成每人每天一条。
+ *  app_uninstall 没做：卸载后客户端已经发不出请求，要靠推送 token 失效反推，我方无此链路。 */
+async function syncAppEvents(db: Pool, since: Date): Promise<number> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT DISTINCT user_id, DATE(created_at) d FROM bg_login_log
+     WHERE platform = 'app' AND created_at >= ? LIMIT 500`,
+    [since],
+  )
+  for (const r of rows) {
+    const userId = String(r.user_id)
+    await sendEvent(db, {
+      userId,
+      eventName: 'app_install',
+      eventId: userId,
+      fields: { platform: 'android' },
+    })
+    await sendEvent(db, {
+      userId,
+      eventName: 'app_open',
+      eventId: `${userId}:${String(r.d)}`,
+      fields: { platform: 'android' },
+    })
+  }
+  return rows.length
+}
+
+/** 充值发起。订单一建立即为发起，与到账的 deposit 是两条事件——
+ *  两者的差额正是支付流失，对方的模型要靠这个识别支付环节的问题。 */
+async function syncInitiatedDeposits(db: Pool, since: Date): Promise<number> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT order_id, user_id, amount, currency FROM bg_deposit_order
+     WHERE created_at >= ? LIMIT 500`,
+    [since],
+  )
+  for (const r of rows) {
+    await sendEvent(db, {
+      userId: String(r.user_id),
+      eventName: 'deposit_initiated',
+      eventId: String(r.order_id),
+      fields: {
+        amount: Number(r.amount),
+        currency: String(r.currency ?? 'PHP').toUpperCase(),
+        transaction_id: String(r.order_id),
+      },
+    })
+  }
+  return rows.length
+}
+
+/** 解封。用户表只有当前状态，判断不出「曾被封过」，靠回传日志里发过 account_blocked
+ *  来筛——没发过封禁的用户转 active 只是普通状态变动，不该报解封。 */
+async function syncUnblocked(db: Pool, since: Date): Promise<number> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT u.id, u.updated_at FROM bg_user u
+     WHERE u.status = 'active' AND u.updated_at >= ?
+       AND EXISTS (SELECT 1 FROM bg_capi_event e
+                   WHERE e.user_id = u.id AND e.platform = 'revosurge'
+                     AND e.event_name = 'account_blocked')
+     LIMIT 500`,
+    [since],
+  )
+  for (const r of rows) {
+    await sendEvent(db, {
+      userId: String(r.id),
+      eventName: 'account_unblocked',
+      eventId: stateEventId(String(r.id), r.updated_at),
+      fields: { unblock_reason: 'other' },
+    })
+  }
+  return rows.length
+}
+
 /**
  * 优惠奖金生命周期。我方的 bg_turnover_requirements 就是流水要求表，
  * source_type='promotion' 的那批即奖金——记录一建立就说明用户已领到，
@@ -298,25 +371,23 @@ async function syncBets(db: Pool, since: Date): Promise<number> {
 async function runOnce(app: FastifyInstance): Promise<void> {
   const db = app.mysql
   const since = new Date(Date.now() - LOOKBACK_MS)
-  const [withdrawals, failedDeposits, kyc, blocked, logins, bets, verified, referrals, bonuses, vip] = [
-    await syncWithdrawals(db, since),
-    await syncFailedDeposits(db, since),
-    await syncKyc(db, since),
-    await syncAccountStatus(db, since),
-    await syncLogins(db, since),
-    await syncBets(db, since),
-    await syncVerifications(db, since),
-    await syncReferralRegisters(db, since),
-    await syncBonuses(db, since),
-    await syncVipChanges(db, since),
-  ]
-  const total =
-    withdrawals + failedDeposits + kyc + blocked + logins + bets + verified + referrals + bonuses + vip
-  if (total) {
-    app.log.info(
-      { withdrawals, failedDeposits, kyc, blocked, logins, bets, verified, referrals, bonuses, vip },
-      '[revosurge] synced',
-    )
+  const stats = {
+    withdrawals: await syncWithdrawals(db, since),
+    initiatedDeposits: await syncInitiatedDeposits(db, since),
+    failedDeposits: await syncFailedDeposits(db, since),
+    kyc: await syncKyc(db, since),
+    blocked: await syncAccountStatus(db, since),
+    unblocked: await syncUnblocked(db, since),
+    logins: await syncLogins(db, since),
+    bets: await syncBets(db, since),
+    verified: await syncVerifications(db, since),
+    referrals: await syncReferralRegisters(db, since),
+    bonuses: await syncBonuses(db, since),
+    vip: await syncVipChanges(db, since),
+    appEvents: await syncAppEvents(db, since),
+  }
+  if (Object.values(stats).some((n) => n > 0)) {
+    app.log.info(stats, '[revosurge] synced')
   }
 }
 
