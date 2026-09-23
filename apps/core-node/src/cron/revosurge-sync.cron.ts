@@ -14,7 +14,7 @@
 import type { FastifyInstance } from 'fastify'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { env } from '../config/env.js'
-import { sendEventBatch, markBlocked, wasBlocked, type SendInput } from '../services/revosurge.service.js'
+import { sendEventBatch, markBlocked, wasBlocked, touchHeartbeat, type SendInput } from '../services/revosurge.service.js'
 import { forEachTenant } from '../lib/tenant-jobs.js'
 
 const INTERVAL_MS = 2 * 60 * 1000
@@ -388,6 +388,8 @@ async function runOnce(app: FastifyInstance): Promise<void> {
     vip: await syncVipChanges(db, since),
     appEvents: await syncAppEvents(db, since),
   }
+  // 心跳每轮都打，与是否有数据无关——没数据不代表没在跑，监控要能区分这两者
+  await touchHeartbeat()
   if (Object.values(stats).some((n) => n > 0)) {
     app.log.info(stats, '[revosurge] synced')
   }

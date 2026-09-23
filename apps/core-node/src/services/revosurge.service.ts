@@ -69,6 +69,37 @@ export async function wasBlocked(userId: string): Promise<boolean> {
   return n > 0
 }
 
+// 日计数与心跳：成功明细不落库，但完全不记会留下沉默故障的口子——cron 挂掉时
+// 既无成功也无失败记录，看起来一切正常，而广告还在烧钱。计数按天按事件聚合
+// （一天最多 19 行），心跳放 Redis，两者合起来能回答「还活着吗 / 发了多少 / 失败多少」。
+const HEARTBEAT_TTL_SEC = 3600
+
+export function heartbeatKey(): string {
+  return `${keyPrefixFor(currentTenantOrNull())}rs:sync:heartbeat`
+}
+
+export async function touchHeartbeat(): Promise<void> {
+  await getDefaultRedis()
+    .set(heartbeatKey(), String(Date.now()), 'EX', HEARTBEAT_TTL_SEC)
+    .catch(() => undefined)
+}
+
+/** 按事件名分组累加，一批最多几个不同事件名，UPSERT 次数可忽略 */
+async function bumpDaily(db: Pool, events: SendInput[], ok: boolean): Promise<void> {
+  const counts = new Map<string, number>()
+  for (const e of events) counts.set(e.eventName, (counts.get(e.eventName) ?? 0) + 1)
+  const col = ok ? 'sent' : 'failed'
+  for (const [name, n] of counts) {
+    await db
+      .execute(
+        `INSERT INTO bg_revosurge_daily (stat_date, event_name, ${col}) VALUES (CURDATE(), ?, ?)
+         ON DUPLICATE KEY UPDATE ${col} = ${col} + VALUES(${col})`,
+        [name, n],
+      )
+      .catch(() => undefined)
+  }
+}
+
 /** 只记失败。ON DUPLICATE 是因为同一事件重试失败会再次落到这里 */
 async function logFailure(
   db: Pool,
@@ -143,12 +174,17 @@ export async function sendEvent(db: Pool, input: SendInput): Promise<void> {
       'X-API-KEY': env.REVOSURGE_API_KEY.trim(),
     })
     // 正式入库返回 202，dryrun 返回 200
-    if (code >= 200 && code < 300) return
+    if (code >= 200 && code < 300) {
+      await bumpDaily(db, [input], true)
+      return
+    }
     await releaseKey(input.eventName, input.eventId)
     await logFailure(db, input, code, text)
+    await bumpDaily(db, [input], false)
   } catch (err) {
     await releaseKey(input.eventName, input.eventId)
     await logFailure(db, input, null, err instanceof Error ? err.message : 'request failed')
+    await bumpDaily(db, [input], false)
   }
 }
 
@@ -203,11 +239,15 @@ export async function sendEventBatch(db: Pool, inputs: SendInput[]): Promise<num
     // 整批级别判定：逐条对账要按 requestId 下标拆响应，收益不抵复杂度。
     // 整批算失败即全部释放键，下一轮扫描会重来——重发的那部分由对方按 transaction_id 去重
     const ok = code >= 200 && code < 300 && !/"failureCount"\s*:\s*[1-9]/.test(text)
-    if (ok) return claimed.length
+    if (ok) {
+      await bumpDaily(db, claimed, true)
+      return claimed.length
+    }
     for (const input of claimed) {
       await releaseKey(input.eventName, input.eventId)
       await logFailure(db, input, code, text)
     }
+    await bumpDaily(db, claimed, false)
     return 0
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'request failed'
@@ -215,6 +255,7 @@ export async function sendEventBatch(db: Pool, inputs: SendInput[]): Promise<num
       await releaseKey(input.eventName, input.eventId)
       await logFailure(db, input, null, msg)
     }
+    await bumpDaily(db, claimed, false)
     return 0
   }
 }
