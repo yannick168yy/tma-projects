@@ -20,9 +20,19 @@ import { currentTenantOrNull } from '../lib/tenant-context.js'
 const API_BASE = 'https://datapulse-api.revosurge.com/v3/s2s/event'
 const BATCH_URL = 'https://datapulse-api.revosurge.com/v3/s2s/batch'
 const PLATFORM = 'revosurge'
-// 远大于扫描窗口（30 分钟），足够覆盖任务长时间中断后的恢复；
-// 按 bet 30 万/天估算，7 天约 210 万个键、百余 MB，Redis 扛得住
+// 低频事件的去重键活 7 天，足够覆盖任务长时间中断后的恢复。
 const DEDUP_TTL_SEC = 7 * 24 * 3600
+
+// bet 必须单独给短 TTL：单键实测 72 字节，按 30 万局/天算 7 天就是 210 万键约 150MB，
+// 而这台 Redis maxmemory 只有 64MB 且策略是 allkeys-lru——撑爆后淘汰的不只是去重键，
+// 用户 session 会被一起挤掉。而 bet 的 round_id 局一结束就固定、不可能重发，
+// 扫描窗口又只有 30 分钟，2 小时已是 4 倍余量。极端情况下重发由对方按
+// transaction_id 去重兜底。
+const TTL_BY_EVENT: Record<string, number> = { bet: 2 * 3600 }
+
+function ttlFor(eventName: string): number {
+  return TTL_BY_EVENT[eventName] ?? DEDUP_TTL_SEC
+}
 
 // 复用租户前缀，多租户下各站的去重键互不干扰
 function dedupKey(eventName: string, eventId: string): string {
@@ -31,7 +41,7 @@ function dedupKey(eventName: string, eventId: string): string {
 
 /** 抢占去重键；false 表示这条事件已发过（或正在发），本次跳过 */
 async function claimKey(eventName: string, eventId: string): Promise<boolean> {
-  const res = await getDefaultRedis().set(dedupKey(eventName, eventId), '1', 'EX', DEDUP_TTL_SEC, 'NX')
+  const res = await getDefaultRedis().set(dedupKey(eventName, eventId), '1', 'EX', ttlFor(eventName), 'NX')
   return res === 'OK'
 }
 
