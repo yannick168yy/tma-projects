@@ -142,13 +142,23 @@ export async function sendEvent(db: Pool, input: SendInput): Promise<void> {
   }
 }
 
+// 对方批量接口硬上限 600（超了返回 BATCH_TOO_LARGE），留余量
+const BATCH_CHUNK = 500
+
 /**
- * 批量上报。bet 这类高频事件按单条发会被网络往返拖死——500 条就是 500 次 HTTP。
- * 这里把慢的部分（HTTP）合成一次，去重仍逐条走 Redis。
- * 批量上限 600 是对方的硬限制，超了返回 BATCH_TOO_LARGE。
+ * 批量上报。所有事件都必须走这里：对方限流 300 次/分钟，而单条发送时一轮扫描
+ * 最坏能产生数千次请求，必然超限。批量后每 500 条才占 1 次配额。
+ * 超过分片上限自动拆批，调用方不用关心条数。
  */
 export async function sendEventBatch(db: Pool, inputs: SendInput[]): Promise<number> {
   if (!env.REVOSURGE_API_KEY.trim() || !inputs.length) return 0
+  if (inputs.length > BATCH_CHUNK) {
+    let sent = 0
+    for (let i = 0; i < inputs.length; i += BATCH_CHUNK) {
+      sent += await sendEventBatch(db, inputs.slice(i, i + BATCH_CHUNK))
+    }
+    return sent
+  }
 
   const userIds = [...new Set(inputs.map((i) => i.userId))]
   const [rows] = await db.query<RowDataPacket[]>(

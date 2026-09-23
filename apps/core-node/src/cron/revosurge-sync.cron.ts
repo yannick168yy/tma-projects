@@ -7,11 +7,14 @@
 // 幂等由 Redis 去重键兜底（见 revosurge.service），所以窗口可以放宽重叠扫描：
 // 某次任务失败，下一轮照样能补上，重复扫到的会被去重键挡住。
 //
+// 所有事件一律走 sendEventBatch：对方限流 300 次/分钟，逐条发时一轮扫描最坏能产生
+// 数千次请求，必然超限；批量后每类事件只占 1-2 次配额，一轮十几次就够。
+//
 // 注册与充值不在这里——那两个有唯一汇合点，走实时回传（capi 的触发点旁边）。
 import type { FastifyInstance } from 'fastify'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { env } from '../config/env.js'
-import { sendEvent, sendEventBatch, markBlocked, wasBlocked } from '../services/revosurge.service.js'
+import { sendEventBatch, markBlocked, wasBlocked, type SendInput } from '../services/revosurge.service.js'
 import { forEachTenant } from '../lib/tenant-jobs.js'
 
 const INTERVAL_MS = 2 * 60 * 1000
@@ -33,8 +36,9 @@ async function syncWithdrawals(db: Pool, since: Date): Promise<number> {
      WHERE status = 'completed' AND updated_at >= ? LIMIT 500`,
     [since],
   )
-  for (const r of rows) {
-    await sendEvent(db, {
+  return sendEventBatch(
+    db,
+    rows.map((r) => ({
       userId: String(r.user_id),
       eventName: 'withdraw',
       eventId: String(r.order_id),
@@ -43,9 +47,8 @@ async function syncWithdrawals(db: Pool, since: Date): Promise<number> {
         currency: String(r.currency ?? 'PHP').toUpperCase(),
         transaction_id: String(r.order_id),
       },
-    })
-  }
-  return rows.length
+    })),
+  )
 }
 
 async function syncFailedDeposits(db: Pool, since: Date): Promise<number> {
@@ -54,8 +57,9 @@ async function syncFailedDeposits(db: Pool, since: Date): Promise<number> {
      WHERE status IN ('failed','rejected','admin_rejected') AND updated_at >= ? LIMIT 500`,
     [since],
   )
-  for (const r of rows) {
-    await sendEvent(db, {
+  return sendEventBatch(
+    db,
+    rows.map((r) => ({
       userId: String(r.user_id),
       eventName: 'deposit_failed',
       eventId: String(r.order_id),
@@ -67,9 +71,8 @@ async function syncFailedDeposits(db: Pool, since: Date): Promise<number> {
         payment_method: String(r.channel ?? 'unknown'),
         transaction_id: String(r.order_id),
       },
-    })
-  }
-  return rows.length
+    })),
+  )
 }
 
 async function syncKyc(db: Pool, since: Date): Promise<number> {
@@ -78,21 +81,23 @@ async function syncKyc(db: Pool, since: Date): Promise<number> {
      WHERE status IN ('approved','rejected') AND updated_at >= ? LIMIT 500`,
     [since],
   )
-  for (const r of rows) {
-    const approved = String(r.status) === 'approved'
-    await sendEvent(db, {
-      userId: String(r.user_id),
-      eventName: approved ? 'kyc_completed' : 'kyc_rejected',
-      eventId: stateEventId(String(r.user_id), r.reviewed_at ?? r.updated_at),
-      fields: {
-        jurisdiction: env.REVOSURGE_JURISDICTION.trim().toUpperCase(),
-        kyc_level: 'basic',
-        // 我方只有单级实名、且只走证件，其余枚举值用不上
-        ...(approved ? { verification_method: 'id_document' } : { rejection_reason: 'other' }),
-      },
-    })
-  }
-  return rows.length
+  return sendEventBatch(
+    db,
+    rows.map((r) => {
+      const approved = String(r.status) === 'approved'
+      return {
+        userId: String(r.user_id),
+        eventName: approved ? 'kyc_completed' : 'kyc_rejected',
+        eventId: stateEventId(String(r.user_id), r.reviewed_at ?? r.updated_at),
+        fields: {
+          jurisdiction: env.REVOSURGE_JURISDICTION.trim().toUpperCase(),
+          kyc_level: 'basic',
+          // 我方只有单级实名、且只走证件，其余枚举值用不上
+          ...(approved ? { verification_method: 'id_document' } : { rejection_reason: 'other' }),
+        },
+      }
+    }),
+  )
 }
 
 async function syncAccountStatus(db: Pool, since: Date): Promise<number> {
@@ -101,17 +106,18 @@ async function syncAccountStatus(db: Pool, since: Date): Promise<number> {
      WHERE status = 'banned' AND updated_at >= ? LIMIT 500`,
     [since],
   )
-  for (const r of rows) {
-    await sendEvent(db, {
+  const sent = await sendEventBatch(
+    db,
+    rows.map((r) => ({
       userId: String(r.id),
       eventName: 'account_blocked',
       eventId: stateEventId(String(r.id), r.updated_at),
       // 我方封禁原因是自由文本，映射不进其枚举，统一报 other
       fields: { block_reason: 'other' },
-    })
-    await markBlocked(String(r.id))
-  }
-  return rows.length
+    })),
+  )
+  for (const r of rows) await markBlocked(String(r.id))
+  return sent
 }
 
 /** 登录按「每人每天一条」收敛：原样上报量太大且没有额外信息量，日活信号一条就够 */
@@ -121,14 +127,14 @@ async function syncLogins(db: Pool, since: Date): Promise<number> {
      WHERE created_at >= ? GROUP BY user_id, DATE_FORMAT(created_at,'%Y-%m-%d') LIMIT 1000`,
     [since],
   )
-  for (const r of rows) {
-    await sendEvent(db, {
+  return sendEventBatch(
+    db,
+    rows.map((r) => ({
       userId: String(r.user_id),
       eventName: 'login',
       eventId: `${r.user_id}:${String(r.d)}`,
-    })
-  }
-  return rows.length
+    })),
+  )
 }
 
 /** App 启动。bg_login_log.platform='app' 即 APK 环境（我方只有 Android 包，无 iOS）。
@@ -140,22 +146,21 @@ async function syncAppEvents(db: Pool, since: Date): Promise<number> {
      WHERE platform = 'app' AND created_at >= ? LIMIT 500`,
     [since],
   )
-  for (const r of rows) {
-    const userId = String(r.user_id)
-    await sendEvent(db, {
-      userId,
-      eventName: 'app_install',
-      eventId: userId,
-      fields: { platform: 'android' },
-    })
-    await sendEvent(db, {
-      userId,
-      eventName: 'app_open',
-      eventId: `${userId}:${String(r.d)}`,
-      fields: { platform: 'android' },
-    })
-  }
-  return rows.length
+  return sendEventBatch(
+    db,
+    rows.flatMap((r) => {
+      const userId = String(r.user_id)
+      return [
+        { userId, eventName: 'app_install', eventId: userId, fields: { platform: 'android' } },
+        {
+          userId,
+          eventName: 'app_open',
+          eventId: `${userId}:${String(r.d)}`,
+          fields: { platform: 'android' },
+        },
+      ]
+    }),
+  )
 }
 
 /** 充值发起。订单一建立即为发起，与到账的 deposit 是两条事件——
@@ -166,8 +171,9 @@ async function syncInitiatedDeposits(db: Pool, since: Date): Promise<number> {
      WHERE created_at >= ? LIMIT 500`,
     [since],
   )
-  for (const r of rows) {
-    await sendEvent(db, {
+  return sendEventBatch(
+    db,
+    rows.map((r) => ({
       userId: String(r.user_id),
       eventName: 'deposit_initiated',
       eventId: String(r.order_id),
@@ -176,9 +182,8 @@ async function syncInitiatedDeposits(db: Pool, since: Date): Promise<number> {
         currency: String(r.currency ?? 'PHP').toUpperCase(),
         transaction_id: String(r.order_id),
       },
-    })
-  }
-  return rows.length
+    })),
+  )
 }
 
 /** 解封。用户表只有当前状态判断不出「曾被封过」，靠封禁时打的 Redis 标记来筛——
@@ -189,18 +194,17 @@ async function syncUnblocked(db: Pool, since: Date): Promise<number> {
      WHERE status = 'active' AND updated_at >= ? LIMIT 500`,
     [since],
   )
-  let sent = 0
+  const targets: SendInput[] = []
   for (const r of rows) {
     if (!(await wasBlocked(String(r.id)))) continue
-    await sendEvent(db, {
+    targets.push({
       userId: String(r.id),
       eventName: 'account_unblocked',
       eventId: stateEventId(String(r.id), r.updated_at),
       fields: { unblock_reason: 'other' },
     })
-    sent += 1
   }
-  return sent
+  return sendEventBatch(db, targets)
 }
 
 /**
@@ -218,19 +222,17 @@ async function syncBonuses(db: Pool, since: Date): Promise<number> {
      WHERE source_type = 'promotion' AND created_at >= ? LIMIT 500`,
     [since],
   )
-  for (const r of claimed) {
-    await sendEvent(db, {
-      userId: String(r.user_id),
-      eventName: 'bonus_claimed',
-      eventId: String(r.id),
-      fields: {
-        bonus_id: String(r.source_ref ?? 'promotion'),
-        bonus_value_granted: Number(r.base_amount),
-        currency: String(r.currency ?? 'PHP').toUpperCase(),
-        wagering_requirement: Number(r.required_amount),
-      },
-    })
-  }
+  const events: SendInput[] = claimed.map((r) => ({
+    userId: String(r.user_id),
+    eventName: 'bonus_claimed',
+    eventId: String(r.id),
+    fields: {
+      bonus_id: String(r.source_ref ?? 'promotion'),
+      bonus_value_granted: Number(r.base_amount),
+      currency: String(r.currency ?? 'PHP').toUpperCase(),
+      wagering_requirement: Number(r.required_amount),
+    },
+  }))
 
   const [completed] = await db.query<RowDataPacket[]>(
     `SELECT id, user_id, source_ref, completed_amount, required_amount, currency,
@@ -240,7 +242,7 @@ async function syncBonuses(db: Pool, since: Date): Promise<number> {
     [since],
   )
   for (const r of completed) {
-    await sendEvent(db, {
+    events.push({
       userId: String(r.user_id),
       eventName: 'bonus_completed',
       eventId: String(r.id),
@@ -253,7 +255,7 @@ async function syncBonuses(db: Pool, since: Date): Promise<number> {
       },
     })
   }
-  return claimed.length + completed.length
+  return sendEventBatch(db, events)
 }
 
 /** VIP 等级变化。表里只存当前状态没有历史，用「userId:等级」当幂等键——
@@ -265,15 +267,15 @@ async function syncVipChanges(db: Pool, since: Date): Promise<number> {
      WHERE current_level > 0 AND updated_at >= ? LIMIT 500`,
     [since],
   )
-  for (const r of rows) {
-    await sendEvent(db, {
+  return sendEventBatch(
+    db,
+    rows.map((r) => ({
       userId: String(r.user_id),
       eventName: 'vip_tier_changed',
       eventId: `${r.user_id}:${r.current_level}`,
       fields: { direction: 'upgrade', new_tier: String(r.current_level) },
-    })
-  }
-  return rows.length
+    })),
+  )
 }
 
 /** 认证方式本身就是验证事实：google 注册的邮箱由 Google 验证过，phone 注册的手机号
@@ -285,14 +287,14 @@ async function syncVerifications(db: Pool, since: Date): Promise<number> {
      WHERE created_at >= ? AND auth_method IN ('google','phone') LIMIT 500`,
     [since],
   )
-  for (const r of rows) {
-    await sendEvent(db, {
+  return sendEventBatch(
+    db,
+    rows.map((r) => ({
       userId: String(r.user_id),
       eventName: String(r.auth_method) === 'google' ? 'email_verified' : 'phone_verified',
       eventId: String(r.user_id),
-    })
-  }
-  return rows.length
+    })),
+  )
 }
 
 /** 推荐注册。这是与 register 并列的独立事件（对方目录里就分两个），所以带推荐人的
@@ -302,10 +304,10 @@ async function syncReferralRegisters(db: Pool, since: Date): Promise<number> {
     `SELECT id FROM bg_user WHERE inviter_id IS NOT NULL AND created_at >= ? LIMIT 500`,
     [since],
   )
-  for (const r of rows) {
-    await sendEvent(db, { userId: String(r.id), eventName: 'referral_register', eventId: String(r.id) })
-  }
-  return rows.length
+  return sendEventBatch(
+    db,
+    rows.map((r) => ({ userId: String(r.id), eventName: 'referral_register', eventId: String(r.id) })),
+  )
 }
 
 // 厂商 → RevoSurge game_type。对方枚举有 slot/live_casino/sportsbook/lottery/crash/
