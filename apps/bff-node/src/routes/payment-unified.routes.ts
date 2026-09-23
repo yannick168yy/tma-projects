@@ -27,6 +27,12 @@ import {
   queryDeposit as wzpayQueryDeposit,
   WzpayError,
 } from '../services/wzpay.service.js'
+import {
+  createDeposit as huitoneCreateDeposit,
+  generateCustomerContact as generateHuitoneContact,
+  queryDeposit as huitoneQueryDeposit,
+  HuitoneError,
+} from '../services/huitone.service.js'
 import { syncQueriedDepositStatus } from '../services/deposit-status-sync.service.js'
 import {
   getWalletBalances, getDeposit, getWithdraw, saveDeposit, saveWithdraw,
@@ -54,6 +60,14 @@ async function getWzpayCustomer(redis: Redis, userId: string) {
   return { ...generateWzpayContact(userId), name }
 }
 
+async function getHuitoneCustomer(redis: Redis, userId: string, orderId: string) {
+  const user = await getUser(redis, userId)
+  return {
+    ...generateHuitoneContact(`${userId}:${orderId}`),
+    name: String(user?.displayName ?? '').trim() || userId.replace(/[^A-Za-z0-9]/g, ''),
+  }
+}
+
 function depositOrderState(status: OrderDeposit['status']): number {
   if (status === 'paid') return 2
   if (status === 'failed' || status === 'rejected' || status === 'cancelled') return 3
@@ -61,7 +75,7 @@ function depositOrderState(status: OrderDeposit['status']): number {
 }
 
 function queriedDepositState(provider: string, state: number): number {
-  if (provider === 'unispay' || provider === 'wzpay') {
+  if (provider === 'unispay' || provider === 'wzpay' || provider === 'huitone') {
     if (state === 1) return 2
     if (state === 2 || state === 3) return 3
     return 0
@@ -141,13 +155,18 @@ router.post('/payment/deposit/create', async (ctx) => {
     fail(ctx, 400, 'errors.amountOrChannelUnavailable'); return
   }
 
-  const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFD' : provider === 'unispay' ? 'UPD' : 'WZD')
+  const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFD'
+    : provider === 'unispay' ? 'UPD'
+      : provider === 'wzpay' ? 'WZD' : 'HTD')
 
   try {
     let payUrl: string
     let platformId: string
     let channelCodeUsed: string
     let qrcode: string | undefined
+    let upi: string | undefined
+    let upiLink: string | undefined
+    let walletList: { clickUrl?: string; walletCode?: string }[] | undefined
 
     if (provider === 'yfpay') {
       const yfChannels = await getCachedYfpayChannels(ctx.state.redis as Redis, ctx.state.env)
@@ -188,6 +207,21 @@ router.post('/payment/deposit/create', async (ctx) => {
       payUrl = result.payUrl
       qrcode = result.qrcode
       platformId = result.platformId
+    } else if (provider === 'huitone') {
+      if (currency !== 'INR') { fail(ctx, 400, 'Huitone 仅支持 INR'); return }
+      const customer = await getHuitoneCustomer(ctx.state.redis as Redis, ctx.state.userId!, merchantSerial)
+      const result = await huitoneCreateDeposit({
+        amount,
+        merchantSerial,
+        ...customer,
+        notifyUrl: ctx.state.env.HUITONE_NOTIFY_URL,
+      }, ctx.state.env)
+      channelCodeUsed = channelName.toUpperCase()
+      payUrl = result.payUrl
+      platformId = result.platformId
+      upi = result.upi
+      upiLink = result.upiLink
+      walletList = result.walletList
     } else {
       fail(ctx, 500, `未知 provider: ${provider}`); return
     }
@@ -201,21 +235,22 @@ router.post('/payment/deposit/create', async (ctx) => {
       status: 'pending',
       provider,
       providerRef: platformId,
-      extraData: { channelCode: channelCodeUsed, payUrl, qrcode, channelName },
+      extraData: { channelCode: channelCodeUsed, payUrl, qrcode, upi, upiLink, walletList, channelName },
       createdAt: nowIso(),
     }
     if (isMysqlEnabled(ctx.state.env)) {
       await saveDeposit(ctx.state.redis, order)
     }
 
-    ok(ctx, { merchantSerial, platformId, payUrl, qrcode, amount, state: 0, provider })
+    ok(ctx, { merchantSerial, platformId, payUrl, qrcode, upi, upiLink, walletList, amount, state: 0, provider })
   } catch (err) {
     console.error('[bff] payment/deposit/create', merchantSerial, err)
     const msg = err instanceof YfPayError ? err.message
       : err instanceof UnispayError ? err.message
       : err instanceof WzpayError ? err.message
+      : err instanceof HuitoneError ? err.message
       : '创建充值订单失败'
-    fail(ctx, err instanceof WzpayError && Number(err.code) === 400 ? 400 : 500, msg)
+    fail(ctx, (err instanceof WzpayError || err instanceof HuitoneError) && Number(err.code) === 400 ? 400 : 500, msg)
   }
 })
 
@@ -225,14 +260,15 @@ router.post('/payment/deposit/query', async (ctx) => {
   const body = ctx.request.body as { merchantSerial?: string }
   if (!body.merchantSerial) { fail(ctx, 400, '缺少 merchantSerial'); return }
 
-  let provider = body.merchantSerial.startsWith('WZD') ? 'wzpay'
+  let provider = body.merchantSerial.startsWith('HTD') ? 'huitone'
+    : body.merchantSerial.startsWith('WZD') ? 'wzpay'
     : body.merchantSerial.startsWith('UPD') ? 'unispay'
       : 'yfpay'
   let order: OrderDeposit | null = null
   if (isMysqlEnabled(ctx.state.env)) {
     order = await getDeposit(ctx.state.redis, body.merchantSerial)
     if (!order || order.userId !== ctx.state.userId) { fail(ctx, 403, 'errors.noPermission'); return }
-    provider = order.provider ?? (order.channelId.startsWith('unispay_') ? 'unispay' : order.channelId.startsWith('wzpay_') ? 'wzpay' : 'yfpay')
+    provider = order.provider ?? (order.channelId.startsWith('huitone_') ? 'huitone' : order.channelId.startsWith('unispay_') ? 'unispay' : order.channelId.startsWith('wzpay_') ? 'wzpay' : 'yfpay')
     if (order.status !== 'pending') {
       ok(ctx, { state: depositOrderState(order.status) })
       return
@@ -250,6 +286,9 @@ router.post('/payment/deposit/query', async (ctx) => {
     } else if (provider === 'wzpay') {
       const r = await wzpayQueryDeposit(body.merchantSerial, ctx.state.env)
       state = queriedDepositState(provider, r.state)
+    } else if (provider === 'huitone') {
+      const r = await huitoneQueryDeposit(body.merchantSerial, ctx.state.env)
+      state = r.status === 'SUCCESS' ? 2 : r.status === 'FAIL' ? 3 : 0
     } else {
       const r = await yfpayQueryDeposit(body.merchantSerial, ctx.state.env)
       state = r.state
@@ -259,6 +298,7 @@ router.post('/payment/deposit/query', async (ctx) => {
     const msg = err instanceof YfPayError ? err.message
       : err instanceof UnispayError ? err.message
       : err instanceof WzpayError ? err.message
+      : err instanceof HuitoneError ? err.message
       : '查询失败'
     fail(ctx, 500, msg)
   }
@@ -273,7 +313,7 @@ router.get('/payment/deposit/orders', async (ctx) => {
     merchantSerial: o.orderId,
     amount: o.amount,
     channelName: (o.extraData as Record<string, string> | undefined)?.channelName ?? o.channelId,
-    provider: o.provider ?? (o.channelId.startsWith('unispay_') ? 'unispay' : o.channelId.startsWith('wzpay_') ? 'wzpay' : o.channelId.startsWith('yfpay_') ? 'yfpay' : undefined),
+    provider: o.provider ?? (o.channelId.startsWith('huitone_') ? 'huitone' : o.channelId.startsWith('unispay_') ? 'unispay' : o.channelId.startsWith('wzpay_') ? 'wzpay' : o.channelId.startsWith('yfpay_') ? 'yfpay' : undefined),
     state: depositOrderState(o.status),
     payUrl: (o.extraData as Record<string, string> | undefined)?.payUrl,
     createdAt: o.createdAt,
@@ -285,12 +325,13 @@ router.get('/payment/deposit/orders', async (ctx) => {
 router.post('/payment/withdraw/create', async (ctx) => {
   const body = ctx.request.body as {
     channelName?: string; amount?: number
-    targetOwner?: string; targetAccount?: string
+    targetOwner?: string; targetAccount?: string; ifsc?: string
     currency?: string; provider?: string
   }
   const channelName = String(body.channelName ?? '').toLowerCase().trim()
   const requestedProvider = body.provider ? String(body.provider).toLowerCase().trim() : undefined
   const { amount, targetOwner, targetAccount } = body
+  const ifsc = String(body.ifsc ?? '').trim().toUpperCase()
   const currency = String(body.currency ?? 'PHP').toUpperCase()
 
   if (!channelName || !amount || amount <= 0 || !targetOwner || !targetAccount) {
@@ -344,6 +385,12 @@ router.post('/payment/withdraw/create', async (ctx) => {
     if (provider === 'wzpay' && (currency !== 'IDR' || !Number.isInteger(amount))) {
       fail(ctx, 400, 'WZPAY IDR 提现金额必须为整数'); return
     }
+    if (provider === 'huitone' && currency !== 'INR') {
+      fail(ctx, 400, 'Huitone 仅支持 INR'); return
+    }
+    if (provider === 'huitone' && !ifsc) {
+      fail(ctx, 400, 'Huitone 提现必须填写 IFSC'); return
+    }
 
     let wzpayCustomer: Awaited<ReturnType<typeof getWzpayCustomer>> | undefined
     if (provider === 'wzpay') {
@@ -358,7 +405,9 @@ router.post('/payment/withdraw/create', async (ctx) => {
     // provider 专用渠道码：yfpay 代付使用 bank-codes 数字编码。
     const channelCode = channelName.toUpperCase()
     const optionCode = normalizeWithdrawOptionCode(channelCode)
-    const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFW' : provider === 'unispay' ? 'UPW' : 'WZW')
+    const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFW'
+      : provider === 'unispay' ? 'UPW'
+        : provider === 'wzpay' ? 'WZW' : 'HTW')
 
     await creditWallet(redis, userId, -amount, {
       type: 'withdraw',
@@ -383,6 +432,8 @@ router.post('/payment/withdraw/create', async (ctx) => {
         channelName,
         targetAccount: targetAccount ?? '',
         targetOwner: targetOwner ?? '',
+        ifsc: provider === 'huitone' ? ifsc : undefined,
+        ...(provider === 'huitone' ? generateHuitoneContact(userId) : {}),
         ...(wzpayCustomer ? {
           accountMobile: wzpayCustomer.phone,
           accountEmail: wzpayCustomer.email,

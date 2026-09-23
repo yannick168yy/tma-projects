@@ -877,6 +877,7 @@ export default {
     yfpayAmountOutOfRange: 'Jumlah harus antara Rp{{min}} dan Rp{{max}}.',
     withdrawAmountRange: 'Rentang penarikan: Rp{{min}} – Rp{{max}}',
     yfpayAccountNumber: 'Nomor Akun (mis. nomor HP)',
+    ifscCode: 'Kode IFSC',
     yfpayFullName: 'Nama Lengkap',
     yfpayWithdrawSubmit: 'Kirim Penarikan',
     yfpayWithdrawPending: 'Penarikan dikirim dan sedang diproses, akan segera tiba.',

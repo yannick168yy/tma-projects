@@ -72,6 +72,10 @@ function assertProductionSecurity(env: Env): void {
       if (!env[key].trim()) missing.push(key)
     }
   }
+  if (env.HUITONE_MERCHANT_ID.trim() || env.HUITONE_MERCHANT_KEY.trim()) {
+    if (!env.HUITONE_MERCHANT_ID.trim()) missing.push('HUITONE_MERCHANT_ID')
+    if (!env.HUITONE_MERCHANT_KEY.trim()) missing.push('HUITONE_MERCHANT_KEY')
+  }
 
   if (missing.length) {
     throw new Error(`Unsafe production configuration: ${missing.join(', ')}`)

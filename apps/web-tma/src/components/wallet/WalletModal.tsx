@@ -31,29 +31,32 @@ interface Props { open: boolean; onClose: () => void; initialTab?: 'deposit'|'wi
 interface HistoryItem { id: string; orderId: string; type: 'deposit'|'withdraw'; method: string; amount: string; date: string; sortKey: string; status: 'success'|'pending'|'rejected'|'admin_rejected'|'failed'; rejectReason?: string | null }
 const STALE_DEPOSIT_PENDING_MS = 30 * 60 * 1000
 
-function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank',DANA:'DANA',dana:'DANA',VA:'VA',va:'VA',QRIS:'QRIS',qris:'QRIS',LINKAJA:'LinkAja',linkaja:'LinkAja',OVO:'OVO',ovo:'OVO',GOPAY:'GoPay',gopay:'GoPay',BNI:'BNI',bni:'BNI',BRI:'BRI',bri:'BRI',MANDIRI:'Mandiri',mandiri:'Mandiri',PERMATA:'Permata',permata:'Permata'}; return m[code]??code??'—' }
+function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank',DANA:'DANA',dana:'DANA',VA:'VA',va:'VA',QRIS:'QRIS',qris:'QRIS',LINKAJA:'LinkAja',linkaja:'LinkAja',OVO:'OVO',ovo:'OVO',GOPAY:'GoPay',gopay:'GoPay',BNI:'BNI',bni:'BNI',BRI:'BRI',bri:'BRI',MANDIRI:'Mandiri',mandiri:'Mandiri',PERMATA:'Permata',permata:'Permata',UPI:'UPI',upi:'UPI',BANK:'Bank Transfer',bank:'Bank Transfer'}; return m[code]??code??'—' }
 function formatOrderDate(iso: string) { try { return new Date(iso).toLocaleString('en-PH',{dateStyle:'short',timeStyle:'short'}) } catch { return iso } }
 function mapDepositState(state: number): HistoryItem['status'] { if(state===2)return 'success'; if(state===3)return 'rejected'; return 'pending' }
 function mapWithdrawState(state: number): HistoryItem['status'] { if(state===1)return 'success'; if(state===2||state===3)return 'rejected'; return 'pending' }
 function mapDepositStatus(status: string): HistoryItem['status'] { if(status==='paid'||status==='completed')return 'success'; if(status==='rejected')return 'rejected'; if(status==='admin_rejected')return 'admin_rejected'; if(status==='cancelled'||status==='failed')return 'failed'; return 'pending' }
-function mapDepositChannelName(channelId: string) { const m: Record<string,string>={admin:'Admin',tg_wallet:'Telegram',ammer_pay:'Telegram',yfpay_gcash:'GCash',yfpay_maya:'Maya',yfpay_gotyme:'GoTyme',yfpay_bdo:'BDO Bank',yfpay_bpi:'BPI Bank',yfpay_unknown:'YF Pay',unispay_dana:'DANA',unispay_va:'VA',unispay_qris:'QRIS',matrix:'Matrix TRX'}; return m[channelId]??channelId??'—' }
+function mapDepositChannelName(channelId: string) { const m: Record<string,string>={admin:'Admin',tg_wallet:'Telegram',ammer_pay:'Telegram',yfpay_gcash:'GCash',yfpay_maya:'Maya',yfpay_gotyme:'GoTyme',yfpay_bdo:'BDO Bank',yfpay_bpi:'BPI Bank',yfpay_unknown:'YF Pay',unispay_dana:'DANA',unispay_va:'VA',unispay_qris:'QRIS',huitone_upi:'UPI',huitone_bank:'Bank Transfer',matrix:'Matrix TRX'}; return m[channelId]??channelId??'—' }
 
 // 各币种充值预设档位（与后台首充档位口径一致），用于充值金额网格
 const DEPOSIT_PRESETS: Record<string, number[]> = {
   PHP: [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
   IDR: [10000, 25000, 50000, 100000, 200000, 500000, 1000000, 2000000, 5000000],
+  INR: [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
   USDT: [1, 5, 10, 50, 100, 500, 1000],
   USDC: [1, 5, 10, 50, 100, 500, 1000],
   TRX: [100, 500, 1000, 5000, 10000],
 }
-function currencySymbol(cur: string) { return cur === 'PHP' ? '₱' : cur === 'IDR' ? 'Rp' : cur === 'TRX' ? '' : '$' }
+function currencySymbol(cur: string) { return cur === 'PHP' ? '₱' : cur === 'IDR' ? 'Rp' : cur === 'INR' ? '₹' : cur === 'TRX' ? '' : '$' }
 function formatFiatAmount(amount: number, cur: string) {
   if (cur === 'IDR') return `Rp ${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
   if (cur === 'PHP') return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  if (cur === 'INR') return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${cur}`
 }
 function fmtPreset(amount: number, cur: string) {
   if (cur === 'IDR') return `Rp ${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+  if (cur === 'INR') return `₹${amount.toLocaleString('en-IN')}`
   const s = currencySymbol(cur)
   return cur === 'TRX' ? `${amount.toLocaleString()} ${cur}` : `${s}${amount.toLocaleString()}`
 }
@@ -74,6 +77,7 @@ function paymentProviderName(provider: string): string {
   if (provider === 'unispay') return 'UnisPay'
   if (provider === 'wzpay') return 'WZPAY'
   if (provider === 'yfpay') return 'YFPay'
+  if (provider === 'huitone') return 'Huitone'
   return provider
 }
 
@@ -132,6 +136,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [copiedPaymentLink, setCopiedPaymentLink] = useState(false)
   const [withdrawAccount, setWithdrawAccount] = useState('')
   const [withdrawOwner, setWithdrawOwner] = useState('')
+  const [withdrawIfsc, setWithdrawIfsc] = useState('')
   const [withdrawLoading, setWithdrawLoading] = useState(false)
   const [withdrawMessage, setWithdrawMessage] = useState('')
   const [withdrawSuccess, setWithdrawSuccess] = useState(false)
@@ -194,6 +199,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     } else {
       setWithdrawAccount('')
       setWithdrawOwner('')
+      setWithdrawIfsc('')
     }
   }
 
@@ -249,7 +255,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       setTab(initialTab); setDepositView('select'); setSelectedMethod(null); setAmount(''); setHistoryFilter('all'); setHistoryStatus('all'); setDepositCategory(defaultDepositCat)
       void loadPromoConfig()
       setDepositLoading(false); setDepositMessage(''); setDepositSuccess(false); setPaymentCheckout(null); setCopiedPaymentLink(false)
-      setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawMessage(''); setWithdrawSuccess(false)
+      setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawIfsc(''); setWithdrawMessage(''); setWithdrawSuccess(false)
       pendingWithdrawMethodRef.current = null
       setTurnoverProgress(null); setTurnoverLoading(false)
       void walletStore.refresh()
@@ -387,6 +393,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     [liveCryptoWithdraw, activeCurrency],
   )
   const isFiatWithdraw = liveFiatWithdraw.some((m) => m.id === selectedMethod)
+  const isHuitoneWithdraw = selectedPayMethod?.paymentProvider === 'huitone'
   const withdrawAccountLocked = isPhoneWalletWithdraw(selectedMethod) && Boolean(boundPhoneNumber)
   const isMatrixWithdraw = selectedPayMethod?.channelId === 'matrix' && tab === 'withdraw'
   const matrixWithdrawGasConfig = useMemo(() => {
@@ -509,7 +516,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const fiatWithdrawAmountValid = Number(amount) > 0
     && (fiatWithdrawMin == null || Number(amount) >= fiatWithdrawMin)
     && (fiatWithdrawMax == null || Number(amount) <= fiatWithdrawMax)
-  const canSubmitWithdraw = Boolean(!withdrawLoading && hasRealDepositForWithdraw && isFiatWithdraw && fiatWithdrawAmountValid && withdrawAccount.trim() && withdrawOwner.trim())
+  const canSubmitWithdraw = Boolean(!withdrawLoading && hasRealDepositForWithdraw && isFiatWithdraw && fiatWithdrawAmountValid && withdrawAccount.trim() && withdrawOwner.trim() && (!isHuitoneWithdraw || withdrawIfsc.trim()))
   const matrixWithdrawGasFee = (() => {
     const n = Number(matrixCryptoAmount)
     if (
@@ -587,7 +594,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     setWithdrawLoading(true); setWithdrawMessage(''); setWithdrawSuccess(false)
     const channelName=selectedPayMethod?.paymentChannelName; if(!channelName)return
     analytics.withdrawStart(channelName,n,activeCurrency)
-    try{await createPaymentWithdrawal({channelName,provider:selectedPayMethod?.paymentProvider,amount:n,targetOwner:withdrawOwner.trim(),targetAccount:withdrawAccount.trim(),currency:activeCurrency});analytics.withdrawCreated(channelName,n,activeCurrency);setWithdrawSuccess(true);setWithdrawMessage(t('wallet.yfpayWithdrawPending'));await walletStore.refresh();setTimeout(()=>{setTab('history');setHistoryFilter('withdraw');void loadHistory()},1500)}catch(e){setWithdrawMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.yfpayWithdrawFailed'))}finally{setWithdrawLoading(false)}
+    try{await createPaymentWithdrawal({channelName,provider:selectedPayMethod?.paymentProvider,amount:n,targetOwner:withdrawOwner.trim(),targetAccount:withdrawAccount.trim(),ifsc:isHuitoneWithdraw?withdrawIfsc.trim().toUpperCase():undefined,currency:activeCurrency});analytics.withdrawCreated(channelName,n,activeCurrency);setWithdrawSuccess(true);setWithdrawMessage(t('wallet.yfpayWithdrawPending'));await walletStore.refresh();setTimeout(()=>{setTab('history');setHistoryFilter('withdraw');void loadHistory()},1500)}catch(e){setWithdrawMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.yfpayWithdrawFailed'))}finally{setWithdrawLoading(false)}
   }
 
   async function onProceedMatrixWithdraw() {
@@ -624,7 +631,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     try{
       const[yfDeposits,yfWithdrawals,bgDeposits,bgWithdrawals]=await Promise.all([fetchYfDepositOrders().catch(()=>[]),fetchYfWithdrawOrders().catch(()=>[]),fetchDepositHistory().catch(()=>[]),fetchWithdrawHistory().catch(()=>[])])
       const seen=new Set<string>(); const items: HistoryItem[]=[]
-      for(const d of bgDeposits){seen.add(d.orderId);const val=d.creditedCents??d.amount;const dAmt=d.currency==='PHP'||d.currency==='IDR'?`+${formatFiatAmount(val,d.currency)}`:`+${parseFloat(d.amount.toFixed(6))} ${d.currency}`;items.push({id:d.orderId,orderId:d.orderId,type:'deposit',method:mapDepositChannelName(d.channelId),amount:dAmt,date:formatOrderDate(d.createdAt),sortKey:d.createdAt,status:mapDepositStatus(d.status)})}
+      for(const d of bgDeposits){seen.add(d.orderId);const val=d.creditedCents??d.amount;const dAmt=d.currency==='PHP'||d.currency==='IDR'||d.currency==='INR'?`+${formatFiatAmount(val,d.currency)}`:`+${parseFloat(d.amount.toFixed(6))} ${d.currency}`;items.push({id:d.orderId,orderId:d.orderId,type:'deposit',method:mapDepositChannelName(d.channelId),amount:dAmt,date:formatOrderDate(d.createdAt),sortKey:d.createdAt,status:mapDepositStatus(d.status)})}
       for(const w of bgWithdrawals){seen.add(w.orderId);const wAmt=w.channelId==='matrix'?`-${w.amount} ${w.currency}`:`-${formatFiatAmount(w.amount,w.currency)}`;items.push({id:w.orderId,orderId:w.orderId,type:'withdraw',method:mapDepositChannelName(w.channelId),amount:wAmt,date:formatOrderDate(w.createdAt),sortKey:w.createdAt,status:mapDepositStatus(w.status),rejectReason:w.rejectReason})}
       for(const d of yfDeposits)if(!seen.has(d.merchantSerial))items.push({id:d.merchantSerial,orderId:d.merchantSerial,type:'deposit',method:methodDisplayName(d.channelCode??''),amount:`+₱${d.amount.toFixed(2)}`,date:formatOrderDate(d.createdAt),sortKey:d.createdAt,status:mapDepositState(d.state)})
       for(const w of yfWithdrawals)if(!seen.has(w.merchantSerial))items.push({id:w.merchantSerial,orderId:w.merchantSerial,type:'withdraw',method:methodDisplayName(w.optionCode??''),amount:`-₱${w.amount.toFixed(2)}`,date:formatOrderDate(w.createdAt),sortKey:w.createdAt,status:mapWithdrawState(w.state)})
@@ -634,7 +641,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
 
   async function copyOrderId(id: string) { try{await navigator.clipboard.writeText(id);setCopiedId(id);setTimeout(()=>setCopiedId(null),2000)}catch{/***/} }
 
-  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopPolling(); setDepositLoading(false); setDepositSuccess(false); setPaymentCheckout(null); setCopiedPaymentLink(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false); setCopiedDepositAmount(false) }
+  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawIfsc(''); stopPolling(); setDepositLoading(false); setDepositSuccess(false); setPaymentCheckout(null); setCopiedPaymentLink(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false); setCopiedDepositAmount(false) }
 
   function switchTab(next: 'deposit'|'withdraw'|'history') {
     if (next === tab) return
@@ -1204,6 +1211,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                     <input value={withdrawAccount} type="tel" readOnly={withdrawAccountLocked} placeholder={t('wallet.yfpayAccountNumber')} className={`w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary${withdrawAccountLocked ? ' opacity-60' : ''}`} onChange={withdrawAccountLocked ? undefined : (e)=>setWithdrawAccount(e.target.value)} />
                     {withdrawAccountLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}
                     <input value={withdrawOwner} type="text" placeholder={t('wallet.yfpayFullName')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setWithdrawOwner(e.target.value)} />
+                    {isHuitoneWithdraw&&<input value={withdrawIfsc} type="text" autoCapitalize="characters" placeholder={t('wallet.ifscCode')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary uppercase" onChange={(e)=>setWithdrawIfsc(e.target.value.toUpperCase())} />}
                   </>}
                   {withdrawMessage&&!isMatrixWithdraw&&<p className={`text-xs font-bold text-center ${withdrawSuccess?'text-emerald-400':'text-amber-400'}`}>{withdrawMessage}</p>}
                   {tab==='withdraw'&&isMatrixWithdraw&&<>

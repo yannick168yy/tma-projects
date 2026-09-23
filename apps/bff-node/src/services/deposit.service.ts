@@ -16,7 +16,7 @@ import { evaluateWithPool } from './risk.service.js'
 import { applyRedepPromo } from './redep.service.js'
 import { createRegularRedepClaim } from './regular-redep.service.js'
 
-export type DepositCurrency = 'PHP' | 'USDT' | 'USDC' | 'IDR'
+export type DepositCurrency = 'PHP' | 'USDT' | 'USDC' | 'IDR' | 'INR'
 
 export function depositAmountToYuan(
   amount: number,

@@ -100,6 +100,11 @@ const schema = z.object({
   WZPAY_API_KEY: z.string().default(''),
   WZPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/wzpay'),
   WZPAY_RETURN_URL: z.string().default('https://www.188facai.com'),
+  // ── Huitone 印度通道 ──────────────────────────────────────────────────────
+  HUITONE_BASE_URL: z.string().default('https://api.huitone.ai'),
+  HUITONE_MERCHANT_ID: z.string().default(''),
+  HUITONE_MERCHANT_KEY: z.string().default(''),
+  HUITONE_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/huitone'),
   NACOS_SERVER_ADDR: z.string().default(''),
   NACOS_NAMESPACE: z.string().default('batogo'),
   NACOS_DATA_ID: z.string().default('bff-node'),

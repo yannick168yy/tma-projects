@@ -1303,6 +1303,7 @@ export default {
     yfpayAmountOutOfRange: 'Amount must be between ₱{{min}} and ₱{{max}}.',
     withdrawAmountRange: 'Withdrawal range: ₱{{min}} – ₱{{max}}',
     yfpayAccountNumber: 'Account Number (e.g. phone)',
+    ifscCode: 'IFSC Code',
     yfpayFullName: 'Full Name',
     yfpayWithdrawSubmit: 'Submit Withdrawal',
     yfpayWithdrawPending: 'Withdrawal submitted and is being processed. It will arrive as soon as possible.',

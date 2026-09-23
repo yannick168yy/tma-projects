@@ -6,6 +6,7 @@ import { executeMatrixWithdrawOrder } from './matrix.service.js'
 import { createWithdrawal as yfpayCreateWithdrawal, YfPayError } from './yfpay.service.js'
 import { createWithdrawal as unispayCreateWithdrawal, UnispayError } from './unispay.service.js'
 import { createWithdrawal as wzpayCreateWithdrawal, WzpayError } from './wzpay.service.js'
+import { createWithdrawal as huitoneCreateWithdrawal, HuitoneError } from './huitone.service.js'
 import { refreshAndCheckProviderBalance } from './payment-accounting.service.js'
 import { nowIso } from '../utils/format.js'
 import { providerFromChannel } from '../utils/payment-provider.js'
@@ -22,6 +23,8 @@ const isUnispay = (o: OrderWithdraw) =>
   o.provider === 'unispay' || providerFromChannel(o.channelId) === 'unispay'
 const isWzpay = (o: OrderWithdraw) =>
   o.provider === 'wzpay' || providerFromChannel(o.channelId) === 'wzpay'
+const isHuitone = (o: OrderWithdraw) =>
+  o.provider === 'huitone' || providerFromChannel(o.channelId) === 'huitone'
 
 /**
  * 批准提款并出款。管理员人工批准与自动审核共用此路径，避免两份逻辑漂移。
@@ -147,6 +150,39 @@ export async function approveWithdraw(
       order.status = 'failed'
       await saveWithdraw(redis, order)
       throw new Error(err instanceof WzpayError ? err.message : 'WZPAY 提现出款失败')
+    }
+  }
+
+  if (isHuitone(order)) {
+    const ex = (order.extraData ?? {}) as Record<string, unknown>
+    try {
+      const r = await huitoneCreateWithdrawal({
+        merchantSerial: order.orderId,
+        amount: order.amount,
+        accountName: String(ex.targetOwner ?? ''),
+        accountNo: String(ex.targetAccount ?? ''),
+        ifsc: String(ex.ifsc ?? ''),
+        mobile: String(ex.mobile ?? ''),
+        email: String(ex.email ?? ''),
+        notifyUrl: env.HUITONE_NOTIFY_URL,
+      }, env)
+      order.status = 'processing'
+      order.extraData = { ...ex, platformId: r.platformId }
+      await saveWithdraw(redis, order)
+      void refreshAndCheckProviderBalance(env, 'huitone').catch(() => {})
+      await chargePayout(env, redis, order)
+      return { status: 'processing' }
+    } catch (err) {
+      await creditWallet(redis, order.userId, order.amount, {
+        type: 'bonus',
+        refId: `REFUND_${order.orderId}`,
+        description: `Huitone 提现出款失败退款 #${order.orderId}`,
+        createdAt: nowIso(),
+        currency: order.currency ?? 'INR',
+      })
+      order.status = 'failed'
+      await saveWithdraw(redis, order)
+      throw new Error(err instanceof HuitoneError ? err.message : 'Huitone 提现出款失败')
     }
   }
 

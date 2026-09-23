@@ -52,6 +52,9 @@ const schema = z.object({
   WZPAY_MERCHANT_ID: z.string().default('10114'),
   WZPAY_API_KEY: z.string().default(''),
 
+  // Huitone 印度通道回调验签
+  HUITONE_MERCHANT_KEY: z.string().default(''),
+
   // Matrix 通知密钥（入站验签解密）
   MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY: z.string().default(''),
   MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY: z.string().default(''),

@@ -1299,6 +1299,7 @@ export default {
     yfpayAmountOutOfRange: '金额需在 ₱{{min}} 至 ₱{{max}} 之间。',
     withdrawAmountRange: '取款范围：₱{{min}} – ₱{{max}}',
     yfpayAccountNumber: '账号（如手机号）',
+    ifscCode: 'IFSC 代码',
     yfpayFullName: '持有人姓名',
     yfpayWithdrawSubmit: '提交提现',
     yfpayWithdrawPending: '提现申请已提交，正在处理中，将尽快到账。',

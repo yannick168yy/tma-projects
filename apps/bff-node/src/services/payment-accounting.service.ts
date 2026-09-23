@@ -4,6 +4,7 @@ import type { Env } from '../config/env.js'
 import { getBalance as yfpayGetBalance } from './yfpay.service.js'
 import { getBalance as unispayGetBalance } from './unispay.service.js'
 import { getBalance as wzpayGetBalance } from './wzpay.service.js'
+import { getBalance as huitoneGetBalance } from './huitone.service.js'
 import { getAdminSetting, setAdminSetting } from './admin-store.js'
 import { notifyPaymentCallbackIssue, notifyProviderBalanceLow } from './admin-notify.js'
 
@@ -16,15 +17,16 @@ const PROVIDER_LABELS: Record<string, string> = {
   yfpay: 'YFPay',
   unispay: 'UnisPay',
   wzpay: 'WZPAY',
+  huitone: 'Huitone',
   matrix: 'Matrix',
   tg_wallet: 'Telegram 钱包',
   manual: '手动 / 链上',
 }
 // 带下划线的 provider 要排在前面，避免 tg_wallet_php 被切成 tg
-const KNOWN_PROVIDERS = ['tg_wallet', 'yfpay', 'unispay', 'wzpay', 'matrix', 'manual']
+const KNOWN_PROVIDERS = ['tg_wallet', 'yfpay', 'unispay', 'wzpay', 'huitone', 'matrix', 'manual']
 
 // 支持余额查询 API 的服务商
-const BALANCE_PROVIDERS = ['yfpay', 'unispay', 'wzpay'] as const
+const BALANCE_PROVIDERS = ['yfpay', 'unispay', 'wzpay', 'huitone'] as const
 // 无余额 API、只能手动登记余额的服务商
 const MANUAL_BALANCE_PROVIDERS = ['matrix'] as const
 export const ALERT_PROVIDERS: string[] = [...BALANCE_PROVIDERS, ...MANUAL_BALANCE_PROVIDERS]
@@ -451,17 +453,23 @@ async function refreshOne(env: Env, provider: (typeof BALANCE_PROVIDERS)[number]
       frozen = Number(r.frozen) || 0
       currency = r.currency || 'IDR'
       await insertBalanceHistory(env, { provider, balance, frozen, currency, status: 'ok', errorMsg: null, rawResponse: r })
-    } else {
+    } else if (provider === 'wzpay') {
       const r = await wzpayGetBalance(env)
       balance = Number(r.balance) || 0
       frozen = 0
       currency = r.currency || 'IDR'
       await insertBalanceHistory(env, { provider, balance, frozen, currency, status: 'ok', errorMsg: null, rawResponse: r })
+    } else {
+      const r = await huitoneGetBalance(env)
+      balance = Number(r.balance) || 0
+      frozen = 0
+      currency = 'INR'
+      await insertBalanceHistory(env, { provider, balance, frozen, currency, status: 'ok', errorMsg: null, rawResponse: r })
     }
     await upsertBalance(env, { provider, balance, frozen, currency, status: 'ok', errorMsg: null })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    const currency = provider === 'unispay' || provider === 'wzpay' ? 'IDR' : 'PHP'
+    const currency = provider === 'unispay' || provider === 'wzpay' ? 'IDR' : provider === 'huitone' ? 'INR' : 'PHP'
     await insertBalanceHistory(env, { provider, balance: null, frozen: null, currency, status: 'error', errorMsg: msg.slice(0, 500), rawResponse: null })
     await markBalanceError(env, provider, msg.slice(0, 500), currency)
   }

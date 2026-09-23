@@ -877,6 +877,7 @@ export default {
     yfpayAmountOutOfRange: 'Số tiền phải từ ₱{{min}} đến ₱{{max}}.',
     withdrawAmountRange: 'Hạn mức rút: ₱{{min}} – ₱{{max}}',
     yfpayAccountNumber: 'Số tài khoản (VD: số điện thoại)',
+    ifscCode: 'Mã IFSC',
     yfpayFullName: 'Họ và tên',
     yfpayWithdrawSubmit: 'Gửi yêu cầu rút tiền',
     yfpayWithdrawPending: 'Yêu cầu rút tiền đã gửi và đang được xử lý, sẽ đến sớm nhất có thể.',

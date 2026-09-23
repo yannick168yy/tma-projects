@@ -18,6 +18,7 @@ process.env.YFPAY_API_KEY = 'yfpay-secret'
 process.env.UNISPAY_API_KEY = 'unispay-secret'
 process.env.WZPAY_MERCHANT_ID = '10114'
 process.env.WZPAY_API_KEY = 'wzpay-secret'
+process.env.HUITONE_MERCHANT_KEY = 'huitone-secret'
 process.env.MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY = merchantPrivatePem
 process.env.MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY = platformPublicPem
 
@@ -163,6 +164,15 @@ function wzpaySign(params: Record<string, unknown>, apiKey: string): string {
     .map(([k, v]) => `${k}=${v}`)
     .join('&')
   return createHash('md5').update(`${sorted}&key=${apiKey}`).digest('hex').toLowerCase()
+}
+
+function huitoneSign(params: Record<string, unknown>, merchantKey: string): string {
+  const sorted = Object.entries(params)
+    .filter(([key, value]) => key !== 'sign' && value !== null && value !== undefined && value !== '')
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, value]) => `${key}=${value}`)
+    .join('&')
+  return createHash('md5').update(`${sorted}${merchantKey}`).digest('hex').toUpperCase()
 }
 
 function matrixRequestEnvelope(bizData: unknown) {
@@ -474,6 +484,107 @@ describe('Matrix 提现反查与通用回调', () => {
 
     assert.equal(res.statusCode, 401)
     assert.equal(published.length, 0)
+  })
+
+  it('Huitone 回调验签通过后发布 NATS 并返回 SUCCESS', async () => {
+    const published: Array<{ subject: string; payload: string }> = []
+    const app = await createApp({ js: { async publish(subject, payload) { published.push({ subject, payload }) } } })
+    const payload = {
+      completionTime: '2024-08-09 21:05:22', event: 'PAYIN', extInfo: 'M1',
+      outTradeNo: 'HTD_1', transAmt: '100.00', transNo: 'P1', transStatus: 'SUCCESS', utr: 'U1',
+    }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/callback/huitone',
+      payload: { ...payload, sign: huitoneSign(payload, 'huitone-secret') },
+    })
+
+    assert.equal(res.statusCode, 200)
+    assert.equal(res.body, 'SUCCESS')
+    assert.equal(published.length, 1)
+    assert.equal(JSON.parse(published[0].payload).provider, 'huitone')
+  })
+
+  it('Huitone 回调拒绝非法状态和不完整字段', async () => {
+    const published: Array<{ subject: string; payload: string }> = []
+    const app = await createApp({ js: { async publish(subject, payload) { published.push({ subject, payload }) } } })
+    const payload = {
+      completionTime: '2024-08-09 21:05:22', event: 'PAYIN', extInfo: 'M1',
+      outTradeNo: 'HTD_1', transAmt: '100.00', transNo: 'P1', transStatus: 'PROCESSING', utr: '',
+    }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/callback/huitone',
+      payload: { ...payload, sign: huitoneSign(payload, 'huitone-secret') },
+    })
+
+    assert.equal(res.statusCode, 400)
+    assert.equal(published.length, 0)
+  })
+})
+
+describe('Huitone 回调处理', () => {
+  it('代收成功按本地 INR 订单金额入账', async () => {
+    const { handleHuitoneCallback } = await import('../handlers/huitone-callback.handler.js')
+    const conn = createConn({
+      query(sql) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 100 }]]
+        return [[]]
+      },
+      execute(sql) {
+        if (sql.includes('UPDATE bg_deposit_order')) return [{ affectedRows: 1 }]
+        return [{}]
+      },
+    })
+    const pool = createPool({
+      conn,
+      query(sql) {
+        if (sql.includes('FROM bg_deposit_order WHERE order_id')) {
+          return [[{ order_id: 'HTD_1', user_id: 'U1', currency: 'INR', amount: 100, credited: 0, status: 'pending' }]]
+        }
+        return [[]]
+      },
+    })
+
+    await handleHuitoneCallback({
+      completionTime: '2024-08-09 21:05:22', event: 'PAYIN', extInfo: 'M1',
+      outTradeNo: 'HTD_1', transAmt: '100.00', transNo: 'P1', transStatus: 'SUCCESS', utr: 'U1',
+    }, pool as never, createRedis() as never)
+
+    assert.equal(conn.committed, true)
+    assert.equal(conn.executes.some((e) => e.sql.includes('INSERT INTO bg_wallet') && e.params?.[1] === 'INR' && e.params?.[2] === 100), true)
+  })
+
+  it('代付失败只退款一次并标记 failed', async () => {
+    const { handleHuitoneCallback } = await import('../handlers/huitone-callback.handler.js')
+    const conn = createConn({
+      query(sql) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 100 }]]
+        return [[]]
+      },
+      execute(sql) {
+        if (sql.includes('UPDATE bg_withdraw_order')) return [{ affectedRows: 1 }]
+        return [{}]
+      },
+    })
+    const pool = createPool({
+      conn,
+      query(sql) {
+        if (sql.includes('FROM bg_withdraw_order')) {
+          return [[{ order_id: 'HTW_1', user_id: 'U1', currency: 'INR', amount: 100, status: 'processing', refunded: 0 }]]
+        }
+        return [[]]
+      },
+    })
+
+    await handleHuitoneCallback({
+      completionTime: '2024-08-09 21:05:22', event: 'PAYOUT', extInfo: 'M1',
+      outTradeNo: 'HTW_1', transAmt: '100.00', transNo: 'P2', transStatus: 'FAIL', utr: 'U2',
+    }, pool as never, createRedis() as never)
+
+    assert.equal(conn.committed, true)
+    assert.equal(conn.executes.some((e) => e.sql.includes("SET status='failed', refunded=1")), true)
+    assert.equal(conn.executes.some((e) => e.params?.includes('REFUND_HTW_1')), true)
   })
 })
 
