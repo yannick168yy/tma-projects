@@ -9,6 +9,7 @@ import type { Redis } from 'ioredis'
 import type { RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
+import { notifyRevosurgeStale, notifyRevosurgeFailing } from './admin-notify.js'
 
 const STALE_MS = 10 * 60 * 1000
 
@@ -73,4 +74,40 @@ export async function getRevosurgeStatus(env: Env, redis: Redis): Promise<Revosu
       at: new Date(r.created_at as string).toISOString(),
     })),
   }
+}
+
+// ── 告警判定 ──────────────────────────────────────────────────────────────────
+// 放在 bff 而不是 core-node：心跳超时的本质是 core-node 那边的 cron 停了，
+// 由它自己检测等于让死人报自己的死讯，必须由另一个进程来看。
+
+/** 失败告警的双条件：只看比率会误报——发了 2 条失败 1 条就是 50%，不值得叫醒任何人 */
+const FAIL_MIN = 10
+const FAIL_RATE = 0.2
+/** 这些码不会自愈，必须人工介入：密钥失效、字段校验失败、事件未开通 */
+const ACTIONABLE_CODES = new Set([400, 401, 403, 422])
+
+export async function checkRevosurgeAlerts(env: Env, redis: Redis): Promise<void> {
+  const st = await getRevosurgeStatus(env, redis)
+  // unknown = 从未产生过心跳，通常是没配 API Key（功能整体关闭），不该告警
+  if (st.health === 'unknown') return
+
+  if (st.health === 'stale') {
+    await notifyRevosurgeStale(env, { minutes: Math.floor((st.secondsSinceSync ?? 0) / 60) })
+    return
+  }
+
+  const total = st.todaySent + st.todayFailed
+  if (st.todayFailed < FAIL_MIN || st.todayFailed / total <= FAIL_RATE) return
+
+  const codes = new Map<string, number>()
+  for (const f of st.recentFailures) {
+    const key = f.httpCode == null ? '网络/超时' : String(f.httpCode)
+    codes.set(key, (codes.get(key) ?? 0) + 1)
+  }
+  await notifyRevosurgeFailing(env, {
+    failed: st.todayFailed,
+    total,
+    needsAction: st.recentFailures.some((f) => f.httpCode != null && ACTIONABLE_CODES.has(f.httpCode)),
+    codeSummary: [...codes].map(([c, n]) => `${c}×${n}`).join(' ') || '未知',
+  })
 }

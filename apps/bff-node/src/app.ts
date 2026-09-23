@@ -34,6 +34,7 @@ import { runCommunityTick } from './services/community.service.js'
 import { runBroadcastTick } from './services/broadcast.service.js'
 import { runBiReportTick } from './services/bi-report.service.js'
 import { runDepositStatusTick } from './services/deposit-status-sync.service.js'
+import { checkRevosurgeAlerts } from './services/revosurge-status.service.js'
 import { ok } from './utils/response.js'
 import { getMaintenanceMode } from './services/admin-store.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
@@ -113,6 +114,17 @@ export function createApp(env: Env): Koa {
       run()
       setInterval(run, 5 * 60 * 1000)
     }, 90_000)
+  }
+
+  // RevoSurge 回传健康度巡检。刻意放在 bff 而不是 core-node：心跳超时的本质是
+  // 那边的 cron 停了，让它自己检测等于让死人报自己的死讯，必须由另一个进程来看。
+  if (singletonJobs && isMysqlEnabled(env)) {
+    setTimeout(() => {
+      const run = () => forEachTenant('revosurge-alert', () => checkRevosurgeAlerts(env, redis))
+        .catch((err) => log.admin.error({ err }, 'revosurge alert check error'))
+      run()
+      setInterval(run, 5 * 60 * 1000)
+    }, 120_000)
   }
 
   // 洗码每日结算：菲律宾 UTC+8、印尼 UTC+7 分开切业务日。
