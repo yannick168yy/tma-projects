@@ -9,6 +9,7 @@ import { captureAttributionFromUrl, resolveShortLinkAttribution } from '@/utils/
 import { initTheme } from '@/stores/theme'
 import { initAnalytics } from '@/utils/analytics'
 import { initPixels } from '@/utils/pixels'
+import { initRevosurgeTracker } from '@/utils/revosurgeTracker'
 import { initPwa } from '@/utils/pwa'
 import { initFingerprint } from '@/utils/fingerprint'
 import { initVersionAutoReload } from '@/utils/versionReload'
@@ -42,6 +43,7 @@ async function bootstrap() {
   await resolveShortLinkAttribution()
   captureAttributionFromUrl() // 必须早于 initPixels：像素 ID 从归因快照里取
   initPixels()
+  initRevosurgeTracker()
   initPwa()
   initFingerprint()
   initVersionAutoReload()
