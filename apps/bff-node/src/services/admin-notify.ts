@@ -161,3 +161,33 @@ export function notifyRiskHit(
   ].filter(Boolean).join('\n')
   return send(env, { dedupKey: `risk:${p.checkpoint}:${p.ruleCode}:${p.userId ?? p.ip ?? ''}`, text })
 }
+
+// ── RevoSurge 回传异常 ─────────────────────────────────────────────────────────
+// 要防的是沉默故障：广告在烧钱，但转化事件一条都没发出去，而后台看不出任何异常。
+// dedupKey 按类型固定，故障未恢复时靠 10 分钟去重窗口持续提醒、又不至于刷屏。
+export function notifyRevosurgeStale(env: Env, p: { minutes: number }): Promise<void> {
+  const text = [
+    `🚨 RevoSurge 回传已停止`,
+    `同步心跳已停 ${p.minutes} 分钟（正常每 2 分钟一次）`,
+    `core-node 的 revosurge 定时任务可能已挂，期间的转化事件全部未上报`,
+    `${env.ADMIN_WEB_URL}/bi/ad-sources`,
+  ].join('\n')
+  return send(env, { dedupKey: 'revosurge:stale', text })
+}
+
+export function notifyRevosurgeFailing(
+  env: Env,
+  p: { failed: number; total: number; needsAction: boolean; codeSummary: string },
+): Promise<void> {
+  const rate = p.total > 0 ? Math.round((p.failed / p.total) * 100) : 100
+  const text = [
+    p.needsAction ? `🚨 RevoSurge 回传失败（需人工处理）` : `⚠️ RevoSurge 回传失败率偏高`,
+    `今日失败 ${p.failed} / ${p.total} 条（${rate}%）`,
+    `错误分布: ${p.codeSummary}`,
+    p.needsAction
+      ? `401/403=密钥失效，400/422=字段或事件未开通，均不会自愈，需检查配置`
+      : `429=限流，5xx=对方服务波动，通常会自愈，先观察`,
+    `${env.ADMIN_WEB_URL}/bi/ad-sources`,
+  ].join('\n')
+  return send(env, { dedupKey: `revosurge:failing:${p.needsAction ? 'action' : 'watch'}`, text })
+}

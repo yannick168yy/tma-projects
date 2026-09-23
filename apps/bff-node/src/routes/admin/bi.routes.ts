@@ -8,6 +8,7 @@ import {
 import { getBiChannels } from '../../services/bi.service.js'
 import { getAdSourceReport, getAdSourceTrend, isValidChannel, getChannelQuality, listChannelCodes, generateChannelVerdict } from '../../services/marketing-bi.service.js'
 import { sendBiReportNow, isBiReportEnabled, setBiReportEnabled } from '../../services/bi-report.service.js'
+import { getRevosurgeStatus } from '../../services/revosurge-status.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 import { ok, fail } from '../../utils/response.js'
 
@@ -24,6 +25,11 @@ function parseMarket(value: unknown): BiMarket | null {
   const market = String(value ?? 'ALL').toUpperCase()
   return market === 'ALL' || market === 'PH' || market === 'ID' ? market : null
 }
+
+// RevoSurge 回传健康度：投放期间用来确认「事件还在发」，沉默故障最贵
+router.get('/revosurge-status', async (ctx) => {
+  ok(ctx, await getRevosurgeStatus(ctx.state.env, ctx.state.redis))
+})
 
 router.get('/overview', async (ctx) => {
   const market = parseMarket(ctx.query.market)

@@ -66,7 +66,7 @@ async function finish(db: Pool, platform: string, eventName: string, eventId: st
   )
 }
 
-async function postJson(url: string, body: unknown, headers: Record<string, string> = {}): Promise<{ code: number; text: string }> {
+export async function postJson(url: string, body: unknown, headers: Record<string, string> = {}): Promise<{ code: number; text: string }> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
   try {

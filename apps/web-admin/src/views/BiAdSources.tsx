@@ -4,8 +4,9 @@ import { Alert, Button, Card, DatePicker, Input, InputNumber, Popconfirm, Select
 import dayjs, { type Dayjs } from 'dayjs'
 import {
   getAdSources, getAdSourceTrend, getCapiTokens, upsertCapiToken, deleteCapiToken, revealCapiToken,
-  getChannelQuality, getChannelPrices, upsertChannelPrice, getChannelVerdict,
+  getChannelQuality, getChannelPrices, upsertChannelPrice, getChannelVerdict, getRevosurgeStatus,
   type AdSourceRow, type AdSourceReport, type CapiPixelToken, type ChannelQualityRow, type ChannelPrice,
+  type RevosurgeStatus,
 } from '../api'
 import { LineChart } from '../components/BiCharts'
 import { formatMarketAmount, useMarketScope } from '../components/MarketScope'
@@ -178,6 +179,53 @@ function CapiTokenPanel() {
       )}
       <Table size="small" rowKey="id" columns={columns} dataSource={rows} loading={loading} pagination={false} />
     </Card>
+  )
+}
+
+// RevoSurge 回传健康度。成功的上报不落明细，所以这里看的是心跳 + 日计数：
+// cron 挂掉是完全静默的（既无成功也无失败记录），而广告还在烧钱、对方收不到转化，
+// 这个条子就是用来第一时间发现那种情况的。
+function RevosurgeStatusBar() {
+  const [st, setSt] = useState<RevosurgeStatus | null>(null)
+
+  useEffect(() => {
+    const load = () => { getRevosurgeStatus().then(setSt).catch(() => setSt(null)) }
+    load()
+    const timer = setInterval(load, 60_000)
+    return () => clearInterval(timer)
+  }, [])
+
+  if (!st || st.health === 'unknown') return null
+
+  const tone = st.health === 'ok' ? 'success' : st.health === 'failing' ? 'error' : 'warning'
+  const label = st.health === 'ok' ? '正常' : st.health === 'failing' ? `今日 ${st.todayFailed} 条失败` : '心跳超时'
+  const ago = st.secondsSinceSync == null ? '—'
+    : st.secondsSinceSync < 60 ? `${st.secondsSinceSync} 秒前`
+    : `${Math.floor(st.secondsSinceSync / 60)} 分钟前`
+
+  return (
+    <Alert
+      type={tone}
+      showIcon
+      style={{ marginBottom: 12 }}
+      message={
+        <Space wrap size={[16, 4]}>
+          <span><b>RevoSurge 回传</b> {label}</span>
+          <span style={{ color: '#888' }}>最后同步 {ago}</span>
+          <span style={{ color: '#888' }}>今日发送 {st.todaySent}</span>
+          {st.today.slice(0, 6).map((e) => (
+            <Tag key={e.eventName}>{e.eventName} {e.sent}{e.failed > 0 ? ` / 失败 ${e.failed}` : ''}</Tag>
+          ))}
+        </Space>
+      }
+      description={
+        st.recentFailures.length > 0 ? (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            最近失败：{st.recentFailures.slice(0, 3).map((f) => `${f.eventName}(${f.httpCode ?? '-'}) ${f.error.slice(0, 40)}`).join('；')}
+          </Typography.Text>
+        ) : undefined
+      }
+    />
   )
 }
 
@@ -390,6 +438,7 @@ export default function BiAdSources() {
         或先访问任意己方域名的 <code>/t/_reset</code> 清除本机归因与像素 cookie 再走新链接（测试/生产均生效）。
         注意：已注册账号的归属在服务端写死，重置只影响之后的新注册。
       </div>
+      <RevosurgeStatusBar />
 
       <Space style={{ marginBottom: 16 }} wrap>
         <DatePicker.RangePicker

@@ -75,6 +75,13 @@ const schema = z.object({
   // 没有从链接带 px 进来时的兜底像素（一般留空）
   FB_PIXEL_ID: z.string().default(''),
   TIKTOK_PIXEL_ID: z.string().default(''),
+
+  // ── RevoSurge S2S ─────────────────────────────────────────────────────────
+  // key 留空即关闭回传。DRYRUN=true 走校验模式不入库，联调期间开着
+  REVOSURGE_API_KEY: z.string().default(''),
+  REVOSURGE_DRYRUN: z.string().default(''),
+  // KYC 事件要求申报辖区，按站点配置（菲律宾站 PH / 印尼 ID / 印度 IN）
+  REVOSURGE_JURISDICTION: z.string().default('PH'),
 })
 
 const parsed = schema.parse(process.env)

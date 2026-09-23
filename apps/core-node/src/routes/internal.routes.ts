@@ -9,6 +9,7 @@ import { lgId } from '../utils/id.js'
 import { getExchangeRate, getPhpRate } from '../services/exchange-rate.service.js'
 import { applyDepositPromos } from '../services/deposit-promo.service.js'
 import { sendRegistrationConversion } from '../services/capi.service.js'
+import { sendRegisterEvent } from '../services/revosurge.service.js'
 import { tryActivateTeamNode } from '../services/team-activation.service.js'
 import { handleUnispayCallback } from '../handlers/unispay-callback.handler.js'
 import { handleWzpayCallback } from '../handlers/wzpay-callback.handler.js'
@@ -62,6 +63,9 @@ export async function internalRoutes(app: FastifyInstance) {
     if (!userId) return reply.status(400).send({ code: 400, message: 'userId required' })
     sendRegistrationConversion(app.mysql, userId).catch((err) => {
       app.log.error({ err, userId }, 'registration conversion failed')
+    })
+    sendRegisterEvent(app.mysql, userId).catch((err) => {
+      app.log.error({ err, userId }, 'revosurge register failed')
     })
     return reply.send({ code: 0, message: 'ok' })
   })

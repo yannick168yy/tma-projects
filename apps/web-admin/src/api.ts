@@ -239,6 +239,17 @@ export const getChannelQuality = (params: { from?: string; to?: string; market?:
   get<{ rows: ChannelQualityRow[]; usdToPhp: number }>('/admin/bi/ad-sources/quality', params)
 export const getAdChannelCodes = () => get<string[]>('/admin/bi/ad-sources/channels')
 
+export type RevosurgeStatus = {
+  health: 'ok' | 'stale' | 'failing' | 'unknown'
+  lastSyncAt: string | null
+  secondsSinceSync: number | null
+  today: { eventName: string; sent: number; failed: number }[]
+  todaySent: number
+  todayFailed: number
+  recentFailures: { eventName: string; httpCode: number | null; error: string; at: string }[]
+}
+export const getRevosurgeStatus = () => get<RevosurgeStatus>('/admin/bi/revosurge-status')
+
 export const getChannelVerdict = (data: { from: string; to: string; channels: string[]; spends?: Record<string, number>; market?: 'ALL' | 'PH' | 'ID' }) =>
   post<{ text: string; ai: boolean }>('/admin/bi/ad-sources/verdict', data)
 

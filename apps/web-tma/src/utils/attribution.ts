@@ -28,6 +28,8 @@ export interface Attribution {
   /** 该条线的 FB / TikTok 像素 ID，由投放链接 ?px= / ?tpx= 带入，新增线路免发版 */
   px?: string
   tpx?: string
+  /** RevoSurge 广告点击 ID，落地页 ?click_id= 带入，S2S 回传的唯一凭据 */
+  rsc?: string
   /** 首访时间戳（秒），合成 _fbc 用 */
   ts?: number
 }
@@ -93,9 +95,10 @@ export function captureAttributionFromUrl(): void {
       ref: trim(document.referrer, 255),
       px: trim(q.get('px'), 32),
       tpx: trim(q.get('tpx'), 32),
+      rsc: trim(q.get('click_id'), 191),
       ts: Math.floor(Date.now() / 1000),
     }
-    if (!attr.c && !attr.clid && !attr.utm_campaign && !attr.px && !attr.tpx) return
+    if (!attr.c && !attr.clid && !attr.utm_campaign && !attr.px && !attr.tpx && !attr.rsc) return
     if (load()) return
     save(attr)
   } catch {

@@ -17,6 +17,7 @@ interface AttrPayload {
   ttp?: string
   px?: string
   tpx?: string
+  rsc?: string
   lh?: string
   lp?: string
   ref?: string
@@ -56,12 +57,14 @@ export async function saveUserAttribution(
   await db.execute(
     `INSERT IGNORE INTO bg_user_attribution
        (user_id, channel_code, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
-        click_platform, click_id, fbp, fbc, ttp, fb_pixel_id, tt_pixel_id,
+        click_platform, click_id, fbp, fbc, ttp, fb_pixel_id, tt_pixel_id, revosurge_click_id,
         landing_host, landing_path, referrer, user_agent, client_ip)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       userId,
-      str(attr.c, 64),
+      // RevoSurge 投放链接只带 click_id、不带我方 ?c=，缺了结算键这批量会落进
+      // marketing-bi 的「未知渠道」和自然流量混在一起，我们就看不出这条线的表现
+      str(attr.c, 64) ?? (attr.rsc ? 'revosurge' : null),
       str(attr.utm_source, 128),
       str(attr.utm_medium, 128),
       str(attr.utm_campaign, 191),
@@ -74,6 +77,7 @@ export async function saveUserAttribution(
       str(attr.ttp, 128),
       str(attr.px, 32),
       str(attr.tpx, 32),
+      str(attr.rsc, 191),
       str(attr.lh, 191),
       str(attr.lp, 255),
       str(attr.ref, 255),

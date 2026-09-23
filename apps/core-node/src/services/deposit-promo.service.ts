@@ -1,6 +1,7 @@
 import type { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { lgId } from '../utils/id.js'
 import { sendPurchaseConversion } from './capi.service.js'
+import { sendDepositEvent } from './revosurge.service.js'
 
 /**
  * 充值成功后的活动发放：首充嘉年华。
@@ -221,5 +222,15 @@ export async function applyDepositPromos(
     })
   } catch (err) {
     log.error({ err, orderId: dep.orderId }, 'purchase conversion failed')
+  }
+  try {
+    await sendDepositEvent(db, {
+      userId: dep.userId,
+      orderId: dep.orderId,
+      amount: dep.amount,
+      currency: dep.currency,
+    })
+  } catch (err) {
+    log.error({ err, orderId: dep.orderId }, 'revosurge deposit failed')
   }
 }
