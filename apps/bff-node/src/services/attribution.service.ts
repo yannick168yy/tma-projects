@@ -62,7 +62,9 @@ export async function saveUserAttribution(
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       userId,
-      str(attr.c, 64),
+      // RevoSurge 投放链接只带 click_id、不带我方 ?c=，缺了结算键这批量会落进
+      // marketing-bi 的「未知渠道」和自然流量混在一起，我们就看不出这条线的表现
+      str(attr.c, 64) ?? (attr.rsc ? 'revosurge' : null),
       str(attr.utm_source, 128),
       str(attr.utm_medium, 128),
       str(attr.utm_campaign, 191),
