@@ -62,7 +62,7 @@ export const FIAT_DEPOSIT: PayMethod[] = [
   { id: 'bri', name: 'BRI', icon: 'BRI', color: 'from-blue-500 to-blue-800', tag: 'Bank', currency: 'IDR' },
   { id: 'mandiri', name: 'Mandiri', icon: 'M', color: 'from-blue-600 to-yellow-500', tag: 'Bank', currency: 'IDR' },
   { id: 'permata', name: 'Permata', icon: 'P', color: 'from-cyan-500 to-green-700', tag: 'Bank', currency: 'IDR' },
-  { id: 'upi', name: 'UPI', icon: 'UPI', color: 'from-orange-500 to-green-600', tag: 'UPI', currency: 'INR' },
+  { id: 'upi', name: 'UPI', icon: 'UPI', iconUrl: '/logos/upi.webp', color: 'from-orange-500 to-green-600', tag: 'UPI', currency: 'INR' },
 ]
 
 export const CRYPTO_DEPOSIT: PayMethod[] = [
