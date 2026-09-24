@@ -14,6 +14,7 @@ const TRACKED_PAIRS = [
   { from: 'USDC', to: 'PHP' },
   { from: 'TRX', to: 'PHP' },
   { from: 'USDT', to: 'IDR' },
+  { from: 'USDT', to: 'INR' },
 ] as const
 
 function fmtRate(r: number | string | null | undefined): string {
