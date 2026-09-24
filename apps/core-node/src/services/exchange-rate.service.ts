@@ -36,7 +36,7 @@ export async function getExchangeRate(from: string, to: string, redis?: Pick<Red
 
 async function fetchManagedRates(redis: Pick<Redis, 'get'>): Promise<Record<string, number>> {
   const rates = buildFallback()
-  const pairs = ['USDT:PHP', 'USDC:PHP', 'TRX:PHP', 'USDT:IDR'] as const
+  const pairs = ['USDT:PHP', 'USDC:PHP', 'TRX:PHP', 'USDT:IDR', 'USDT:INR'] as const
   const cached = await Promise.all(pairs.map(async (pair) => {
     const raw = await redis.get(`exchange_rate:${pair}`)
     if (!raw) return null
@@ -52,6 +52,7 @@ async function fetchManagedRates(redis: Pick<Redis, 'get'>): Promise<Record<stri
   rates.USDC = (cached[1] ?? env.USDT_TO_PHP_RATE) / usdtToPhp
   rates.TRX = (cached[2] ?? env.TRX_TO_PHP_RATE) / usdtToPhp
   rates.IDR = 1 / (cached[3] ?? env.USDT_TO_IDR_RATE)
+  rates.INR = 1 / (cached[4] ?? env.USDT_TO_INR_RATE)
   return rates
 }
 
@@ -94,6 +95,8 @@ function buildFallback(): Record<string, number> {
     USDC: 1,
     TRX:  env.TRX_TO_PHP_RATE / env.USDT_TO_PHP_RATE,
     IDR:  1 / env.USDT_TO_IDR_RATE,
+    INR:  1 / env.USDT_TO_INR_RATE,
+    TRX_TESTNET: 1,
   }
 }
 
@@ -104,5 +107,9 @@ function fallbackRate(currency: string): number {
   if (upper === 'USD' || upper === 'USDT' || upper === 'USDC') return 1
   if (upper === 'TRX') return env.TRX_TO_PHP_RATE / env.USDT_TO_PHP_RATE
   if (upper === 'IDR') return 1 / env.USDT_TO_IDR_RATE
-  return 1
+  if (upper === 'INR') return 1 / env.USDT_TO_INR_RATE
+  // 测试网代币无实际价值，维持原来的 1:1，别让测试环境的钱包卡住换算
+  if (upper === 'TRX_TESTNET') return 1
+  // 原本这里兜底 return 1，新币种会被静默当成 1 USDT 算（INR 就会差约 88 倍）
+  throw new Error(`No exchange rate for ${upper}→USDT`)
 }

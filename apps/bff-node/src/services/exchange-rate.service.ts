@@ -23,6 +23,7 @@ export const CRYPTO_RATE_CURRENCIES = ['USDT', 'USDC', 'TRX'] as const
 export const RATE_PAIRS: [string, string][] = [
   ...CRYPTO_RATE_CURRENCIES.map((c) => [c, 'PHP'] as [string, string]),
   ['USDT', 'IDR'],
+  ['USDT', 'INR'],
 ]
 
 const COINGECKO_IDS: Record<string, string> = {
@@ -39,6 +40,7 @@ function fallbackRate(from: string, to: string, env: Env): number | null {
   if (to === 'PHP' && (from === 'USD' || from === 'USDT' || from === 'USDC')) return env.USDT_TO_PHP_RATE
   if (to === 'PHP' && from === 'TRX') return env.TRX_TO_PHP_RATE
   if (from === 'USDT' && to === 'IDR') return env.USDT_TO_IDR_RATE
+  if (from === 'USDT' && to === 'INR') return env.USDT_TO_INR_RATE
   return null
 }
 
@@ -96,9 +98,14 @@ export async function getRate(redis: Redis, from: string, to: string, env: Env):
       if (currency === 'USD' || currency === 'USDT') {
         return { rate: 1, fetchedAt: new Date().toISOString(), source: 'identity' }
       }
-      if (currency === 'IDR') {
-        const usdtToIdr = await getRate(redis, 'USDT', 'IDR', env)
-        return { ...usdtToIdr, rate: 1 / usdtToIdr.rate }
+      // 后台维护的 USDT→X 基础对（IDR / INR…）：直接取倒数，不必绕 PHP
+      if (isBasePair('USDT', currency)) {
+        const usdtToCurrency = await getRate(redis, 'USDT', currency, env)
+        return { ...usdtToCurrency, rate: 1 / usdtToCurrency.rate }
+      }
+      // 通用路径是拿 currency→PHP 中转的，它自己必须是基础对，否则这里会原地递归调用自己
+      if (currency !== 'PHP' && !isBasePair(currency, 'PHP')) {
+        throw new Error(`No exchange rate path for ${currency}→USDT`)
       }
       const [currencyToPhp, usdtToPhp] = await Promise.all([
         currency === 'PHP'

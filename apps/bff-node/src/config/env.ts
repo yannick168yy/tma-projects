@@ -84,6 +84,8 @@ const schema = z.object({
   USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
   // 印尼法币基础汇率；其他 IDR 币种对统一从该值推导。
   USDT_TO_IDR_RATE: z.coerce.number().positive().default(16646),
+  // 印度法币基础汇率；无自动数据源，只走此兜底值。
+  USDT_TO_INR_RATE: z.coerce.number().positive().default(88),
   TRX_TO_PHP_RATE: z.coerce.number().positive().default(10),
   YFPAY_USERNAME: z.string().default(''),
   YFPAY_API_KEY: z.string().default(''),
