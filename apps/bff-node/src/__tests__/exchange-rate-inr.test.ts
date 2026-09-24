@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Env } from '../config/env.js'
 import { getRate } from '../services/exchange-rate.service.js'
 
@@ -8,6 +8,31 @@ const mkRedis = () => ({
 })
 
 describe('INR 汇率', () => {
+  beforeEach(() => vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') })))
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('CoinGecko 可用时 USDT→INR 取实时值', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ tether: { inr: 95.93 } }),
+    })))
+    const redis = mkRedis()
+
+    const result = await getRate(redis as never, 'USDT', 'INR', { USDT_TO_INR_RATE: 88 } as Env)
+
+    expect(result.rate).toBe(95.93)
+    expect(result.source).toBe('coingecko')
+  })
+
+  it('CoinGecko 不可用时回落到 env 兜底值', async () => {
+    const redis = mkRedis()
+
+    const result = await getRate(redis as never, 'USDT', 'INR', { USDT_TO_INR_RATE: 88 } as Env)
+
+    expect(result.rate).toBe(88)
+    expect(result.source).toBe('env-fallback')
+  })
+
   it('INR 到 USDT 走兜底基础汇率，不会无限递归', async () => {
     const redis = mkRedis()
 

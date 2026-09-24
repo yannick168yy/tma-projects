@@ -79,14 +79,15 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().default(''),
   // CoinGecko API key（可选，无 key 也可用免费 demo tier，50 次/分）
   COINGECKO_API_KEY: z.string().default(''),
-  // 手动兜底汇率（无 API key 或 API 故障时使用）
+  // 手动兜底汇率（API 故障时才生效；正常情况下 PHP/IDR/INR 均走 CoinGecko 实时值）
+  // 基准取自 2026-09-24 CoinGecko 市价
   EUR_TO_PHP_RATE: z.coerce.number().positive().default(62),
-  USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
+  USDT_TO_PHP_RATE: z.coerce.number().positive().default(62.7),
   // 印尼法币基础汇率；其他 IDR 币种对统一从该值推导。
-  USDT_TO_IDR_RATE: z.coerce.number().positive().default(16646),
+  USDT_TO_IDR_RATE: z.coerce.number().positive().default(17927),
   // 印度法币基础汇率；无自动数据源，只走此兜底值。
-  USDT_TO_INR_RATE: z.coerce.number().positive().default(88),
-  TRX_TO_PHP_RATE: z.coerce.number().positive().default(10),
+  USDT_TO_INR_RATE: z.coerce.number().positive().default(95.9),
+  TRX_TO_PHP_RATE: z.coerce.number().positive().default(21.3),
   YFPAY_USERNAME: z.string().default(''),
   YFPAY_API_KEY: z.string().default(''),
   YFPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/yfpay'),

@@ -60,11 +60,11 @@ const schema = z.object({
   MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY: z.string().default(''),
 
   // 汇率兜底；业务统一以 USDT 为基准币种。
-  USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
+  USDT_TO_PHP_RATE: z.coerce.number().positive().default(62.7),
   EUR_TO_PHP_RATE:  z.coerce.number().positive().default(62),
-  TRX_TO_PHP_RATE:  z.coerce.number().positive().default(19),
-  USDT_TO_IDR_RATE: z.coerce.number().positive().default(16646),
-  USDT_TO_INR_RATE: z.coerce.number().positive().default(88),
+  TRX_TO_PHP_RATE:  z.coerce.number().positive().default(21.3),
+  USDT_TO_IDR_RATE: z.coerce.number().positive().default(17927),
+  USDT_TO_INR_RATE: z.coerce.number().positive().default(95.9),
 
   // 内部服务间通信 token
   INTERNAL_TOKEN: z.string().default(''),

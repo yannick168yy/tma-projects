@@ -8,7 +8,7 @@ import {
   type ExchangeRate, type RateHistoryBatch,
 } from '../api'
 
-/** 与 BFF RATE_PAIRS 一致；USDT→IDR 使用环境值或手动值，不调用第三方 API。 */
+/** 与 BFF RATE_PAIRS 一致；法币对同样从 CoinGecko 取值，手动设置后不再被自动刷新覆盖。 */
 const TRACKED_PAIRS = [
   { from: 'USDT', to: 'PHP' },
   { from: 'USDC', to: 'PHP' },
@@ -178,7 +178,7 @@ export default function ExchangeRates() {
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message="USDT、USDC、TRX 每 15 分钟共用一次 CoinGecko 批量请求；加上 core-node 每小时刷新，约 3,600 次/月。USDT→IDR 使用环境值或手动值，不增加 API 调用；IDR→PHP 等其他币种对统一经 USDT 推导。"
+        message="USDT、USDC、TRX × PHP、IDR、INR 每 15 分钟共用一次 CoinGecko 批量请求（vs_currencies 一次带多个法币，币种增加不会增加请求数）；加上 core-node 每小时刷新，约 3,600 次/月。手动设过的汇率不会被自动刷新覆盖；IDR→PHP 等其他币种对统一经 USDT 推导。"
       />
 
       <Table dataSource={sortedRates} columns={rateColumns} rowKey={(r) => `${r.from}-${r.to}`} loading={loading} pagination={false} style={{ marginBottom: 24 }} scroll={{ x: 720 }} />
