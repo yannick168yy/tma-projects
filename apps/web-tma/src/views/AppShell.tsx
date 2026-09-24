@@ -17,6 +17,7 @@ import {
   isFiatCurrency,
   displayCurrencyCode,
 } from '@/stores/wallet'
+import { getSiteMarket } from '@/config/market'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
 import { legacyLobbyCat, parseAppRoute } from '@/navigation/appRoutes'
@@ -105,8 +106,7 @@ export default function AppShell() {
       code,
       available: actualMap.get(code) ?? 0,
     }))
-    // INR 市场尚未正式开放：只有已有 INR 钱包的测试/迁移用户才展示入口。
-    if (actualMap.has('INR')) {
+    if (getSiteMarket() === 'IN' || actualMap.has('INR')) {
       list.splice(2, 0, { code: 'INR', available: actualMap.get('INR') ?? 0 })
     }
     // TRX_TESTNET：测试链，仅当用户有余额时才追加到末尾显示

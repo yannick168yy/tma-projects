@@ -63,8 +63,8 @@ export default function SiteDomains() {
   useEffect(() => {
     void (async () => {
       try {
-        const [ph, id] = await Promise.all([getRouteHealth('PH'), getRouteHealth('ID')])
-        setHealth(Object.fromEntries([...ph, ...id].map((item) => [item.domain, item])))
+        const [ph, ind] = await Promise.all([getRouteHealth('PH'), getRouteHealth('IN')])
+        setHealth(Object.fromEntries([...ph, ...ind].map((item) => [item.domain, item])))
       } catch { /* 健康度只是辅助信息，拉不到不影响配置 */ }
     })()
   }, [])
@@ -84,9 +84,10 @@ export default function SiteDomains() {
     if (mismatched.length > 0) {
       message.error(`App 域名组必须与所属站点一致：${mismatched.map((item) => item.domain).join('、')}`); return
     }
-    for (const market of ['PH', 'ID'] as const) {
+    const declared = new Set(normalized.map((item) => item.appMarket).filter(Boolean))
+    for (const market of declared) {
       if (!normalized.some((item) => item.enabled && item.appMarket === market && item.market === market)) {
-        message.error(`${market === 'PH' ? '菲律宾' : '印尼'} App 至少要保留一个启用的线路域名，否则该市场 App 将无法启动`); return
+        message.error(`${market} App 至少要保留一个启用的线路域名，否则该市场 App 将无法启动`); return
       }
     }
     setSaving(true)
@@ -102,7 +103,7 @@ export default function SiteDomains() {
   return <Space direction="vertical" size={16} style={{ width: '100%' }}>
     <div>
       <Typography.Title level={3} style={{ marginBottom: 4 }}>站点域名映射</Typography.Title>
-      <Typography.Text type="secondary">统一决定访问域名属于菲律宾站、印尼站或公共入口，并控制新用户默认市场、语言和币种。</Typography.Text>
+      <Typography.Text type="secondary">统一决定访问域名属于菲律宾站、印度站或公共入口，并控制新用户默认市场、语言和币种。</Typography.Text>
     </div>
     <Alert showIcon type="info" message="域名统一按裸域保存，www 子域会自动匹配。公共入口不强制市场，由客户端语言或请求参数决定。已登录用户不会因为修改映射而迁移市场。" />
     <Alert showIcon type="warning" message="App 域名组只能选与「所属站点」相同的市场，公共入口不能作为 App 线路；每个市场必须至少保留一个启用的线路域名，否则该市场的 App 会全部无法启动。" />
@@ -163,9 +164,9 @@ export default function SiteDomains() {
           },
           {
             title: '所属站点', dataIndex: 'market', width: 180,
-            render: (value: 'PH' | 'ID' | 'PUBLIC', row) => editable
-              ? <Select value={value} style={{ width: 150 }} onChange={(market) => updateRow(row.key, { market, appMarket: row.appMarket === market ? row.appMarket : null })} options={[{ value: 'PH', label: '菲律宾站（PH）' }, { value: 'ID', label: '印尼站（ID）' }, { value: 'PUBLIC', label: '公共入口' }]} />
-              : <Tag color={value === 'ID' ? 'red' : value === 'PH' ? 'blue' : 'gold'}>{value === 'ID' ? '印尼站' : value === 'PH' ? '菲律宾站' : '公共入口'}</Tag>,
+            render: (value: 'PH' | 'ID' | 'IN' | 'PUBLIC', row) => editable
+              ? <Select value={value} style={{ width: 150 }} onChange={(market) => updateRow(row.key, { market, appMarket: row.appMarket === market ? row.appMarket : null })} options={[{ value: 'PH', label: '菲律宾站（PH）' }, { value: 'IN', label: '印度站（IN）' }, { value: 'ID', label: '印尼站（ID）' }, { value: 'PUBLIC', label: '公共入口' }]} />
+              : <Tag color={value === 'IN' ? 'orange' : value === 'ID' ? 'red' : value === 'PH' ? 'blue' : 'gold'}>{value === 'IN' ? '印度站' : value === 'ID' ? '印尼站' : value === 'PH' ? '菲律宾站' : '公共入口'}</Tag>,
           },
           {
             title: '启用', dataIndex: 'enabled', width: 100,
@@ -173,16 +174,16 @@ export default function SiteDomains() {
           },
           {
             title: 'App 域名组', dataIndex: 'appMarket', width: 170,
-            render: (value: 'PH' | 'ID' | null, row) => editable
+            render: (value: 'PH' | 'ID' | 'IN' | null, row) => editable
               ? <Select
                   value={value} allowClear style={{ width: 145 }}
                   disabled={row.market === 'PUBLIC'}
                   placeholder={row.market === 'PUBLIC' ? '公共入口不可作线路' : '不用于 App'}
                   onChange={(appMarket) => updateRow(row.key, { appMarket: appMarket ?? null })}
-                  options={row.market === 'PUBLIC' ? [] : [{ value: row.market, label: row.market === 'ID' ? '印尼 App' : '菲律宾 App' }]}
+                  options={row.market === 'PUBLIC' ? [] : [{ value: row.market, label: row.market === 'IN' ? '印度 App' : row.market === 'ID' ? '印尼 App' : '菲律宾 App' }]}
                 />
               : value
-                ? <Tag color={value !== row.market ? 'error' : value === 'ID' ? 'red' : 'blue'}>{value === 'ID' ? '印尼 App' : '菲律宾 App'}{value !== row.market ? '（与站点不符，未生效）' : ''}</Tag>
+                ? <Tag color={value !== row.market ? 'error' : value === 'IN' ? 'orange' : value === 'ID' ? 'red' : 'blue'}>{value === 'IN' ? '印度 App' : value === 'ID' ? '印尼 App' : '菲律宾 App'}{value !== row.market ? '（与站点不符，未生效）' : ''}</Tag>
                 : '—',
           },
           {

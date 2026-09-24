@@ -647,9 +647,9 @@ export const updateSystemParams = (params: SystemParams) => put<SystemParams>('/
 
 export interface SiteDomainMapping {
   domain: string
-  market: 'PH' | 'ID' | 'PUBLIC'
+  market: 'PH' | 'ID' | 'IN' | 'PUBLIC'
   enabled: boolean
-  appMarket: 'PH' | 'ID' | null
+  appMarket: 'PH' | 'ID' | 'IN' | null
   appPriority: number
 }
 export interface RouteHealthRow {
@@ -660,7 +660,7 @@ export interface RouteHealthRow {
   avgMs: number | null
   selected: number
 }
-export const getRouteHealth = (market: 'PH' | 'ID') =>
+export const getRouteHealth = (market: 'PH' | 'ID' | 'IN') =>
   get<RouteHealthRow[]>(`/admin/settings/site-domains/health?market=${market}`)
 
 export const getRouteTgChannel = () => get<{ channel: string }>('/admin/settings/site-domains/tg-channel')

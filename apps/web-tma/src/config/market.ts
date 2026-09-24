@@ -3,7 +3,7 @@ import { setBottomNav } from '@/config/bottom-nav'
 import { applySiteIdentity, applySiteTheme, setSiteBrand } from './brand'
 import { setI18nOverrides } from './i18n-overrides'
 
-export type SiteMarket = 'PH' | 'ID'
+export type SiteMarket = 'PH' | 'ID' | 'IN'
 
 // 兜底表，不是真相源（P1-12）：真相是服务端 bootstrap 下发的 market，
 // 其次是它上次对该域名的判定（下面的 domain-market 缓存）。
@@ -13,13 +13,13 @@ const DEFAULT_DOMAIN_MARKETS: Record<string, SiteMarket> = {
   'betogo666.com': 'PH',
   'betogo777.com': 'PH',
   'betogo.ph': 'PH',
-  'betogo.xyz': 'ID',
-  'betogo.vip': 'ID',
-  'betogo888.com': 'ID',
-  'betogo.cc': 'ID',
+  'betogo.xyz': 'IN',
+  'betogo.vip': 'IN',
+  'betogo888.com': 'IN',
+  'betogo.cc': 'IN',
   'betogo.games': 'PH',
   'www.betogo.games': 'PH',
-  'betogo.app': 'ID',
+  'betogo.app': 'IN',
 }
 
 const MARKET_STORAGE_KEY = 'betogo_market'
@@ -42,7 +42,7 @@ function readCachedDomainMarket(host: string): SiteMarket | null {
     const raw = localStorage.getItem(DOMAIN_MARKET_CACHE_KEY)
     if (!raw) return null
     const value = (JSON.parse(raw) as Record<string, string>)[host]
-    return value === 'PH' || value === 'ID' ? value : null
+    return value === 'PH' || value === 'ID' || value === 'IN' ? value : null
   } catch {
     return null
   }
@@ -75,7 +75,7 @@ export async function initSiteMarketConfig(): Promise<void> {
     applySiteTheme(body.data?.theme)
     applySiteIdentity()
     const market = body.data?.market?.toUpperCase()
-    if (market === 'PH' || market === 'ID') {
+    if (market === 'PH' || market === 'ID' || market === 'IN') {
       runtimeMarket = market
       cacheDomainMarket(window.location.hostname.toLowerCase(), market)
     }
@@ -93,7 +93,7 @@ function configuredDomainMarkets(): Record<string, SiteMarket> {
     const parsed = JSON.parse(raw) as Record<string, string>
     return Object.fromEntries(Object.entries(parsed)
       .map(([host, market]) => [host.toLowerCase(), market.toUpperCase()])
-      .filter((entry): entry is [string, SiteMarket] => entry[1] === 'PH' || entry[1] === 'ID'))
+      .filter((entry): entry is [string, SiteMarket] => entry[1] === 'PH' || entry[1] === 'ID' || entry[1] === 'IN'))
   } catch {
     return DEFAULT_DOMAIN_MARKETS
   }
@@ -102,7 +102,7 @@ function configuredDomainMarkets(): Record<string, SiteMarket> {
 function explicitMarket(): SiteMarket | null {
   if (typeof window === 'undefined') return null
   const raw = new URLSearchParams(window.location.search).get('market')?.toUpperCase()
-  return raw === 'PH' || raw === 'ID' ? raw : null
+  return raw === 'PH' || raw === 'ID' || raw === 'IN' ? raw : null
 }
 
 export function getSiteMarket(): SiteMarket {
@@ -130,15 +130,16 @@ export function getSiteMarket(): SiteMarket {
     return byDomain
   }
   const stored = localStorage.getItem(MARKET_STORAGE_KEY)?.toUpperCase()
-  if (stored === 'PH' || stored === 'ID') return stored
+  if (stored === 'PH' || stored === 'ID' || stored === 'IN') return stored
   const configured = import.meta.env.VITE_DEFAULT_MARKET?.toUpperCase()
-  return configured === 'ID' ? 'ID' : 'PH'
+  return configured === 'ID' || configured === 'IN' ? configured : 'PH'
 }
 
 export function defaultMarketLocale(): 'en' | 'id' {
   return getSiteMarket() === 'ID' ? 'id' : 'en'
 }
 
-export function defaultMarketCurrency(): 'PHP' | 'IDR' {
-  return getSiteMarket() === 'ID' ? 'IDR' : 'PHP'
+export function defaultMarketCurrency(): 'PHP' | 'IDR' | 'INR' {
+  const market = getSiteMarket()
+  return market === 'ID' ? 'IDR' : market === 'IN' ? 'INR' : 'PHP'
 }

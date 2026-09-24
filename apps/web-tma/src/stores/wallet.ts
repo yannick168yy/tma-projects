@@ -37,7 +37,9 @@ function reconcileCurrency(current: string, balance: WalletBalance): string | nu
 export const useWalletStore = create<WalletState & WalletActions>((set, get) => ({
   balance: null,
   loading: false,
-  activeCurrency: localStorage.getItem(CURRENCY_KEY) ?? defaultMarketCurrency(),
+  activeCurrency: localStorage.getItem(CURRENCY_MANUAL_KEY)
+    ? localStorage.getItem(CURRENCY_KEY) ?? defaultMarketCurrency()
+    : defaultMarketCurrency(),
 
   setBalance(balance) {
     const corrected = reconcileCurrency(get().activeCurrency, balance)

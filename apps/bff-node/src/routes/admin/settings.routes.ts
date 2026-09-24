@@ -93,7 +93,7 @@ router.post('/site-domains/tg-publish', requireRole('super_admin', 'Only super_a
 // 近 24 小时 App 探活结果：成功率骤降通常就是该域名被墙的第一信号
 router.get('/site-domains/health', async (ctx) => {
   const market = String(ctx.query.market ?? '').toUpperCase()
-  if (market !== 'PH' && market !== 'ID') { fail(ctx, 400, 'market 必须是 PH 或 ID'); return }
+  if (market !== 'PH' && market !== 'ID' && market !== 'IN') { fail(ctx, 400, 'market 必须是 PH、ID 或 IN'); return }
   ok(ctx, await getRouteHealth(ctx.state.redis, market))
 })
 
