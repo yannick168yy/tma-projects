@@ -407,6 +407,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     ewallet: liveFiatDeposit, crypto: liveCryptoDeposit, telegram: liveTgWalletDeposit,
   }), [liveFiatDeposit, liveCryptoDeposit, liveTgWalletDeposit])
   const currentCategoryMethods = depositCategoryMethods[depositCategory]
+  const hideDepositChannelPicker = !channelsLoading
+    && currentCategoryMethods.filter((method) => method.enabled !== false).length === 1
   // 同一渠道可能由多个支付商承接（印尼 e-wallet = UnisPay + WZPAY），按支付商拆成独立分组，一行一个商户
   const currentCategoryGroups = useMemo(() => {
     const groups: { provider: string; methods: PayMethod[] }[] = []
@@ -931,7 +933,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                     ))}
                   </div>
                   {/* 渠道 chips：横向滑动，可见约 3.5 个；多支付商时按商户分行 */}
-                  {currentCategoryMethods.length===0 ? (channelsLoading ? (
+                  {!hideDepositChannelPicker && (currentCategoryMethods.length===0 ? (channelsLoading ? (
                     <div className="flex gap-2 overflow-hidden -mx-1 px-1 pb-1">
                       {Array.from({length:4}).map((_,i)=><div key={i} className="flex-shrink-0 w-[27%] h-[92px] rounded-2xl bg-white/5 animate-pulse" />)}
                     </div>
@@ -951,7 +953,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                   <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-1">
                     {currentCategoryMethods.map((m)=>renderDepositChip(m,true))}
                   </div>
-                  ))}
+                  )))}
                   {renderCryptoFirstDepGuide()}
                   {renderCryptoRedepGuide()}
                   {renderCryptoRegularRedepGuide()}
