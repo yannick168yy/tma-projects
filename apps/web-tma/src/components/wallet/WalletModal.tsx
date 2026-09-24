@@ -407,6 +407,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     ewallet: liveFiatDeposit, crypto: liveCryptoDeposit, telegram: liveTgWalletDeposit,
   }), [liveFiatDeposit, liveCryptoDeposit, liveTgWalletDeposit])
   const currentCategoryMethods = depositCategoryMethods[depositCategory]
+  // 单渠道时改横向铺满：chip 固定 27% 宽，只剩一个时右侧会空掉 3/4 屏
+  const singleDepositMethod = !channelsLoading && currentCategoryMethods.length === 1
   // 同一渠道可能由多个支付商承接（印尼 e-wallet = UnisPay + WZPAY），按支付商拆成独立分组，一行一个商户
   const currentCategoryGroups = useMemo(() => {
     const groups: { provider: string; methods: PayMethod[] }[] = []
@@ -653,6 +655,21 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
 
   function renderDepositChip(m: PayMethod, showTag: boolean) {
     const disabled=m.enabled===false; const sel=selectedMethod===m.id
+    // 唯一渠道已被自动选中，做成不可点的信息条：点它只会清空已输入的金额
+    if (singleDepositMethod) {
+      return (
+        <div key={m.id}
+          className={`w-full rounded-2xl border px-3 py-2.5 flex items-center gap-3 ${sel?'border-primary bg-primary/10 shadow-[0_0_22px_rgba(245,158,11,0.20)]':'border-white/10 bg-[#101a2c]'} ${disabled?'opacity-40':''}`}>
+          {m.iconUrl ? <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0"><img src={m.iconUrl} alt={m.name} className="w-full h-full object-contain" /></div>
+            : <div className={`w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center flex-shrink-0 ${m.color}`}>{m.iconKind==='telegram'?<Send size={18} className="text-white" strokeWidth={2.5}/>:<span className="text-white text-base font-black">{m.icon}</span>}</div>}
+          <div className="min-w-0 flex-1 text-left">
+            <p className="text-sm font-black text-white truncate leading-tight">{m.name}</p>
+            {m.tag&&m.tag!==m.name&&<p className="text-[10px] font-bold text-white/45 truncate leading-none uppercase tracking-wide mt-1">{m.tag}</p>}
+          </div>
+          {sel&&<span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary text-black"><Check size={12} strokeWidth={3}/></span>}
+        </div>
+      )
+    }
     return (
       <button key={m.id} type="button" disabled={disabled} onClick={()=>{setSelectedMethod(m.id);setAmount('');setCopiedDepositAmount(false);setDepositMessage('');setPaymentCheckout(null);setCopiedPaymentLink(false)}}
         className={`relative flex-shrink-0 w-[27%] rounded-2xl border p-2 flex flex-col items-center justify-center gap-1.5 transition-colors ${sel?'border-primary bg-primary/10 shadow-[0_0_22px_rgba(245,158,11,0.20)]':'border-white/10 bg-[#101a2c]'} ${disabled?'opacity-40':''}`}>
