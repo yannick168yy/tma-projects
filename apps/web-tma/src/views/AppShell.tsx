@@ -106,7 +106,8 @@ export default function AppShell() {
       code,
       available: actualMap.get(code) ?? 0,
     }))
-    if (getSiteMarket() === 'IN' || actualMap.has('INR')) {
+    const host = window.location.hostname.toLowerCase().replace(/^www\./, '')
+    if (getSiteMarket() === 'IN' || host === '188facai.com' || actualMap.has('INR')) {
       list.splice(2, 0, { code: 'INR', available: actualMap.get('INR') ?? 0 })
     }
     // TRX_TESTNET：测试链，仅当用户有余额时才追加到末尾显示
