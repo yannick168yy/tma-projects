@@ -267,7 +267,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
   }
 }
 
-const FOLD_CURRENCIES = ['PHP', 'IDR', 'USDT', 'USDC', 'TRX_TESTNET']
+const FOLD_CURRENCIES = ['PHP', 'IDR', 'INR', 'USDT', 'USDC', 'TRX_TESTNET']
 
 // 排序字段白名单 -> SQL 列（值来自后端固定映射，杜绝注入）
 const USER_SORT_COLUMNS: Record<string, string> = {
