@@ -6,12 +6,13 @@
 #
 # 用法：
 #   bash deploy/single-node/deploy-prod.sh <目标...>
+#   bash deploy/single-node/deploy-prod.sh db --confirm-migrate   # 已在对话中获用户授权时免输 MIGRATE
 #   目标：core | bff | web-tma | web-admin | web-platform | db | all
 #         all = core bff web-tma web-admin（db 与 web-platform 必须点名，不进 all）
 #         db  = 平台库 + 各租户库迁移，逻辑见 remote-migrate.sh
 #
 # 可选环境变量：
-#   FORCE=1                跳过交互确认（db 目标不吃这个，见下）
+#   FORCE=1                跳过交互确认（db 目标不吃这个，要用上面的 --confirm-migrate）
 #   RECREATE=1             core 目标改为重建容器而非 restart —— .env 里新增的变量
 #                          只有重建才带得进去，restart 不重读 env-file
 #   PLATFORM_SITE_DIR=…    web-platform 的 nginx 站点目录（未设置则只同步 dist）
@@ -35,8 +36,15 @@ RSH="ssh -i $KEY -o StrictHostKeyChecking=no"
 
 [[ $# -eq 0 ]] && { echo "用法: $0 core|bff|web-tma|web-admin|web-platform|db|all"; exit 1; }
 
-TARGETS=("$@")
-[[ "${1:-}" == all ]] && TARGETS=(core bff web-tma web-admin)
+# --confirm-migrate：db 目标免交互。用户多在手机上远程操作，无法在终端输入 MIGRATE，
+# 改为在对话里确认后由执行方显式带上此参数；不带时仍需人工输入 MIGRATE。
+CONFIRM_MIGRATE=0
+TARGETS=()
+for arg in "$@"; do
+  if [[ "$arg" == --confirm-migrate ]]; then CONFIRM_MIGRATE=1; else TARGETS+=("$arg"); fi
+done
+[[ ${#TARGETS[@]} -eq 0 ]] && { echo "用法: $0 core|bff|web-tma|web-admin|web-platform|db|all [--confirm-migrate]"; exit 1; }
+[[ "${TARGETS[0]}" == all ]] && TARGETS=(core bff web-tma web-admin)
 
 echo "🔴 目标生产：$PROD_HOST:$PROD_DIR"
 echo "   将发布：${TARGETS[*]}"
@@ -178,9 +186,12 @@ for t in "${TARGETS[@]}"; do
       ;;
     db)
       echo "### 数据库迁移（平台库 + 各租户库）"
-      # DDL 变更属于「改生产数据」。按 CLAUDE.md 铁律，这一步不吃 FORCE=1，每次都要人手确认。
-      read -r -p "确认在生产执行数据库迁移？输入 MIGRATE 继续: " mans
-      [[ "$mans" == MIGRATE ]] || { echo "已取消"; exit 1; }
+      # DDL 变更属于「改生产数据」。按 CLAUDE.md 铁律，这一步不吃 FORCE=1，每次都要人手确认：
+      # 终端输入 MIGRATE，或在对话里获得用户授权后显式带 --confirm-migrate。
+      if [[ "$CONFIRM_MIGRATE" != 1 ]]; then
+        read -r -p "确认在生产执行数据库迁移？输入 MIGRATE 继续: " mans
+        [[ "$mans" == MIGRATE ]] || { echo "已取消"; exit 1; }
+      fi
       echo "==> [db] 同步迁移文件与执行脚本"
       rsync -az -e "$RSH" "$ROOT/infra/database/betogo/"   "$PROD_HOST:$PROD_DIR/infra/database/betogo/"
       rsync -az -e "$RSH" "$ROOT/infra/database/platform/" "$PROD_HOST:$PROD_DIR/infra/database/platform/"
