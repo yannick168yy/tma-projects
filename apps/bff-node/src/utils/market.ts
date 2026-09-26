@@ -43,3 +43,8 @@ export function marketChannelFilter(market: BiMarket): string {
   if (market === 'PH') return " AND channel NOT LIKE 'unispay%' AND channel NOT LIKE 'huitone%'"
   return ''
 }
+
+/** 按钱包币种取业务日偏移（分钟）：IDR 走 UTC+7，INR 走 UTC+5:30，其余按菲律宾 UTC+8 */
+export function currencyOffsetMinutes(currency: string): number {
+  return currency === 'IDR' ? 420 : currency === 'INR' ? 330 : 480
+}

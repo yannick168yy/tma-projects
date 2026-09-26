@@ -610,8 +610,8 @@ export async function getBiRfm(
   }
 
   const now = Date.now()
-  const whaleThreshold = market === 'ALL' ? 862 : market === 'PH' ? 50000 : Math.round((await getRate(redis, 'PHP', 'IDR', env)).rate * 50000)
-  const midThreshold = market === 'ALL' ? 86 : market === 'PH' ? 5000 : Math.round((await getRate(redis, 'PHP', 'IDR', env)).rate * 5000)
+  const whaleThreshold = market === 'ALL' ? 862 : market === 'PH' ? 50000 : Math.round((await getRate(redis, 'PHP', marketCurrency(market), env)).rate * 50000)
+  const midThreshold = market === 'ALL' ? 86 : market === 'PH' ? 5000 : Math.round((await getRate(redis, 'PHP', marketCurrency(market), env)).rate * 5000)
   const cellMap = new Map<string, BiRfmCell>()
   for (const u of byUser.values()) {
     const valueTier = u.total >= whaleThreshold ? 'whale' : u.total >= midThreshold ? 'mid' : 'small'

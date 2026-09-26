@@ -13,8 +13,8 @@ export function manilaToday(offsetDays = 0): string {
 }
 
 // 马尼拉日 D = UTC [D-1 16:00, D 16:00)，业务表 created_at 均为 UTC
-function businessWindow(date: string, offset: 7 | 8): { start: string; end: string } {
-  const startMs = Date.parse(`${date}T00:00:00+0${offset}:00`)
+function businessWindow(date: string, tz: '+08:00' | '+07:00' | '+05:30'): { start: string; end: string } {
+  const startMs = Date.parse(`${date}T00:00:00${tz}`)
   const fmt = (ms: number) => new Date(ms).toISOString().slice(0, 19).replace('T', ' ')
   return { start: fmt(startMs), end: fmt(startMs + DAY_MS) }
 }
@@ -25,11 +25,12 @@ const NOT_ADMIN = "channel<>'admin'"
 
 export async function aggregateBiDay(app: FastifyInstance, date: string): Promise<void> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`invalid date: ${date}`)
-  const ph = businessWindow(date, 8)
-  const id = businessWindow(date, 7)
+  const ph = businessWindow(date, '+08:00')
+  const id = businessWindow(date, '+07:00')
+  const inr = businessWindow(date, '+05:30')
   const { start, end } = ph
-  const moneyWindow = (alias = '') => `((${alias}currency='IDR' AND ${alias}created_at>=? AND ${alias}created_at<?) OR (${alias}currency<>'IDR' AND ${alias}created_at>=? AND ${alias}created_at<?))`
-  const moneyParams = [id.start, id.end, ph.start, ph.end]
+  const moneyWindow = (alias = '') => `((${alias}currency='IDR' AND ${alias}created_at>=? AND ${alias}created_at<?) OR (${alias}currency='INR' AND ${alias}created_at>=? AND ${alias}created_at<?) OR (${alias}currency NOT IN ('IDR','INR') AND ${alias}created_at>=? AND ${alias}created_at<?))`
+  const moneyParams = [id.start, id.end, inr.start, inr.end, ph.start, ph.end]
   const db = app.mysql
 
   // ---- 平台按币种（JS 合并多数据源） ----

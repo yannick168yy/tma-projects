@@ -21,7 +21,7 @@ interface TeamWithdrawal {
   id: number
   userId: string
   amountCents: number
-  currency: 'PHP' | 'IDR' | 'USDT' | 'USDC'
+  currency: 'PHP' | 'IDR' | 'INR' | 'USDT' | 'USDC'
   status: 'pending' | 'approved' | 'rejected'
 }
 
@@ -191,6 +191,7 @@ const TEAM_RULES: Record<string, Rule> = {
 function teamCurrencyThreshold(ctx: ReviewContext, cfg: RuleConfig, prefix: '' | 'min'): number {
   const suffix = ctx.withdrawal.currency === 'IDR'
     ? 'Idr'
+    : ctx.withdrawal.currency === 'INR' ? 'Inr'
     : ctx.withdrawal.currency === 'USDT' || ctx.withdrawal.currency === 'USDC'
       ? 'Usdt'
       : 'Php'
@@ -200,7 +201,7 @@ function teamCurrencyThreshold(ctx: ReviewContext, cfg: RuleConfig, prefix: '' |
   return prefix ? Number(cfg.params?.minCents ?? 50000) / 100 : Number(cfg.threshold ?? 0)
 }
 
-async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Record<string, RuleConfig>, usdToPhpRate: number, idrToPhpRate: number): Promise<ReviewContext> {
+async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Record<string, RuleConfig>, usdToPhpRate: number, idrToPhpRate: number, inrToPhpRate: number): Promise<ReviewContext> {
   const userId = withdrawal.userId
   const [[user]] = await pool.query<RowDataPacket[]>(
     `SELECT u.registered_at, inv.status AS inviter_status
@@ -220,14 +221,15 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
   const sinceDate = tw?.last_at ? new Date(tw.last_at as Date) : registeredAt
   const targetToPhpRate = withdrawal.currency === 'IDR'
     ? idrToPhpRate
+    : withdrawal.currency === 'INR' ? inrToPhpRate
     : withdrawal.currency === 'USDT' || withdrawal.currency === 'USDC' ? usdToPhpRate : 1
 
   const [[dep]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN created_at > ? THEN ROUND(amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? ELSE 1 END) / ? * 100) END), 0) AS window_cents,
+       COALESCE(SUM(CASE WHEN created_at > ? THEN ROUND(amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? WHEN currency = 'INR' THEN ? ELSE 1 END) / ? * 100) END), 0) AS window_cents,
        COUNT(*) AS lifetime_cnt
      FROM bg_deposit_order WHERE user_id = ? AND status = 'paid'`,
-    [sinceDate, usdToPhpRate, idrToPhpRate, targetToPhpRate, userId],
+    [sinceDate, usdToPhpRate, idrToPhpRate, inrToPhpRate, targetToPhpRate, userId],
   )
 
   const [[ip]] = await pool.query<RowDataPacket[]>(
@@ -304,12 +306,12 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
 
   // 名下产生过佣金的下线累计真实存款
   const [[ddep]] = await pool.query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(ROUND(d.amount * (CASE WHEN d.currency IN ('USDT','USDC') THEN ? WHEN d.currency = 'IDR' THEN ? ELSE 1 END) / ? * 100)), 0) AS cents
+    `SELECT COALESCE(SUM(ROUND(d.amount * (CASE WHEN d.currency IN ('USDT','USDC') THEN ? WHEN d.currency = 'IDR' THEN ? WHEN d.currency = 'INR' THEN ? ELSE 1 END) / ? * 100)), 0) AS cents
      FROM bg_deposit_order d
      WHERE d.status = 'paid' AND d.user_id IN (
        SELECT DISTINCT from_user_id FROM bg_team_commission WHERE beneficiary_id = ? AND currency = ?
      )`,
-    [usdToPhpRate, idrToPhpRate, targetToPhpRate, userId, withdrawal.currency],
+    [usdToPhpRate, idrToPhpRate, inrToPhpRate, targetToPhpRate, userId, withdrawal.currency],
   )
 
   // 近 30 天与团队长共用 IP 的下线账号数
@@ -400,7 +402,7 @@ export async function reviewTeamWithdrawal(env: Env, redis: Redis, withdrawalId:
     id: Number(row.id),
     userId: String(row.user_id),
     amountCents: Number(row.amount_cents),
-    currency: row.currency === 'IDR' || row.currency === 'USDT' || row.currency === 'USDC' ? row.currency : 'PHP',
+    currency: row.currency === 'IDR' || row.currency === 'INR' || row.currency === 'USDT' || row.currency === 'USDC' ? row.currency : 'PHP',
     status: row.status,
   }
   const t0 = Date.now()
@@ -408,12 +410,13 @@ export async function reviewTeamWithdrawal(env: Env, redis: Redis, withdrawalId:
   let snapshot: Record<string, unknown> | null = null
 
   try {
-    const [config, usdToPhp, idrToPhp] = await Promise.all([
+    const [config, usdToPhp, idrToPhp, inrToPhp] = await Promise.all([
       loadReviewConfig(pool, 'team'),
       getRate(redis, 'USDT', 'PHP', env),
       getRate(redis, 'IDR', 'PHP', env),
+      getRate(redis, 'INR', 'PHP', env),
     ])
-    const ctx = await buildContext(pool, withdrawal, config, usdToPhp.rate, idrToPhp.rate)
+    const ctx = await buildContext(pool, withdrawal, config, usdToPhp.rate, idrToPhp.rate, inrToPhp.rate)
     snapshot = snapshotOf(ctx)
     const results: RuleResult[] = []
     for (const [code, rule] of Object.entries(TEAM_RULES)) {

@@ -574,13 +574,13 @@ export async function runDailyLossRebate(
        GROUP BY user_id, currency
      ) d ON d.user_id = x.user_id AND d.currency = x.currency_code
      WHERE x.currency_code IN (${enabledCurrencies.map(() => '?').join(', ')})
-       AND COALESCE(d.dep, 0) >= CASE x.currency_code WHEN 'IDR' THEN ? WHEN 'USDT' THEN ? WHEN 'USDC' THEN ? ELSE ? END
+       AND COALESCE(d.dep, 0) >= CASE x.currency_code WHEN 'IDR' THEN ? WHEN 'INR' THEN ? WHEN 'USDT' THEN ? WHEN 'USDC' THEN ? ELSE ? END
        AND ROUND(IF(? = 1, LEAST(x.net_loss, COALESCE(d.dep, 0)), x.net_loss) * ? / 100, 2) > 0
      ON DUPLICATE KEY UPDATE
        amount = IF(status = 'pending', VALUES(amount), amount),
        level  = IF(status = 'pending', VALUES(level), level)`,
     [cap, cfg.ratePct, periodKey, startUtc, endUtc, ...cfg.eligibleCats, depStartUtc, endUtc,
-     ...enabledCurrencies, cfg.minDepositByCcy?.IDR ?? 0, cfg.minDepositByCcy?.USDT ?? cfg.minDeposit, cfg.minDepositByCcy?.USDC ?? cfg.minDeposit, cfg.minDeposit,
+     ...enabledCurrencies, cfg.minDepositByCcy?.IDR ?? 0, cfg.minDepositByCcy?.INR ?? cfg.minDeposit, cfg.minDepositByCcy?.USDT ?? cfg.minDeposit, cfg.minDepositByCcy?.USDC ?? cfg.minDeposit, cfg.minDeposit,
      cap, cfg.ratePct],
   )
 
@@ -645,7 +645,7 @@ export async function getLossRebateStatus(env: Env, userId: string, currency: st
   base.enabled = cfg.enabled; base.ratePct = ratePct; base.minDeposit = minDeposit; base.windowDays = cfg.windowDays
   if (!cfg.enabled || !enabledCurrencies.includes(currency) || ratePct <= 0 || cfg.eligibleCats.length === 0) return base
 
-  const { periodKey, startUtc, endUtc } = vipDayWindow(true, currency === 'IDR' ? 7 : 8)
+  const { periodKey, startUtc, endUtc } = vipDayWindow(true, currency === 'IDR' ? 7 : currency === 'INR' ? 5.5 : 8)
   // 存款统计：近 windowDays 天滚动窗口（松绑「必须当日存款」）
   const depStartUtc = new Date(new Date(endUtc.replace(' ', 'T') + 'Z').getTime() - cfg.windowDays * 86400000)
     .toISOString().slice(0, 19).replace('T', ' ')

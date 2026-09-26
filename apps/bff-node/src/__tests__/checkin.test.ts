@@ -3,11 +3,19 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
-  manilaToday, prevDate, cycleDayOf, nextStreak, milestonesBetween,
+  manilaToday, checkinToday, prevDate, cycleDayOf, nextStreak, milestonesBetween,
   CYCLE_REWARDS, MILESTONES,
 } from '../services/checkin.service.js'
 
 describe('checkin pure logic', () => {
+  it('按币种切业务日：印度 UTC+5:30 在 18:30Z 换日', () => {
+    expect(checkinToday('INR', Date.parse('2026-01-01T18:29:00Z'))).toBe('2026-01-01')
+    expect(checkinToday('INR', Date.parse('2026-01-01T18:30:00Z'))).toBe('2026-01-02')
+    expect(checkinToday('IDR', Date.parse('2026-01-01T17:00:00Z'))).toBe('2026-01-02')
+    expect(checkinToday('PHP', Date.parse('2026-01-01T17:00:00Z'))).toBe('2026-01-02')
+    expect(checkinToday('INR', Date.parse('2026-01-01T17:00:00Z'))).toBe('2026-01-01')
+  })
+
   it('马尼拉日期 = UTC+8', () => {
     // 2026-01-01T18:00Z → 马尼拉 2026-01-02 02:00
     expect(manilaToday(Date.parse('2026-01-01T18:00:00Z'))).toBe('2026-01-02')

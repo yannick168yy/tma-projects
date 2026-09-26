@@ -12,11 +12,11 @@ const log = childLogger('billing-daily')
 const DAY_MS = 86_400_000
 
 /**
- * 统计日窗口。与租户库 bi_* 完全同口径（IDR 走 UTC+7，其余走 UTC+8），
+ * 统计日窗口。与租户库 bi_* 完全同口径（IDR 走 UTC+7，INR 走 UTC+5:30，其余走 UTC+8），
  * 差一小时就会让计费快照和客户自己后台看到的 BI 数字对不上，这种不一致没法解释。
  */
-function businessWindow(date: string, offset: 7 | 8): { start: string; end: string } {
-  const startMs = Date.parse(`${date}T00:00:00+0${offset}:00`)
+function businessWindow(date: string, tz: '+08:00' | '+07:00' | '+05:30'): { start: string; end: string } {
+  const startMs = Date.parse(`${date}T00:00:00${tz}`)
   const fmt = (ms: number) => new Date(ms).toISOString().slice(0, 19).replace('T', ' ')
   return { start: fmt(startMs), end: fmt(startMs + DAY_MS) }
 }
@@ -87,7 +87,7 @@ export async function computeTenantDaily(env: Env, date: string): Promise<DailyR
 
   for (const p of platformRows) {
     const currency = String(p.currency)
-    const win = businessWindow(date, currency === 'IDR' ? 7 : 8)
+    const win = businessWindow(date, currency === 'IDR' ? '+07:00' : currency === 'INR' ? '+05:30' : '+08:00')
 
     // 按通道 + 订单上记录的资金模式分组。settlement_mode 为空的是字段上线前的历史单，
     // 用当前通道归属兜底 —— 只有这批单会受「归属后来改了」的影响，新单不会

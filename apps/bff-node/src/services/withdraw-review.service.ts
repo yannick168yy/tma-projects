@@ -297,6 +297,7 @@ const RULES: Record<string, Rule> = {
     const params = cfg.params ?? {}
     const thresholdKey = ctx.order.currency === 'IDR'
       ? 'idr'
+      : ctx.order.currency === 'INR' ? 'inr'
       : ctx.order.currency === 'USDT' || ctx.order.currency === 'USDC' || ctx.order.channelId === 'matrix' ? 'usdt' : 'php'
     const threshold = Number(params[thresholdKey])
     if (!Number.isFinite(threshold) || threshold <= 0) return { code: 'large_amount', verdict: 'pass' }
@@ -572,6 +573,7 @@ function currencyAmountThreshold(ctx: ReviewContext, cfg: RuleConfig): number {
   const params = cfg.params ?? {}
   const key = ctx.order.currency === 'IDR'
     ? 'idr'
+    : ctx.order.currency === 'INR' ? 'inr'
     : ctx.order.currency === 'USDT' || ctx.order.currency === 'USDC' || ctx.order.channelId === 'matrix'
       ? 'usdt'
       : 'php'
@@ -626,7 +628,7 @@ export async function findSameNameUsers(pool: Pool, userId: string, kycFullName:
 
 // ── 上下文构建 ────────────────────────────────────────────────────────────────
 
-async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<string, RuleConfig>, usdRate: number, idrRate: number): Promise<ReviewContext> {
+async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<string, RuleConfig>, usdRate: number, idrRate: number, inrRate: number): Promise<ReviewContext> {
   const userId = order.userId
 
   const [[user]] = await pool.query<RowDataPacket[]>(
@@ -658,12 +660,12 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
   // 风控口径：跨币种统一折 PHP 等值（USDT/USDC 按 usdRate），防稳定币大额活动被 ~58x 低估而漏判审核。单位=PHP 元。
   const [[dep]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN created_at > ? THEN amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? ELSE 1 END) END), 0) AS window_amt,
-       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR THEN amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? ELSE 1 END) END), 0) AS d24_amt,
-       COALESCE(SUM(amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? ELSE 1 END)), 0) AS lifetime_amt,
+       COALESCE(SUM(CASE WHEN created_at > ? THEN amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? WHEN currency = 'INR' THEN ? ELSE 1 END) END), 0) AS window_amt,
+       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR THEN amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? WHEN currency = 'INR' THEN ? ELSE 1 END) END), 0) AS d24_amt,
+       COALESCE(SUM(amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? WHEN currency = 'INR' THEN ? ELSE 1 END)), 0) AS lifetime_amt,
        COUNT(*) AS lifetime_cnt
      FROM bg_deposit_order WHERE user_id = ? AND status = 'paid'`,
-    [sinceDate, usdRate, idrRate, usdRate, idrRate, usdRate, idrRate, userId],
+    [sinceDate, usdRate, idrRate, inrRate, usdRate, idrRate, inrRate, usdRate, idrRate, inrRate, userId],
   )
 
   // 投注盈亏（PHP 元，与 depositPhp 同口径）。
@@ -671,12 +673,12 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
   // 按 created_at 会把全部历史赢钱塞进当前窗口/24h,导致盈利倍数误报。
   const [[bet]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN COALESCE(settled_at, created_at) > ? AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? WHEN currency_code = 'IDR' THEN ? ELSE 1 END)
-                         WHEN created_at > ? AND bet_type = 'bet' THEN -amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? WHEN currency_code = 'IDR' THEN ? ELSE 1 END) ELSE 0 END), 0) AS window_profit,
-       COALESCE(SUM(CASE WHEN COALESCE(settled_at, created_at) > NOW() - INTERVAL 24 HOUR AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? WHEN currency_code = 'IDR' THEN ? ELSE 1 END)
-                         WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type = 'bet' THEN -amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? WHEN currency_code = 'IDR' THEN ? ELSE 1 END) ELSE 0 END), 0) AS d24_profit
+       COALESCE(SUM(CASE WHEN COALESCE(settled_at, created_at) > ? AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? WHEN currency_code = 'IDR' THEN ? WHEN currency_code = 'INR' THEN ? ELSE 1 END)
+                         WHEN created_at > ? AND bet_type = 'bet' THEN -amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? WHEN currency_code = 'IDR' THEN ? WHEN currency_code = 'INR' THEN ? ELSE 1 END) ELSE 0 END), 0) AS window_profit,
+       COALESCE(SUM(CASE WHEN COALESCE(settled_at, created_at) > NOW() - INTERVAL 24 HOUR AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? WHEN currency_code = 'IDR' THEN ? WHEN currency_code = 'INR' THEN ? ELSE 1 END)
+                         WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type = 'bet' THEN -amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? WHEN currency_code = 'IDR' THEN ? WHEN currency_code = 'INR' THEN ? ELSE 1 END) ELSE 0 END), 0) AS d24_profit
      FROM bg_bet_order WHERE user_id = ? AND status = 'settled'`,
-    [sinceDate, usdRate, idrRate, sinceDate, usdRate, idrRate, usdRate, idrRate, usdRate, idrRate, userId],
+    [sinceDate, usdRate, idrRate, inrRate, sinceDate, usdRate, idrRate, inrRate, usdRate, idrRate, inrRate, usdRate, idrRate, inrRate, userId],
   )
 
   // 游戏厂商 bonus 通道派彩（老虎机 feature/免费游戏，走 ledger type=bonus ref_type=game）。
@@ -686,24 +688,24 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
   // 已入注单的条目在上面的投注盈亏里算过一次,这里必须排除,否则同一笔赢钱双重计入。
   const [[gb]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN l.created_at > ? THEN l.amount * (CASE WHEN l.currency IN ('USDT','USDC') THEN ? WHEN l.currency = 'IDR' THEN ? ELSE 1 END) END), 0) AS window_amt,
-       COALESCE(SUM(CASE WHEN l.created_at > NOW() - INTERVAL 24 HOUR THEN l.amount * (CASE WHEN l.currency IN ('USDT','USDC') THEN ? WHEN l.currency = 'IDR' THEN ? ELSE 1 END) END), 0) AS d24_amt
+       COALESCE(SUM(CASE WHEN l.created_at > ? THEN l.amount * (CASE WHEN l.currency IN ('USDT','USDC') THEN ? WHEN l.currency = 'IDR' THEN ? WHEN l.currency = 'INR' THEN ? ELSE 1 END) END), 0) AS window_amt,
+       COALESCE(SUM(CASE WHEN l.created_at > NOW() - INTERVAL 24 HOUR THEN l.amount * (CASE WHEN l.currency IN ('USDT','USDC') THEN ? WHEN l.currency = 'IDR' THEN ? WHEN l.currency = 'INR' THEN ? ELSE 1 END) END), 0) AS d24_amt
      FROM bg_wallet_ledger l
      WHERE l.user_id = ? AND l.type = 'bonus' AND l.ref_type = 'game'
        AND NOT EXISTS (
          SELECT 1 FROM bg_bet_order o
          WHERE o.aggregator_id IN (${AGGREGATOR_IDS_SQL}) AND o.provider_txn_id = CONCAT('bonus:', l.ref_id)
        )`,
-    [sinceDate, usdRate, idrRate, usdRate, idrRate, userId],
+    [sinceDate, usdRate, idrRate, inrRate, usdRate, idrRate, inrRate, userId],
   )
 
   const [[bonus]] = await pool.query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? ELSE 1 END)), 0) AS total_amt
+    `SELECT COALESCE(SUM(amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? WHEN currency = 'INR' THEN ? ELSE 1 END)), 0) AS total_amt
      FROM bg_wallet_ledger
      WHERE user_id = ? AND amount > 0
        AND type IN ('bonus','red_packet','rebate','vip_bonus','task_bonus')
        AND COALESCE(ref_type, '') <> 'game'`,
-    [usdRate, idrRate, userId],
+    [usdRate, idrRate, inrRate, userId],
   )
 
   // 优惠流水未完成（promotion 类型），只检查与本次取款同币种的要求，跨币种不拦截
@@ -805,7 +807,7 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
   const gameBonus24hPhp = Number(gb?.d24_amt ?? 0)
   const rateToPhp = order.currency === 'USDT' || order.currency === 'USDC'
     ? usdRate
-    : order.currency === 'IDR' ? idrRate : 1
+    : order.currency === 'IDR' ? idrRate : order.currency === 'INR' ? inrRate : 1
   const withdrawPhp = order.amount * rateToPhp
 
   return {
@@ -910,12 +912,13 @@ export async function reviewWithdraw(env: Env, redis: Redis, orderId: string, ro
   let snapshot: Record<string, unknown> | null = null
 
   try {
-    const [config, usdToPhp, idrToPhp] = await Promise.all([
+    const [config, usdToPhp, idrToPhp, inrToPhp] = await Promise.all([
       loadReviewConfig(pool),
       getRate(redis, 'USDT', 'PHP', env),
       getRate(redis, 'IDR', 'PHP', env),
+      getRate(redis, 'INR', 'PHP', env),
     ])
-    const ctx = await buildContext(pool, order, config, usdToPhp.rate, idrToPhp.rate)
+    const ctx = await buildContext(pool, order, config, usdToPhp.rate, idrToPhp.rate, inrToPhp.rate)
     snapshot = snapshotOf(ctx)
 
     const results: RuleResult[] = []

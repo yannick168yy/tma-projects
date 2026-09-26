@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool } from '../clients/mysql.client.js'
+import { currencyOffsetMinutes } from '../utils/market.js'
 import { evaluateWithPool } from './risk.service.js'
 import { creditWalletTx } from './store/mysql-store.js'
 
@@ -61,12 +62,12 @@ export async function createRegularRedepClaim(
   const matched = matchTier(tiers[currency] ?? [], amount)
   const bonus = Number(matched?.bonusAmount ?? 0)
   if (bonus <= 0) return
-  const offset = currency === 'IDR' ? 7 : 8
+  const offset = currencyOffsetMinutes(currency)
   const [[daily]] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) cnt,COALESCE(SUM(bonus_amount),0) bonus
      FROM bg_regular_redep_claim
      WHERE user_id=? AND currency=? AND status IN ('pending','claimed')
-       AND DATE(DATE_ADD(created_at,INTERVAL ${offset} HOUR))=DATE(DATE_ADD(NOW(3),INTERVAL ${offset} HOUR))`,
+       AND DATE(DATE_ADD(created_at,INTERVAL ${offset} MINUTE))=DATE(DATE_ADD(NOW(3),INTERVAL ${offset} MINUTE))`,
     [userId, currency],
   )
   if (Number(daily?.cnt ?? 0) >= Number(config.daily_max_claims ?? 3)) return

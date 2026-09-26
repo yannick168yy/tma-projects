@@ -497,11 +497,11 @@ function serverWeightedSample(
 // 首页选品按币种预生成：板块内容不因上游维护而变动——维护/下线的游戏(is_maintain / provider 离线)
 // 仍进选品池、按原选品结果占位返回，由客户端置灰(能看见、点不动)。避免 568Win 同步状态临时改变
 // 首页板块(整块塌缩/消失)。仅按币种拆池：切币种后不支持该币种的游戏排到末尾并标 unavailable。
-const HOMEPAGE_CURRENCIES = ['PHP', 'IDR', 'USDT'] as const
+const HOMEPAGE_CURRENCIES = ['PHP', 'IDR', 'INR', 'USDT'] as const
 
 function homepageBucket(currency?: string): string {
   const normalized = normalizeGameCurrency(currency)
-  return normalized === 'IDR' ? 'IDR' : normalized === 'USDT' ? 'USDT' : 'PHP'
+  return normalized === 'IDR' || normalized === 'INR' || normalized === 'USDT' ? normalized : 'PHP'
 }
 
 // 同款游戏系列键：去掉商标符与结尾的代数记号（数字/罗马数字/Deluxe），

@@ -45,7 +45,7 @@ vi.mock('../services/turnover.service.js', () => ({
 }))
 
 vi.mock('../services/checkin.service.js', () => ({
-  manilaToday: vi.fn(() => '2026-07-22'),
+  checkinToday: vi.fn(() => '2026-07-22'),
   getCheckinStatus: vi.fn(() => Promise.resolve(null)),
 }))
 

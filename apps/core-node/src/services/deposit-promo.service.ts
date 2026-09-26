@@ -85,12 +85,13 @@ async function createRegularRedepClaim(db: Pool, dep: PaidDepositInfo): Promise<
   }
   const bonus = matchFirstDepBonus(cfg.tiers[dep.currency] ?? [], dep.amount)
   if (bonus <= 0) return
-  const offset = dep.currency === 'IDR' ? 7 : 8
+  // 业务日分钟偏移：印度 UTC+5:30，按 HOUR 写会被截断
+  const offset = dep.currency === 'IDR' ? 420 : dep.currency === 'INR' ? 330 : 480
   const [[daily]] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) cnt, COALESCE(SUM(bonus_amount),0) bonus
      FROM bg_regular_redep_claim
      WHERE user_id=? AND currency=? AND status IN ('pending','claimed')
-       AND DATE(DATE_ADD(created_at, INTERVAL ${offset} HOUR))=DATE(DATE_ADD(NOW(3), INTERVAL ${offset} HOUR))`,
+       AND DATE(DATE_ADD(created_at, INTERVAL ${offset} MINUTE))=DATE(DATE_ADD(NOW(3), INTERVAL ${offset} MINUTE))`,
     [dep.userId, dep.currency],
   )
   if (Number(daily?.cnt ?? 0) >= cfg.dailyMaxClaims) return

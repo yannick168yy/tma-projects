@@ -12,12 +12,12 @@ const THRESHOLD_HINT: Record<string, string> = {
 }
 
 const PARAM_LABELS: Record<string, string> = {
-  php: 'PHP 金额', idr: 'IDR 金额', usdt: 'USDT/USDC 金额',
-  minPhp: 'PHP 起查额', minIdr: 'IDR 起查额', minUsdt: 'USDT/USDC 起查额',
+  php: 'PHP 金额', idr: 'IDR 金额', inr: 'INR 金额', usdt: 'USDT/USDC 金额',
+  minPhp: 'PHP 起查额', minIdr: 'IDR 起查额', minInr: 'INR 起查额', minUsdt: 'USDT/USDC 起查额',
   mult: '增长倍数', ratio: '占比', days: '新号天数', count: '笔数', graceMinutes: '宽限分钟', windowMins: '窗口分钟',
 }
 
-const PARAM_ORDER = ['php', 'idr', 'usdt', 'minPhp', 'minIdr', 'minUsdt', 'mult', 'ratio', 'days', 'count', 'graceMinutes', 'windowMins']
+const PARAM_ORDER = ['php', 'idr', 'inr', 'usdt', 'minPhp', 'minIdr', 'minInr', 'minUsdt', 'mult', 'ratio', 'days', 'count', 'graceMinutes', 'windowMins']
 
 function visibleParamKeys(params: Record<string, number>): string[] {
   const keys = Object.keys(params).filter((key) => key !== 'minCents' || !('minPhp' in params))

@@ -7,7 +7,8 @@ import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getRedis } from '../clients/redis.client.js'
 import { creditWallet, listUserIdentities, getUser } from './store/mysql-store.js'
 import { createPromoRequirement } from './turnover.service.js'
-import { manilaToday, getCheckinStatus } from './checkin.service.js'
+import { checkinToday, getCheckinStatus } from './checkin.service.js'
+import { currencyOffsetMinutes } from '../utils/market.js'
 import { getPromoConfig, promoAmountByCurrency } from './promo-config.service.js'
 import { ensureBirthdayFromKyc } from './vip.service.js'
 
@@ -226,10 +227,10 @@ function periodKey(def: NativeTaskDef, today: string): string {
 
 /** 当日成功充值累计额（马尼拉日，限定币种） */
 async function todayDepositTotal(pool: Pool, userId: string, date: string, currency: string): Promise<number> {
-  const offsetHours = currency === 'IDR' ? 7 : 8
+  const offsetMinutes = currencyOffsetMinutes(currency)
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT COALESCE(SUM(amount), 0) AS total FROM bg_deposit_order
-     WHERE user_id = ? AND status = 'paid' AND currency = ? AND DATE(created_at + INTERVAL ${offsetHours} HOUR) = ?`,
+     WHERE user_id = ? AND status = 'paid' AND currency = ? AND DATE(created_at + INTERVAL ${offsetMinutes} MINUTE) = ?`,
     [userId, currency, date],
   )
   return Number(row?.total ?? 0)
@@ -245,11 +246,11 @@ async function hasBet(pool: Pool, userId: string): Promise<boolean> {
 
 /** 当日有效投注笔数（单笔 ≥ minStake 才计数，马尼拉日，限定币种） */
 async function todayBetCount(pool: Pool, userId: string, date: string, minStake: number, currency: string): Promise<number> {
-  const offsetHours = currency === 'IDR' ? 7 : 8
+  const offsetMinutes = currencyOffsetMinutes(currency)
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS n FROM bg_bet_order
      WHERE user_id = ? AND bet_type = 'bet' AND currency_code = ? AND amount >= ?
-       AND DATE(created_at + INTERVAL ${offsetHours} HOUR) = ?`,
+       AND DATE(created_at + INTERVAL ${offsetMinutes} MINUTE) = ?`,
     [userId, currency, Math.max(0, minStake), date],
   )
   return Number(row?.n ?? 0)
@@ -258,13 +259,13 @@ async function todayBetCount(pool: Pool, userId: string, date: string, minStake:
 /** 当日指定 site_category 的投注局数（bet.provider_id = 568win game_id，限定币种） */
 async function todayCategoryBetCount(pool: Pool, userId: string, date: string, category: string, currency: string): Promise<number> {
   if (!category) return 0
-  const offsetHours = currency === 'IDR' ? 7 : 8
+  const offsetMinutes = currencyOffsetMinutes(currency)
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(DISTINCT b.id) AS n FROM bg_bet_order b
      JOIN bg_568win_game g ON g.game_id = b.provider_id
      LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
      WHERE b.user_id = ? AND b.bet_type = 'bet' AND b.currency_code = ?
-       AND DATE(b.created_at + INTERVAL ${offsetHours} HOUR) = ?
+       AND DATE(b.created_at + INTERVAL ${offsetMinutes} MINUTE) = ?
        AND COALESCE(o.site_category, g.site_category_auto, 'other') = ?`,
     [userId, currency, date, category],
   )
@@ -298,9 +299,7 @@ async function evalTask(
   memo: { depositTotal?: number } = {},
 ): Promise<TaskEval> {
   const pool = getMysqlPool(env)
-  const today = currency === 'IDR'
-    ? new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10)
-    : manilaToday()
+  const today = checkinToday(currency)
   // 每日留存类按币种判定；一次性拉新类（profile/first_game/invite）与币种无关
   if (def.id.startsWith('daily_deposit_t')) {
     memo.depositTotal ??= await todayDepositTotal(pool, userId, today, currency)
@@ -504,9 +503,7 @@ async function computeTaskCenter(env: Env, userId: string, currency: string): Pr
   const cfgCur = await getTaskConfig(env, currency)
   const cfgFor = (_def: NativeTaskDef) => cfgCur
   const curFor = (_def: NativeTaskDef) => currency
-  const today = currency === 'IDR'
-    ? new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10)
-    : manilaToday()
+  const today = checkinToday(currency)
 
   const nativeEnabled = NATIVE_TASKS.filter((d) => cfgFor(d)[d.id]?.enabled)
   const claimed = await claimedPeriods(pool, userId, nativeEnabled.map((d) => d.id))
@@ -652,9 +649,7 @@ export async function claimTask(env: Env, userId: string, taskId: string, curren
   if (!eligible) throw new Error('not eligible')
 
   const pool = getMysqlPool(env)
-  const businessToday = effCur === 'IDR'
-    ? new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10)
-    : manilaToday()
+  const businessToday = checkinToday(effCur)
   const pk = periodKey(def, businessToday)
   const conn = await pool.getConnection()
   try {

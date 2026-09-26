@@ -3,6 +3,7 @@ import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
 import { getRate } from './exchange-rate.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { currencyOffsetMinutes } from '../utils/market.js'
 
 // ───────────────────────── 配置（后台可配，缺省用下列常量） ─────────────────────────
 
@@ -111,7 +112,7 @@ export function manilaToday(nowMs = Date.now()): string {
   return new Date(nowMs + 8 * 3600_000).toISOString().slice(0, 10)
 }
 export function checkinToday(currency: string, nowMs = Date.now()): string {
-  return new Date(nowMs + (currency === 'IDR' ? 7 : 8) * 3600_000).toISOString().slice(0, 10)
+  return new Date(nowMs + currencyOffsetMinutes(currency) * 60_000).toISOString().slice(0, 10)
 }
 /** 给定马尼拉日期字符串，返回其前一天 */
 export function prevDate(dateStr: string): string {
@@ -160,19 +161,19 @@ async function grantSpin(conn: PoolConnection, userId: string, source: string, r
 }
 
 /** 当日增强轨是否达标：按当前钱包币种和对应市场业务日计算。 */
-async function enhancedEligible(conn: PoolConnection | Pool, userId: string, date: string, currency: string, minPhp: number, usdRate: number, idrRate: number): Promise<boolean> {
-  const offsetHours = currency === 'IDR' ? 7 : 8
+async function enhancedEligible(conn: PoolConnection | Pool, userId: string, date: string, currency: string, minPhp: number, usdRate: number, idrRate: number, inrRate: number): Promise<boolean> {
+  const offsetMinutes = currencyOffsetMinutes(currency)
   const [[dep]] = await conn.query<RowDataPacket[]>(
     `SELECT 1 AS ok FROM bg_deposit_order
-     WHERE user_id = ? AND status = 'paid' AND currency = ? AND DATE(created_at + INTERVAL ${offsetHours} HOUR) = ? LIMIT 1`,
+     WHERE user_id = ? AND status = 'paid' AND currency = ? AND DATE(created_at + INTERVAL ${offsetMinutes} MINUTE) = ? LIMIT 1`,
     [userId, currency, date],
   )
   if (dep) return true
   // 门槛 enhancedMinPhp 为 PHP 口径：跨币种流水折 PHP 等值（USDT/USDC 按 usdRate）再比较
   const [[bet]] = await conn.query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? WHEN currency_code = 'IDR' THEN ? ELSE 1 END)), 0) AS turnover FROM bg_bet_order
-     WHERE user_id = ? AND currency_code = ? AND bet_type = 'bet' AND status = 'settled' AND DATE(created_at + INTERVAL ${offsetHours} HOUR) = ?`,
-    [usdRate, idrRate, userId, currency, date],
+    `SELECT COALESCE(SUM(amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? WHEN currency_code = 'IDR' THEN ? WHEN currency_code = 'INR' THEN ? ELSE 1 END)), 0) AS turnover FROM bg_bet_order
+     WHERE user_id = ? AND currency_code = ? AND bet_type = 'bet' AND status = 'settled' AND DATE(created_at + INTERVAL ${offsetMinutes} MINUTE) = ?`,
+    [usdRate, idrRate, inrRate, userId, currency, date],
   )
   return Number(bet?.turnover ?? 0) >= minPhp
 }
@@ -233,13 +234,14 @@ export async function getCheckinStatus(env: Env, userId: string, currency = 'PHP
   )
   const last = await lastLogRow(pool, userId)
   const monthDays = await monthCount(pool, userId, today)
-  const [usdToPhpRate, idrToPhpRate] = redis
+  const [usdToPhpRate, idrToPhpRate, inrToPhpRate] = redis
     ? await Promise.all([
         getRate(redis, 'USDT', 'PHP', env).then((r) => r.rate),
         getRate(redis, 'IDR', 'PHP', env).then((r) => r.rate),
+        getRate(redis, 'INR', 'PHP', env).then((r) => r.rate),
       ])
-    : [env.USDT_TO_PHP_RATE, env.USDT_TO_PHP_RATE / env.USDT_TO_IDR_RATE]
-  const eligible = await enhancedEligible(pool, userId, today, currency, cfg.enhancedMinPhp, usdToPhpRate, idrToPhpRate)
+    : [env.USDT_TO_PHP_RATE, env.USDT_TO_PHP_RATE / env.USDT_TO_IDR_RATE, env.USDT_TO_PHP_RATE / env.USDT_TO_INR_RATE]
+  const eligible = await enhancedEligible(pool, userId, today, currency, cfg.enhancedMinPhp, usdToPhpRate, idrToPhpRate, inrToPhpRate)
 
   const claimed = Boolean(todayRow)
   const todayTrack = (todayRow?.track as 'base' | 'enhanced' | undefined) ?? null
@@ -285,18 +287,19 @@ export async function claimCheckin(env: Env, userId: string, currency = 'PHP', r
   // 先读配置再取连接：getCheckinConfig 内部走池，持有连接时调用会嵌套取连接（池满即死锁）
   const cfg = await getCheckinConfig(env)
   if (!cfg.enabled) throw new Error('disabled')
-  const [usdToPhpRate, idrToPhpRate] = redis
+  const [usdToPhpRate, idrToPhpRate, inrToPhpRate] = redis
     ? await Promise.all([
         getRate(redis, 'USDT', 'PHP', env).then((r) => r.rate),
         getRate(redis, 'IDR', 'PHP', env).then((r) => r.rate),
+        getRate(redis, 'INR', 'PHP', env).then((r) => r.rate),
       ])
-    : [env.USDT_TO_PHP_RATE, env.USDT_TO_PHP_RATE / env.USDT_TO_IDR_RATE]
+    : [env.USDT_TO_PHP_RATE, env.USDT_TO_PHP_RATE / env.USDT_TO_IDR_RATE, env.USDT_TO_PHP_RATE / env.USDT_TO_INR_RATE]
   const conn = await pool.getConnection()
   try {
     await conn.beginTransaction()
     const today = checkinToday(currency)
     const tiers = await tierRuleIds(conn)
-    const eligible = await enhancedEligible(conn, userId, today, currency, cfg.enhancedMinPhp, usdToPhpRate, idrToPhpRate)
+    const eligible = await enhancedEligible(conn, userId, today, currency, cfg.enhancedMinPhp, usdToPhpRate, idrToPhpRate, inrToPhpRate)
 
     // 先按可靠的字符串比较查今天是否已签（不依赖 DATE 列回读格式）
     const [[todayRow]] = await conn.query<RowDataPacket[]>(
