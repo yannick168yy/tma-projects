@@ -13,7 +13,7 @@ const MAX_TOOL_ROUNDS = 5
 
 // 硬规则:命中即要求模型立即转人工;模型没照做时代码层兜底强转
 const HARD_ESCALATION_RE =
-  /human agent|real person|live agent|talk to (a |an )?(human|person|agent|someone)|speak to (a |an )?(human|person|agent)|人工客服|转人工|要人工|complaint|refund|scam|estafa|reklamo/i
+  /human agent|real person|live agent|talk to (a |an )?(human|person|agent|someone)|speak to (a |an )?(human|person|agent)|人工客服|转人工|要人工|complaint|refund|scam|estafa|reklamo|मानव एजेंट|असली व्यक्ति|शिकायत|रिफंड|धोखा/i
 
 function getClient(env: Env) {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
@@ -27,12 +27,14 @@ function serviceText(locale: CsReplyLocale) {
       'zh-CN': '人工客服正在处理本次会话，请稍等，客服会在这里回复你。',
       id: 'Agen manusia sedang menangani percakapan ini dan akan segera membalas di sini. Mohon tunggu sebentar.',
       vi: 'Nhân viên hỗ trợ đang xử lý cuộc trò chuyện này và sẽ phản hồi tại đây. Vui lòng chờ một chút.',
+      hi: 'एक मानव एजेंट इस बातचीत को संभाल रहा है और जल्द यहीं जवाब देगा। कृपया प्रतीक्षा करें।',
     }[locale],
     escalatedOnline: {
       en: 'Sorry, I could not resolve this myself. I have escalated it to a human agent who will reply here shortly.',
       'zh-CN': '抱歉，我无法直接解决这个问题，已为你转人工客服，客服会尽快在这里回复。',
       id: 'Maaf, saya tidak bisa menyelesaikan ini sendiri. Saya sudah meneruskannya ke agen manusia yang akan segera membalas di sini.',
       vi: 'Xin lỗi, tôi không thể tự xử lý vấn đề này. Tôi đã chuyển cho nhân viên hỗ trợ và họ sẽ sớm phản hồi tại đây.',
+      hi: 'क्षमा करें, मैं यह समस्या स्वयं हल नहीं कर सका। मैंने इसे मानव एजेंट को भेज दिया है; वे जल्द यहीं जवाब देंगे।',
     }[locale],
     escalatedOffline(conversationId: number) {
       return ({
@@ -40,6 +42,7 @@ function serviceText(locale: CsReplyLocale) {
         'zh-CN': `抱歉，我无法直接解决这个问题。已记录为工单 #${conversationId}，当前没有人工客服在线，客服上线后会在这里跟进。`,
         id: `Maaf, saya tidak bisa menyelesaikan ini sendiri. Saya sudah mencatatnya sebagai tiket #${conversationId}. Saat ini tidak ada agen online, tetapi agen akan menindaklanjuti di chat ini saat tersedia.`,
         vi: `Xin lỗi, tôi không thể tự xử lý vấn đề này. Tôi đã ghi nhận thành ticket #${conversationId}. Hiện không có nhân viên online, nhưng họ sẽ phản hồi trong chat này khi có thể.`,
+        hi: `क्षमा करें, मैं यह समस्या स्वयं हल नहीं कर सका। इसे टिकट #${conversationId} के रूप में दर्ज किया गया है। अभी कोई एजेंट ऑनलाइन नहीं है; उपलब्ध होते ही वे इसी चैट में जवाब देंगे।`,
       })[locale]
     },
   }

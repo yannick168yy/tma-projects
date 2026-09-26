@@ -1392,6 +1392,7 @@ export default {
     en: 'English',
     id: 'Bahasa',
     vi: 'Tiếng Việt',
+    hi: 'हिन्दी',
     'zh-CN': '简体中文',
   },
   game: {

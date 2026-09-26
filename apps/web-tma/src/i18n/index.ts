@@ -3,6 +3,7 @@ import { initReactI18next } from 'react-i18next'
 import { getSiteName } from '@/config/brand'
 import { getI18nOverrides } from '@/config/i18n-overrides'
 import en from '@/i18n/locales/en'
+import hi from '@/i18n/locales/hi'
 import id from '@/i18n/locales/id'
 import idComplete from '@/i18n/locales/id-complete'
 import vi from '@/i18n/locales/vi'
@@ -18,6 +19,8 @@ const LOCALE_ALIASES: Record<string, SupportedLocale> = {
   'id-id': 'id',
   vi: 'vi',
   'vi-vn': 'vi',
+  hi: 'hi',
+  'hi-in': 'hi',
   zh: 'zh-CN',
   cn: 'zh-CN',
   'zh-cn': 'zh-CN',
@@ -80,6 +83,7 @@ void i18n.use(initReactI18next).init({
     en: { translation: en },
     id: { translation: mergeTranslations(id, idComplete) },
     vi: { translation: vi },
+    hi: { translation: hi },
     'zh-CN': { translation: zhCN },
   },
   // brandName 作为全局插值变量下发给所有文案（P1-10/P1-12）：

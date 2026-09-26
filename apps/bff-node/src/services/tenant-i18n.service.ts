@@ -10,7 +10,7 @@ const log = childLogger('tenant-i18n')
 const CACHE_PREFIX = 'platform:tenant-i18n:'
 const CACHE_TTL_SECONDS = 300
 
-export const SUPPORTED_LOCALES = ['en', 'id', 'vi', 'zh-CN'] as const
+export const SUPPORTED_LOCALES = ['en', 'id', 'vi', 'hi', 'zh-CN'] as const
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
 
 export function isSupportedLocale(value: unknown): value is SupportedLocale {

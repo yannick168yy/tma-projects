@@ -82,8 +82,9 @@ describe('租户文案覆盖', () => {
     expect(redis.store.size).toBe(0)
   })
 
-  it('isSupportedLocale 只认四种语言', () => {
+  it('isSupportedLocale 支持印地语并拒绝未知语言', () => {
     expect(isSupportedLocale('zh-CN')).toBe(true)
+    expect(isSupportedLocale('hi')).toBe(true)
     expect(isSupportedLocale('fr')).toBe(false)
     expect(isSupportedLocale(null)).toBe(false)
   })

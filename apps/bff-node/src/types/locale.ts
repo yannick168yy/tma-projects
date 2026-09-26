@@ -1,4 +1,4 @@
-export const SUPPORTED_LOCALES = ['en', 'id', 'vi', 'zh-CN'] as const
+export const SUPPORTED_LOCALES = ['en', 'id', 'vi', 'hi', 'zh-CN'] as const
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number]
 
 export function isAppLocale(value: string): value is AppLocale {
@@ -12,6 +12,7 @@ export function resolveLocaleFromTag(tag?: string | null): AppLocale {
   if (t.startsWith('zh')) return 'zh-CN'
   if (t.startsWith('id')) return 'id'
   if (t.startsWith('vi')) return 'vi'
+  if (t.startsWith('hi')) return 'hi'
   if (t.startsWith('en')) return 'en'
   return 'en'
 }

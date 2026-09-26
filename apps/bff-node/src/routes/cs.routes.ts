@@ -53,6 +53,7 @@ function replyLanguageHint(locale: ReturnType<typeof normalizeCsReplyLocale>): s
     'zh-CN': 'Reply in Simplified Chinese.',
     id: 'Reply in Indonesian.',
     vi: 'Reply in Vietnamese.',
+    hi: 'Reply in Hindi using Devanagari script.',
   })[locale]
 }
 

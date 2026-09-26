@@ -4,5 +4,6 @@ export const LANGUAGES: { code: SupportedLocale; flag: string }[] = [
   { code: 'en', flag: '🇺🇸' },
   { code: 'id', flag: '🇮🇩' },
   { code: 'vi', flag: '🇻🇳' },
+  { code: 'hi', flag: '🇮🇳' },
   { code: 'zh-CN', flag: '🇨🇳' },
 ]

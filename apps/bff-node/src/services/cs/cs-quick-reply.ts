@@ -9,13 +9,13 @@ import type { CsReplyLocale } from './cs-deterministic.js'
 
 export type QuickIntent = 'balance' | 'deposit' | 'withdraw'
 
-const HOWTO = /(how\b|怎么|如何|paano|方式|渠道|method|channel|minimum|maximum|limit|额度|手续费|fee)/i
-const PROMO = /(bonus|promo|优惠|活动|红利|rebate|cashback|洗码)/i
-const STATUS = /(credit|arrive|arrived|status|pending|not\b|didn'?t|hasn'?t|where|missing|success|fail|已到|到账|到帐|没到|未到|成功|失败|状态|查|多久|进度)/i
+const HOWTO = /(how\b|怎么|如何|paano|方式|渠道|method|channel|minimum|maximum|limit|额度|手续费|fee|कैसे|तरीका|न्यूनतम|अधिकतम|सीमा|शुल्क)/i
+const PROMO = /(bonus|promo|优惠|活动|红利|rebate|cashback|洗码|बोनस|प्रचार|कैशबैक)/i
+const STATUS = /(credit|arrive|arrived|status|pending|not\b|didn'?t|hasn'?t|where|missing|success|fail|已到|到账|到帐|没到|未到|成功|失败|状态|查|多久|进度|स्थिति|लंबित|नहीं|कहाँ|सफल|विफल)/i
 
-const BALANCE = /(^|\W)(balance|bal|wallet)(\W|$)|余额|还有多少钱|还剩多少/i
-const DEPOSIT = /(deposit|top\s?up|recharge|充值|存款|入款|deposito)/i
-const WITHDRAW = /(withdraw|withdrawal|payout|提现|提款|出款|取款)/i
+const BALANCE = /(^|\W)(balance|bal|wallet)(\W|$)|余额|还有多少钱|还剩多少|बैलेंस|शेष राशि|वॉलेट/i
+const DEPOSIT = /(deposit|top\s?up|recharge|充值|存款|入款|deposito|जमा)/i
+const WITHDRAW = /(withdraw|withdrawal|payout|提现|提款|出款|取款|निकासी|पैसे निकाल)/i
 
 export function detectQuickIntent(text: string): QuickIntent | null {
   if (HOWTO.test(text) || PROMO.test(text)) return null
@@ -28,6 +28,7 @@ export function detectQuickIntent(text: string): QuickIntent | null {
 
 export function detectLang(text: string): CsReplyLocale {
   if (/[一-鿿]/.test(text)) return 'zh-CN'
+  if (/[ऀ-ॿ]/.test(text)) return 'hi'
   if (/\b(saldo|deposit|penarikan|saya|anda|belum|sudah|berapa|tolong)\b/i.test(text)) return 'id'
   return 'en'
 }
@@ -66,6 +67,7 @@ export async function buildQuickReply(
       'zh-CN': `你的钱包余额（可用 / 冻结）：\n${lines}`,
       id: `Saldo wallet Anda (tersedia / dibekukan):\n${lines}`,
       vi: `Số dư ví của bạn (khả dụng / đóng băng):\n${lines}`,
+      hi: `आपके वॉलेट का बैलेंस (उपलब्ध / फ्रीज़):\n${lines}`,
     })[lang]
   }
 
@@ -77,6 +79,7 @@ export async function buildQuickReply(
         'zh-CN': '你还没有充值记录。可在钱包的充值页发起充值。',
         id: 'Anda belum memiliki riwayat deposit. Anda bisa membuat deposit dari halaman Deposit di Wallet.',
         vi: 'Bạn chưa có lịch sử nạp tiền. Bạn có thể nạp từ trang Nạp tiền trong Ví.',
+        hi: 'आपका अभी कोई जमा रिकॉर्ड नहीं है। वॉलेट के जमा पेज से जमा कर सकते हैं।',
       })[lang]
     }
     return ({
@@ -84,6 +87,7 @@ export async function buildQuickReply(
       'zh-CN': '你还没有提现记录。',
       id: 'Anda belum memiliki riwayat penarikan.',
       vi: 'Bạn chưa có lịch sử rút tiền.',
+      hi: 'आपका अभी कोई निकासी रिकॉर्ड नहीं है।',
     })[lang]
   }
 
@@ -104,6 +108,7 @@ export async function buildQuickReply(
         'zh-CN': `你最近一笔充值 ${displayAmount} 已到账 ✅(${time})。`,
         id: `Deposit terbaru Anda sebesar ${displayAmount} sudah masuk ✅ (${time}).`,
         vi: `Khoản nạp gần nhất ${displayAmount} đã được cộng ✅ (${time}).`,
+        hi: `आपकी नवीनतम जमा राशि ${displayAmount} क्रेडिट हो गई है ✅ (${time})।`,
       })[lang]
     if (o.state === 'pending')
       return ({
@@ -111,12 +116,14 @@ export async function buildQuickReply(
         'zh-CN': `你最近一笔充值 ${displayAmount} 正在处理中,通常几分钟内到账,请稍候。`,
         id: `Deposit terbaru Anda sebesar ${displayAmount} masih diproses. Biasanya masuk dalam beberapa menit.`,
         vi: `Khoản nạp gần nhất ${displayAmount} vẫn đang xử lý. Thường sẽ được cộng trong vài phút.`,
+        hi: `आपकी नवीनतम जमा राशि ${displayAmount} प्रोसेस हो रही है। आमतौर पर कुछ मिनटों में क्रेडिट हो जाती है।`,
       })[lang]
     return ({
       en: `Your latest deposit of ${displayAmount} did not succeed. You can try again on the Deposit page.`,
       'zh-CN': `你最近一笔充值 ${displayAmount} 未成功,可在充值页重新发起。`,
       id: `Deposit terbaru Anda sebesar ${displayAmount} tidak berhasil. Anda bisa mencoba lagi di halaman Deposit.`,
       vi: `Khoản nạp gần nhất ${displayAmount} không thành công. Bạn có thể thử lại trên trang Nạp tiền.`,
+      hi: `आपकी नवीनतम जमा राशि ${displayAmount} सफल नहीं हुई। जमा पेज से फिर प्रयास करें।`,
     })[lang]
   }
 
@@ -127,6 +134,7 @@ export async function buildQuickReply(
       'zh-CN': `你最近一笔提现 ${displayAmount} 已完成 ✅(${time})。`,
       id: `Penarikan terbaru Anda sebesar ${displayAmount} sudah selesai ✅ (${time}).`,
       vi: `Lệnh rút gần nhất ${displayAmount} đã hoàn tất ✅ (${time}).`,
+      hi: `आपकी नवीनतम निकासी ${displayAmount} पूरी हो गई है ✅ (${time})।`,
     })[lang]
   if (o.state === 'pending')
     return ({
@@ -134,11 +142,13 @@ export async function buildQuickReply(
       'zh-CN': `你最近一笔提现 ${displayAmount} 正在审核处理中,请耐心等待。`,
       id: `Penarikan terbaru Anda sebesar ${displayAmount} sedang direview dan diproses. Mohon tunggu sebentar.`,
       vi: `Lệnh rút gần nhất ${displayAmount} đang được xét duyệt và xử lý. Vui lòng chờ một chút.`,
+      hi: `आपकी नवीनतम निकासी ${displayAmount} की समीक्षा और प्रोसेसिंग चल रही है। कृपया प्रतीक्षा करें।`,
     })[lang]
   return ({
     en: `Your latest withdrawal of ${displayAmount} was not successful${o.rejectReason ? `. Reason: ${o.rejectReason}` : ''}.`,
     'zh-CN': `你最近一笔提现 ${displayAmount} 未成功${o.rejectReason ? `,原因:${o.rejectReason}` : ''}。`,
     id: `Penarikan terbaru Anda sebesar ${displayAmount} tidak berhasil${o.rejectReason ? `. Alasan: ${o.rejectReason}` : ''}.`,
     vi: `Lệnh rút gần nhất ${displayAmount} không thành công${o.rejectReason ? `. Lý do: ${o.rejectReason}` : ''}.`,
+    hi: `आपकी नवीनतम निकासी ${displayAmount} सफल नहीं हुई${o.rejectReason ? `। कारण: ${o.rejectReason}` : ''}।`,
   })[lang]
 }
