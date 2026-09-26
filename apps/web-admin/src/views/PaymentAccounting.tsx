@@ -27,7 +27,7 @@ export default function PaymentAccounting() {
   const [total, setTotal] = useState<PaymentAccountingRow | null>(null)
   const [loading, setLoading] = useState(false)
   const [currency, setCurrency] = useState('IDR')
-  const [reconProvider, setReconProvider] = useState<'unispay' | 'wzpay'>('unispay')
+  const [reconProvider, setReconProvider] = useState<'unispay' | 'wzpay' | 'huitone'>('unispay')
   const [reconciliation, setReconciliation] = useState<PaymentReconciliationItem[]>([])
   const [reconLoading, setReconLoading] = useState(false)
 
@@ -191,7 +191,12 @@ export default function PaymentAccounting() {
 
       <Card size="small" title="回调异常 / 对账报告" style={{ marginBottom: 16 }}
         extra={<Space>
-          <Segmented value={reconProvider} onChange={(v) => setReconProvider(v as 'unispay' | 'wzpay')} options={[{ label: 'UnisPay', value: 'unispay' }, { label: 'WZPAY', value: 'wzpay' }]} />
+          <Segmented value={reconProvider} onChange={(v) => {
+            const p = v as 'unispay' | 'wzpay' | 'huitone'
+            setReconProvider(p)
+            // 对账列表按币种过滤，Huitone 只有 INR 单
+            setCurrency(p === 'huitone' ? 'INR' : 'IDR')
+          }} options={[{ label: 'UnisPay', value: 'unispay' }, { label: 'WZPAY', value: 'wzpay' }, { label: 'Huitone', value: 'huitone' }]} />
           <Button size="small" icon={<ReloadOutlined />} onClick={loadReconciliation}>刷新</Button>
         </Space>}>
         <Table rowKey="id" size="small" loading={reconLoading} dataSource={reconciliation}

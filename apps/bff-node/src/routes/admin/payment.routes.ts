@@ -15,6 +15,7 @@ import { checkPlanLimits } from '../../services/plan-limit.service.js'
 import { requireRole } from '../../middleware/require-role.js'
 import { queryDeposit as queryUnispayDeposit, queryWithdrawal as queryUnispayWithdrawal, UnispayError } from '../../services/unispay.service.js'
 import { queryDeposit as queryWzpayDeposit, queryWithdrawal as queryWzpayWithdrawal, WzpayError } from '../../services/wzpay.service.js'
+import { queryOrder as queryHuitoneOrder, HuitoneError } from '../../services/huitone.service.js'
 
 const router = new Router({ prefix: '/payment' })
 const FEE_TYPES: FeeType[] = ['none', 'percent', 'fixed']
@@ -231,6 +232,48 @@ router.post('/reconciliation/wzpay/sync', requireRole('super_admin'), async (ctx
     ok(ctx, { providerState: queried.state, localStatus: String(latest?.status ?? order.status), synced: terminal })
   } catch (err) {
     fail(ctx, 502, err instanceof WzpayError ? err.message : err instanceof Error ? err.message : 'WZPAY 查询失败')
+  }
+})
+
+router.post('/reconciliation/huitone/sync', requireRole('super_admin'), async (ctx) => {
+  const body = ctx.request.body as { source?: string; orderId?: string }
+  const source = body.source
+  const orderId = String(body.orderId ?? '').trim()
+  if ((source !== 'deposit' && source !== 'withdraw') || !orderId) {
+    fail(ctx, 400, 'source / orderId 无效'); return
+  }
+  const db = getMysqlPool(ctx.state.env)
+  const table = source === 'deposit' ? 'bg_deposit_order' : 'bg_withdraw_order'
+  const [[order]] = await db.query<RowDataPacket[]>(
+    `SELECT order_id, amount, status FROM ${table} WHERE order_id = ? AND channel LIKE 'huitone%' LIMIT 1`,
+    [orderId],
+  )
+  if (!order) { fail(ctx, 404, 'Huitone 订单不存在'); return }
+  try {
+    // 充值和代付共用一个查单接口，按商户单号查
+    const queried = await queryHuitoneOrder({ outTradeNo: orderId }, ctx.state.env)
+    const terminal = queried.status === 'SUCCESS' || queried.status === 'FAIL'
+    if (terminal) {
+      const res = await fetch(`${ctx.state.env.CORE_NODE_URL}/internal/payment/huitone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Token': ctx.state.env.INTERNAL_TOKEN },
+        body: JSON.stringify({
+          orderId,
+          providerOrderId: queried.platformId,
+          status: queried.status,
+          amount: queried.amount || Number(order.amount),
+          event: source === 'deposit' ? 'PAYIN' : 'PAYOUT',
+          completionTime: queried.completionTime,
+          utr: queried.utr,
+        }),
+        signal: AbortSignal.timeout(15000),
+      })
+      if (!res.ok) throw new Error(`core sync failed (${res.status})`)
+    }
+    const [[latest]] = await db.query<RowDataPacket[]>(`SELECT status FROM ${table} WHERE order_id = ? LIMIT 1`, [orderId])
+    ok(ctx, { providerState: queried.status, localStatus: String(latest?.status ?? order.status), synced: terminal })
+  } catch (err) {
+    fail(ctx, 502, err instanceof HuitoneError ? err.message : err instanceof Error ? err.message : 'Huitone 查询失败')
   }
 })
 
