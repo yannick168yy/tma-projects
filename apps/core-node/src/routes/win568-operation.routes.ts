@@ -16,24 +16,25 @@ export function toWin568Username(userId: string) {
 }
 
 // 我方钱包币种：读余额/记账用的实际币种（bg_wallet.currency）。
-type WalletCcy = 'PHP' | 'IDR' | 'USDT' | 'USDC'
+type WalletCcy = 'PHP' | 'IDR' | 'INR' | 'USDT' | 'USDC'
 function normalizeWalletCcy(currency?: string): WalletCcy {
   const c = (currency || env.WIN568_DEFAULT_CURRENCY).toUpperCase()
   if (c === 'IDR') return 'IDR'
+  if (c === 'INR') return 'INR'
   if (c === 'USDT' || c === 'UCC') return 'USDT'
   if (c === 'USDC') return 'USDC'
   return 'PHP'
 }
 
 // 568Win agent 币种：稳定币(USDT/USDC)统一玩 USD 币种游戏（568Win 对 USDT/USDC 的游戏少，USD 游戏最多；1:1 折算）。
-function win568AgentCurrency(walletCcy: WalletCcy): 'PHP' | 'IDR' | 'USD' {
-  if (walletCcy === 'PHP' || walletCcy === 'IDR') return walletCcy
+function win568AgentCurrency(walletCcy: WalletCcy): 'PHP' | 'IDR' | 'INR' | 'USD' {
+  if (walletCcy === 'PHP' || walletCcy === 'IDR' || walletCcy === 'INR') return walletCcy
   return 'USD'
 }
 
 // 同一用户不同钱包币种需要不同的 568Win 账号（账号全局唯一、且绑定单一 agent）。
-// PHP 保持原账号（历史映射兼容），IDR/USDT/USDC 加后缀。
-const USERNAME_SUFFIX: Record<WalletCcy, string> = { PHP: '', IDR: 'I', USDT: 'U', USDC: 'C' }
+// PHP 保持原账号（历史映射兼容），IDR/INR/USDT/USDC 加后缀。
+const USERNAME_SUFFIX: Record<WalletCcy, string> = { PHP: '', IDR: 'I', INR: 'N', USDT: 'U', USDC: 'C' }
 function win568Username(userId: string, walletCcy: WalletCcy) {
   return toWin568Username(userId) + USERNAME_SUFFIX[walletCcy]
 }
@@ -424,7 +425,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
     Body: {
       username: string
       password: string
-      currency: 'PHP' | 'IDR' | 'USD' | 'USDT' | 'TMP'
+      currency: 'PHP' | 'IDR' | 'INR' | 'USD' | 'USDT' | 'TMP'
       min: number
       max: number
       maxPerMatch: number
@@ -463,7 +464,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   })
 
   app.post<{
-    Body: { userId: string; username?: string; agent: string; userGroup?: string; currency?: 'PHP' | 'IDR' | 'USDT' | 'USDC' | 'TMP' }
+    Body: { userId: string; username?: string; agent: string; userGroup?: string; currency?: 'PHP' | 'IDR' | 'INR' | 'USDT' | 'USDC' | 'TMP' }
   }>('/player/register', async (req, reply) => {
     const username = req.body.username ?? toWin568Username(req.body.userId)
     if (!validUsername(username)) return reply.status(400).send({ error: 'invalid username' })
