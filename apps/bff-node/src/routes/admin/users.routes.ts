@@ -49,7 +49,7 @@ router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
   const balanceCurrency = user.market === 'ID' ? 'IDR' : user.market === 'IN' ? 'INR' : 'PHP'
-  const [wallet, walletBalances, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, level, growth, identities, attribution, depositTotals, withdrawTotals] = await Promise.all([
+  const [wallet, walletBalances, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, level, growth, identities, attribution, depositTotals, withdrawTotals, referrer] = await Promise.all([
     getWallet(ctx.state.redis, ctx.params.id),
     getWalletBalances(ctx.state.redis, ctx.params.id),
     listLedger(ctx.state.redis, ctx.params.id, 20),
@@ -66,6 +66,7 @@ router.get('/:id', async (ctx) => {
     getUserAttributionDetail(ctx.state.env, ctx.params.id).catch(() => null),
     getUserDepositSummaries(ctx.state.env, ctx.state.redis, [ctx.params.id]).catch(() => new Map()),
     getUserWithdrawSummaries(ctx.state.env, ctx.state.redis, [ctx.params.id]).catch(() => new Map()),
+    user.referredBy ? getUser(ctx.state.redis, user.referredBy) : null,
   ])
   const telegram = identities.find((i) => i.provider === 'telegram') ?? identities.find((i) => i.provider === 'telegram_oidc')
   const google = identities.find((i) => i.provider === 'google')
@@ -78,6 +79,7 @@ router.get('/:id', async (ctx) => {
       googleEmail: google?.displayLabel ?? user.email ?? null,
       phone: phone?.displayLabel ?? phone?.identifier ?? null,
     },
+    referrer: referrer ? { id: referrer.id, displayName: referrer.displayName } : null,
     level,
     totalTurnover,
     balanceCurrency,

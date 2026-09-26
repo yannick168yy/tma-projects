@@ -95,6 +95,11 @@ export default function UserInfo({ detail, onSuccess }: Props) {
         <Descriptions column={1} bordered size="small">
           <Descriptions.Item label="ID">{userId}</Descriptions.Item>
           <Descriptions.Item label="显示名">{String(u.displayName ?? '')}</Descriptions.Item>
+          <Descriptions.Item label="上级用户">
+            {detail.referrer
+              ? <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/users/${detail.referrer!.id}`)}>{detail.referrer.displayName || detail.referrer.id}</Button>
+              : '-'}
+          </Descriptions.Item>
           <Descriptions.Item label="洗码等级">
             <Tag color={detail.level === 6 ? 'gold' : 'blue'}>LV{detail.level}</Tag>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>

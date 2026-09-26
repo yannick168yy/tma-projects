@@ -380,6 +380,7 @@ export interface AdminGrowthState {
 export const getUserDetail = (id: string) =>
   get<{
     user: Record<string, unknown>
+    referrer: { id: string; displayName: string } | null
     level: number
     totalTurnover: number
     balanceCurrency: string
