@@ -8,10 +8,11 @@ interface Props {
   open: boolean
   onClose: () => void
   onApproved?: () => void
+  currency?: string
 }
 
-export default function KycModal({ open, onClose, onApproved }: Props) {
-  const flow = useKycFlow(open, onApproved)
+export default function KycModal({ open, onClose, onApproved, currency }: Props) {
+  const flow = useKycFlow(open, onApproved, currency)
 
   // 人脸步骤全屏展示，方便用户自拍
   const fullScreenFace = flow.step === 'face'

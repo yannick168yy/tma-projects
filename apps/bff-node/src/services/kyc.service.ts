@@ -1,4 +1,4 @@
-import { randomInt } from 'node:crypto'
+import { createHash, randomInt } from 'node:crypto'
 import {
   GoogleGenerativeAI,
   GoogleGenerativeAIAbortError,
@@ -26,6 +26,7 @@ import {
 import { getStorageProvider } from './storage/index.js'
 import { broadcastBadges } from './sse-badges.js'
 import { notifyKycRejected } from './admin-notify.js'
+import type { SiteMarket } from './site-domain.service.js'
 import {
   findKycByExtractedIdNo,
   findKycByVerifiedPhone,
@@ -50,7 +51,11 @@ const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 3
 const KYC_FAILURE_LOCK_SECONDS = 180
 const KYC_NOTIFY_FAILURE_COUNT = 3
-const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard', 'ktp', 'sim']
+export const KYC_DOC_TYPES_BY_MARKET: Record<SiteMarket, readonly string[]> = {
+  PH: ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard'],
+  ID: ['passport', 'drivers_license', 'ktp', 'sim'],
+  IN: ['passport', 'drivers_license', 'aadhaar', 'voter_id', 'nrega_job_card', 'npr_letter'],
+}
 const NAME_SUFFIX_TOKENS = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V'])
 const RETRYABLE_DOC_REASONS = new Set(['invalid_doc', 'missing_id_number', 'low_confidence'])
 const HARD_REJECT_DOC_REASONS = new Set(['unsupported_doc_type'])
@@ -69,15 +74,30 @@ const WEAK_NAME_TOKENS = new Set([
   'VON',
 ])
 
-function normalizeDocType(raw: string): string {
+export function normalizeDocType(raw: string): string {
   const s = raw.toLowerCase().trim().replace(/[\s-]+/g, '_')
   if (s === 'acr_i_card' || s === 'i_card' || s === 'icard') return 'acr_icard'
+  if (s === 'aadhar') return 'aadhaar'
+  if (s === 'voterid' || s === 'epic') return 'voter_id'
+  if (s === 'nrega' || s === 'mgnrega' || s === 'mgnrega_job_card') return 'nrega_job_card'
+  if (s === 'npr' || s === 'npr_smart_card' || s === 'npr_letter_with_name_and_address') return 'npr_letter'
   return s
+}
+
+export function isAcceptedKycDocType(market: SiteMarket, docType: string | undefined): boolean {
+  return Boolean(docType && KYC_DOC_TYPES_BY_MARKET[market].includes(normalizeDocType(docType)))
 }
 
 /** 证件号归一化：去掉分隔符只留字母数字并大写，保证跨次 OCR 输出格式差异不影响查重 */
 function normalizeIdNo(raw: string | null | undefined): string {
   return (raw ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+}
+
+function storedIdNo(market: SiteMarket, docType: string, idNo: string): string {
+  if (market === 'IN' && normalizeDocType(docType) === 'aadhaar') {
+    return createHash('sha256').update(`aadhaar:${idNo}`).digest('hex')
+  }
+  return idNo
 }
 
 type KycNameMatchReason = 'exact' | 'reordered' | 'middle_initial' | 'core_tokens' | 'mismatch'
@@ -168,8 +188,12 @@ async function getVerifiedPhoneIdentity(redis: Redis, userId: string): Promise<s
 }
 
 /** 人脸 vs 证件照相似度通过阈值：后台 kyc_face_match_threshold 优先，否则用 env 兜底 */
-async function getKycFaceMatchThreshold(env: Env): Promise<number> {
-  const raw = await getAdminSetting(env, 'kyc_face_match_threshold')
+async function getMarketSetting(env: Env, key: string, market: SiteMarket): Promise<string | null> {
+  return await getAdminSetting(env, `${key}_${market.toLowerCase()}`) ?? await getAdminSetting(env, key)
+}
+
+export async function getKycFaceMatchThreshold(env: Env, market: SiteMarket = 'PH'): Promise<number> {
+  const raw = await getMarketSetting(env, 'kyc_face_match_threshold', market)
   const n = raw != null ? Number(raw) : NaN
   if (Number.isFinite(n) && n >= 0 && n <= 1) return n
   return env.KYC_FACE_MATCH_MIN
@@ -221,18 +245,18 @@ export class KycError extends Error {
 }
 
 /** 取款硬闸门：按当前后台配置判断是否已完成所需实名步骤 */
-export async function isKycApproved(redis: Redis, env: Env, userId: string): Promise<boolean> {
+export async function isKycApproved(redis: Redis, env: Env, userId: string, market: SiteMarket = 'PH'): Promise<boolean> {
   const kyc = await getKyc(redis, userId)
-  if (kyc?.status === 'approved') return true
-  const cfg = await getKycStepConfig(redis, env, userId)
+  const cfg = await getKycStepConfig(redis, env, userId, market)
   // 手机与证件都关闭 = 实名流程整体关闭，不设闸门
   if (!cfg.requirePhone && !cfg.requireDocument) return true
   if (!kyc) return false
   // 人工驳回/撤销（无 rejectStep）永久拦截，需重新走流程
   if (kyc.status === 'rejected' && !kyc.rejectStep) return false
   if (cfg.requirePhone && !kyc.phoneVerified) return false
-  if (cfg.requireDocument && !kyc.docVerified) return false
+  if (cfg.requireDocument && (!kyc.docVerified || !isAcceptedKycDocType(market, kyc.docType) || (market === 'IN' && kyc.market !== 'IN'))) return false
   if (cfg.requireFace && !kyc.faceVerified) return false
+  if (kyc.status === 'rejected') return false
   return true
 }
 
@@ -250,11 +274,12 @@ export async function getKycStepConfig(
   redis: Redis,
   env: Env,
   userId?: string,
+  market: SiteMarket = 'PH',
 ): Promise<KycStepConfig> {
   const [phone, doc, face] = await Promise.all([
-    getAdminSetting(env, 'kyc_require_phone'),
-    getAdminSetting(env, 'kyc_require_document'),
-    getAdminSetting(env, 'kyc_require_face'),
+    getMarketSetting(env, 'kyc_require_phone', market),
+    getMarketSetting(env, 'kyc_require_document', market),
+    getMarketSetting(env, 'kyc_require_face', market),
   ])
   const requirePhone = phone !== '0'
   let requireDocument = doc !== '0'
@@ -267,19 +292,26 @@ export async function getKycStepConfig(
   return { requirePhone, requireDocument, requireFace: requireDocument && requireFace }
 }
 
-export function buildKycStatusResponse(kyc: KycSubmission | null) {
+export function buildKycStatusResponse(kyc: KycSubmission | null, market: SiteMarket = 'PH') {
+  const documentMatchesMarket = Boolean(
+    kyc?.docVerified
+    && isAcceptedKycDocType(market, kyc.docType)
+    && (market !== 'IN' || kyc.market === 'IN'),
+  )
+  const marketMismatch = Boolean(kyc?.docVerified && !documentMatchesMarket)
   return {
-    status: kyc?.status ?? 'none',
+    status: marketMismatch ? 'none' : kyc?.status ?? 'none',
+    market,
     phoneVerified: kyc?.phoneVerified ?? false,
-    docVerified: kyc?.docVerified ?? false,
-    faceVerified: kyc?.faceVerified ?? false,
+    docVerified: documentMatchesMarket,
+    faceVerified: documentMatchesMarket && (kyc?.faceVerified ?? false),
     phone: kyc?.phone ?? null,
     fullName: kyc?.fullName || null,
     docType: kyc?.docType ?? null,
     rejectReason: kyc?.rejectReason ?? null,
     rejectStep: kyc?.rejectStep ?? null,
     /** 是否真的提交过证件：区分"手机验证后的 pending"与"证件已交待审核" */
-    docSubmittedAt: kyc?.docSubmittedAt ?? null,
+    docSubmittedAt: marketMismatch ? null : kyc?.docSubmittedAt ?? null,
   }
 }
 
@@ -357,8 +389,9 @@ export async function sendKycOtp(
   userId: string,
   phoneRaw: string,
   ip?: string,
+  market: SiteMarket = 'PH',
 ): Promise<{ phone: string; resendInSec: number }> {
-  if (!(await getKycStepConfig(redis, env, userId)).requirePhone) {
+  if (!(await getKycStepConfig(redis, env, userId, market)).requirePhone) {
     throw new KycError('手机验证已关闭', 400)
   }
   const phone = normalizePhone(phoneRaw)
@@ -418,52 +451,12 @@ export async function sendKycOtp(
   return { phone, resendInSec: RESEND_INTERVAL_SEC }
 }
 
-/**
- * OTP 关闭时的直接绑定：不发短信，仅校验号码格式与占用后落库。
- * 「手机验证」开关只决定是否需要短信 OTP，绑定手机号本身始终必须；开关开启时禁止走此通道（防绕过 OTP）。
- */
-export async function bindKycPhone(
-  redis: Redis,
-  env: Env,
-  userId: string,
-  phoneRaw: string,
-): Promise<{ phoneVerified: true; status: KycSubmission['status'] }> {
-  const cfg = await getKycStepConfig(redis, env, userId)
-  if (cfg.requirePhone) throw new KycError('kyc.errors.otpRequired', 400)
-  const phone = normalizePhone(phoneRaw)
-  if (!phone) throw new KycError('kyc.errors.invalidPhone', 400)
-
-  const phoneIdentity = (await listUserIdentities(redis, userId)).find((item) => item.provider === 'phone')
-  if (phoneIdentity) {
-    const bound = normalizePhone(phoneIdentity.identifier)
-    if (bound && bound !== phone) throw new KycError('kyc.errors.phoneUseRegistered', 400)
-  }
-  const otherOwner = await findKycByVerifiedPhone(redis, phone, userId)
-  if (otherOwner) throw new KycError('kyc.errors.phoneTaken', 409)
-  const phoneAccountOwner = await getUserByPhoneAccount(redis, phone)
-  if (phoneAccountOwner && phoneAccountOwner.id !== userId) throw new KycError('kyc.errors.phoneTaken', 409)
-
-  const existing = await getKyc(redis, userId)
-  const approvedByPhoneOnly = !cfg.requireDocument
-  const now = nowIso()
-  await saveKyc(redis, {
-    ...(existing ?? blankSubmission(userId)),
-    userId,
-    phone,
-    phoneVerified: true,
-    status: existing?.status === 'approved' || approvedByPhoneOnly ? 'approved' : 'pending',
-    rejectReason: undefined,
-    rejectStep: undefined,
-    reviewedAt: approvedByPhoneOnly ? now : existing?.reviewedAt,
-  })
-  return { phoneVerified: true, status: approvedByPhoneOnly ? 'approved' : 'pending' }
-}
-
 export async function verifyKycOtp(
   redis: Redis,
   env: Env,
   userId: string,
   code: string,
+  market: SiteMarket = 'PH',
 ): Promise<{ phoneVerified: true; status: KycSubmission['status']; phone: string }> {
   if (await redis.get(otpLockKey(userId))) throw new KycError('kyc.errors.otpLocked', 429)
   const raw = await redis.get(otpKey(userId))
@@ -492,13 +485,14 @@ export async function verifyKycOtp(
 
   await redis.del(otpKey(userId), otpLockKey(userId))
   const existing = await getKyc(redis, userId)
-  const cfg = await getKycStepConfig(redis, env, userId)
+  const cfg = await getKycStepConfig(redis, env, userId, market)
   // 证件验证关闭 ⇒ 手机验证即完成实名（人脸已被强制关闭）
   const approvedByPhoneOnly = !cfg.requireDocument
   const now = nowIso()
   await saveKyc(redis, {
-    ...(existing ?? blankSubmission(userId)),
+    ...(existing ?? blankSubmission(userId, market)),
     userId,
+    market: existing?.market ?? market,
     phone: state.phone,
     phoneVerified: true,
     status: existing?.status === 'approved' || approvedByPhoneOnly ? 'approved' : 'pending',
@@ -509,11 +503,12 @@ export async function verifyKycOtp(
   return { phoneVerified: true, status: approvedByPhoneOnly ? 'approved' : 'pending', phone: state.phone }
 }
 
-function blankSubmission(userId: string): KycSubmission {
+function blankSubmission(userId: string, market?: SiteMarket): KycSubmission {
   return {
     submissionId: userId,
     userId,
     status: 'none',
+    market,
     fullName: '',
     gender: '',
     dob: '',
@@ -663,14 +658,23 @@ async function generateGeminiContent(
   throw new KycError('识别服务异常，已转人工审核', 503)
 }
 
-async function runGeminiDocument(env: Env, fullName: string, idImage: string): Promise<GeminiDocVerdict> {
+async function runGeminiDocument(env: Env, fullName: string, idImage: string, market: SiteMarket): Promise<GeminiDocVerdict> {
   const claimedNameLine = fullName.trim()
     ? `The user claims their full name is: "${fullName.trim()}".`
     : 'No user-entered name is provided; extract the full legal name from the document.'
-  const prompt = `You are a KYC document verification system. Analyze the provided ID document image only.
+  const acceptedDocuments = market === 'IN'
+    ? 'passport (Indian passport), drivers_license (Indian driving licence), aadhaar (Aadhaar card or e-Aadhaar), voter_id (Election Commission EPIC), nrega_job_card (NREGA/MGNREGA job card), npr_letter (NPR letter/card containing name and address)'
+    : market === 'ID'
+      ? 'passport, drivers_license, ktp (Indonesian electronic identity card / KTP-el), sim (Indonesian driving licence)'
+      : 'passport, drivers_license, philid (Philippine National ID), umid, acr_icard (ACR I-Card / Alien Certificate of Registration Identity Card)'
+  const indiaInstructions = market === 'IN'
+    ? `\nThis is the India KYC profile. Reject PAN cards and any document type not listed above. For Aadhaar, all 12 digits must be clearly readable; reject masked Aadhaar and never infer hidden digits. This image-only check does not claim UIDAI, DigiLocker, QR/XML-signature or government-database verification.`
+    : ''
+  const prompt = `You are a KYC document verification system for market ${market}. Analyze the provided ID document image only.
 
-Accepted document types: passport, drivers_license, philid (Philippine National ID), umid, acr_icard (ACR I-Card / Alien Certificate of Registration Identity Card), ktp (Indonesian electronic identity card / KTP-el), sim (Indonesian driving licence).
+Accepted document types: ${acceptedDocuments}.
 Use docType value exactly as listed (e.g. acr_icard for ACR I-Card).
+${indiaInstructions}
 ${claimedNameLine}
 
 Return ONLY a valid JSON object (no markdown) with exactly these keys:
@@ -743,9 +747,10 @@ export async function submitKycDocument(
   env: Env,
   userId: string,
   input: { fullName: string; docType: string; idImage: string },
+  market: SiteMarket = 'PH',
 ): Promise<{ docVerified: boolean; status: KycSubmission['status']; rejectReason?: string; rejectStep?: string }> {
   const existing = await getKyc(redis, userId)
-  const cfg = await getKycStepConfig(redis, env, userId)
+  const cfg = await getKycStepConfig(redis, env, userId, market)
   const verifiedPhoneIdentity = cfg.requirePhone && !existing?.phoneVerified
     ? await getVerifiedPhoneIdentity(redis, userId)
     : null
@@ -763,7 +768,7 @@ export async function submitKycDocument(
   const failureLimit = await getKycDocFailureLimit(env)
   await enforceKycFailureLimit(redis, failureLimit, 'doc', userId)
 
-  if (!ACCEPTED_DOC_TYPES.includes(normalizeDocType(input.docType))) {
+  if (!isAcceptedKycDocType(market, input.docType)) {
     throw new KycError('kyc.errors.unsupportedDocType', 400)
   }
 
@@ -780,7 +785,7 @@ export async function submitKycDocument(
   let verdict: GeminiDocVerdict
   try {
     verdict = await withTimeout(
-      runGeminiDocument(env, input.fullName, input.idImage),
+      runGeminiDocument(env, input.fullName, input.idImage, market),
       KYC_DOCUMENT_SYNC_TIMEOUT_MS,
       '证件识别超时，已转人工审核',
     )
@@ -790,9 +795,10 @@ export async function submitKycDocument(
       ? 'recognition_timeout'
       : 'recognition_error'
     const submission: KycSubmission = {
-      ...(existing ?? blankSubmission(userId)),
+      ...(existing ?? blankSubmission(userId, market)),
       submissionId: userId,
       userId,
+      market,
       status: 'pending',
       fullName: input.fullName.trim(),
       phone: existing?.phone ?? verifiedPhoneIdentity ?? undefined,
@@ -828,8 +834,11 @@ export async function submitKycDocument(
 
   // 证件号归一化(去分隔符+大写)后作为唯一键;提得出必查重
   const idNo = normalizeIdNo(verdict.idNumber)
-  if (idNo) {
-    const owner = await findKycByExtractedIdNo(redis, idNo, userId)
+  const detectedDocType = normalizeDocType(verdict.docType)
+  const validAadhaarNumber = detectedDocType !== 'aadhaar' || /^\d{12}$/.test(idNo)
+  const idNoForStorage = idNo && validAadhaarNumber ? storedIdNo(market, detectedDocType, idNo) : ''
+  if (idNoForStorage) {
+    const owner = await findKycByExtractedIdNo(redis, idNoForStorage, userId)
     if (owner) throw new KycError('kyc.errors.docAlreadyUsed', 409)
   }
 
@@ -838,9 +847,9 @@ export async function submitKycDocument(
   const extractedFullName = verdict.fullName.trim()
   const nameCheck = claimedFullName ? compareKycNames(claimedFullName, extractedFullName) : undefined
   if (!verdict.isValidDocument) reasons.push('invalid_doc')
-  if (!ACCEPTED_DOC_TYPES.includes(normalizeDocType(verdict.docType))) reasons.push('unsupported_doc_type')
+  if (!isAcceptedKycDocType(market, verdict.docType)) reasons.push('unsupported_doc_type')
   // 证件号是防多账号复用的唯一键，提不出一律拒绝重拍
-  if (!idNo) reasons.push('missing_id_number')
+  if (!idNoForStorage) reasons.push('missing_id_number')
   if (!extractedFullName) reasons.push('invalid_doc')
   if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_confidence')
 
@@ -876,9 +885,10 @@ export async function submitKycDocument(
     }
   }
   const submission: KycSubmission = {
-    ...(existing ?? blankSubmission(userId)),
+    ...(existing ?? blankSubmission(userId, market)),
     submissionId: userId,
     userId,
+    market,
     status: docVerified ? (approvedByDoc ? 'approved' : 'pending') : hardRejected ? 'rejected' : 'pending',
     fullName: extractedFullName || claimedFullName,
     phone: existing?.phone ?? verifiedPhoneIdentity ?? undefined,
@@ -887,10 +897,16 @@ export async function submitKycDocument(
     verifyMode: 'document',
     docVerified,
     faceVerified: false,
-    extractedIdNo: idNo || undefined,
+    extractedIdNo: idNoForStorage || undefined,
     dob: verdict.dob || existing?.dob || '',
     geminiConfidence: verdict.confidence,
-    geminiResult: { document: { ...verdict, nameCheck } },
+    geminiResult: {
+      document: {
+        ...verdict,
+        idNumber: detectedDocType === 'aadhaar' && idNo ? `********${idNo.slice(-4)}` : verdict.idNumber,
+        nameCheck,
+      },
+    },
     docImageKey,
     rejectReason: docVerified ? undefined : reasons.join(';'),
     rejectStep: docVerified ? undefined : 'document',
@@ -944,14 +960,15 @@ export async function submitKycFace(
   env: Env,
   userId: string,
   selfieImage: string,
+  market: SiteMarket = 'PH',
 ): Promise<{ faceVerified: boolean; status: KycSubmission['status']; rejectReason?: string; rejectStep?: string }> {
   const existing = await getKyc(redis, userId)
-  const cfg = await getKycStepConfig(redis, env, userId)
+  const cfg = await getKycStepConfig(redis, env, userId, market)
   if (cfg.requirePhone && !existing?.phoneVerified) throw new KycError('请先完成手机验证', 400)
   if (!cfg.requireFace) {
     throw new KycError('人脸验证已关闭', 400)
   }
-  if (!existing?.docVerified || !existing.docImageKey) {
+  if (!existing?.docVerified || !existing.docImageKey || !isAcceptedKycDocType(market, existing.docType) || (market === 'IN' && existing.market !== 'IN')) {
     throw new KycError('请先完成证件验证', 400)
   }
 
@@ -976,7 +993,7 @@ export async function submitKycFace(
     console.error('[kyc] store selfie image failed:', e)
   }
 
-  const threshold = await getKycFaceMatchThreshold(env)
+  const threshold = await getKycFaceMatchThreshold(env, market)
   const reasons: string[] = []
   if (!verdict.isLivePerson) reasons.push('no_live_person')
   if ((verdict.faceMatchWithId ?? 0) < threshold) reasons.push('face_id_mismatch')
@@ -1034,17 +1051,18 @@ export async function submitKyc(
     idImage: string
     selfieImage?: string
   },
+  market: SiteMarket = 'PH',
 ): Promise<{ status: KycSubmission['status']; rejectReason?: string }> {
   const docResult = await submitKycDocument(redis, env, userId, {
     fullName: input.fullName,
     docType: input.docType,
     idImage: input.idImage,
-  })
+  }, market)
   if (!docResult.docVerified) {
     return { status: docResult.status, rejectReason: docResult.rejectReason }
   }
   if (input.verifyMode === 'face' && input.selfieImage) {
-    const faceResult = await submitKycFace(redis, env, userId, input.selfieImage)
+    const faceResult = await submitKycFace(redis, env, userId, input.selfieImage, market)
     return { status: faceResult.status, rejectReason: faceResult.rejectReason }
   }
   return { status: docResult.status, rejectReason: docResult.rejectReason }

@@ -47,6 +47,7 @@ import { hasRealDepositForWithdraw } from '../services/withdraw-eligibility.serv
 import type { OrderDeposit, OrderWithdraw } from '../types/domain.js'
 import type { Redis } from 'ioredis'
 import type { TxType } from '../services/payment-channel.service.js'
+import { resolveRequestMarket } from '../utils/request-market.js'
 
 const router = new Router()
 
@@ -341,7 +342,7 @@ router.post('/payment/withdraw/create', async (ctx) => {
   const userId = ctx.state.userId!
   const redis = ctx.state.redis as Redis
 
-  if (!(await isKycApproved(redis, ctx.state.env, userId))) {
+  if (!(await isKycApproved(redis, ctx.state.env, userId, await resolveRequestMarket(ctx, currency)))) {
     fail(ctx, 403, 'errors.kycRequired', 403); return
   }
   if (isMysqlEnabled(ctx.state.env) && !(await hasRealDepositForWithdraw(getMysqlPool(ctx.state.env), userId))) {

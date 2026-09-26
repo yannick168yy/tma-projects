@@ -6,6 +6,7 @@ import { ok, fail } from '../utils/response.js'
 import { nowMysql } from '../utils/format.js'
 import { fetchMonthTurnoverBreakdown, sumBreakdownCents } from '../utils/team-turnover.js'
 import { reviewTeamWithdrawal } from '../services/team-withdraw-review.service.js'
+import { marketForCurrency } from '../utils/request-market.js'
 
 const router = new Router({ prefix: '/promotions/team' })
 
@@ -254,7 +255,7 @@ router.post('/withdraw', async (ctx) => {
     fail(ctx, 400, `errors.minWithdrawal:${(minWithdrawalCents / 100).toFixed(0)}`); return
   }
 
-  if (!(await isKycApproved(ctx.state.redis, ctx.state.env, userId))) {
+  if (!(await isKycApproved(ctx.state.redis, ctx.state.env, userId, marketForCurrency(currency) ?? 'PH'))) {
     fail(ctx, 403, 'errors.kycRequired', 403)
     return
   }

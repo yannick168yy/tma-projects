@@ -2,10 +2,12 @@ import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Fingerprint, ShieldCheck, WalletCards } from 'lucide-react'
 import { useKycFlow } from '@/hooks/useKycFlow'
 import KycFlowContent from '@/components/wallet/KycFlowContent'
+import { useWalletStore } from '@/stores/wallet'
 
 export default function KycSettingPage({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
-  const flow = useKycFlow(true)
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
+  const flow = useKycFlow(true, undefined, activeCurrency)
   const faceStep = flow.step === 'face'
 
   return (

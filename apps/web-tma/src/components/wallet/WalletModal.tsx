@@ -140,7 +140,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [withdrawLoading, setWithdrawLoading] = useState(false)
   const [withdrawMessage, setWithdrawMessage] = useState('')
   const [withdrawSuccess, setWithdrawSuccess] = useState(false)
-  const { kycApproved, kycOpen, setKycOpen, boundPhoneNumber, kycFullName, refreshKyc, onKycClose, onKycApproved } = useKycGate(open && tab === 'withdraw')
+  const { kycApproved, kycOpen, setKycOpen, boundPhoneNumber, kycFullName, refreshKyc, onKycClose, onKycApproved } = useKycGate(open && tab === 'withdraw', activeCurrency)
   const pendingWithdrawMethodRef = useRef<string | null>(null)
   const [historyOrders, setHistoryOrders] = useState<HistoryItem[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -1297,7 +1297,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
           </div>
         )}
       </div>
-      <KycModal open={kycOpen} onClose={handleKycClose} onApproved={handleKycApproved} />
+      <KycModal open={kycOpen} onClose={handleKycClose} onApproved={handleKycApproved} currency={activeCurrency} />
     </>,
     document.body,
   )

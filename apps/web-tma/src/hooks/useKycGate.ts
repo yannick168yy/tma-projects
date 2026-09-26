@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchKycStatus, isKycGatePassed, type KycStatus } from '@/api/kyc'
 
-export function useKycGate(active: boolean) {
+export function useKycGate(active: boolean, currency?: string) {
   const [kycApproved, setKycApproved] = useState<boolean | null>(null)
   const [kycOpen, setKycOpen] = useState(false)
   const [boundPhoneNumber, setBoundPhoneNumber] = useState<string | null>(null)
   const [kycFullName, setKycFullName] = useState<string | null>(null)
 
   const refreshKyc = useCallback((): Promise<KycStatus | null> => {
-    return fetchKycStatus()
+    return fetchKycStatus(currency)
       .then((s) => {
         const approved = isKycGatePassed(s)
         setKycApproved(approved)
@@ -22,7 +22,7 @@ export function useKycGate(active: boolean) {
         setKycFullName(null)
         return null
       })
-  }, [])
+  }, [currency])
 
   useEffect(() => {
     if (!active) return

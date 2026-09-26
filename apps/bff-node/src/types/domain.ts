@@ -138,6 +138,8 @@ export interface KycSubmission {
   submissionId: string
   userId: string
   status: KycStatus
+  /** 本次证件验证所属市场；旧记录可能为空 */
+  market?: 'PH' | 'ID' | 'IN'
   fullName: string
   gender: string
   dob: string

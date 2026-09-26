@@ -16,7 +16,7 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
   const {
     step, requirePhone, requireDocument, requireFace, loading, error,
     phone, setPhone, phoneLocked, code, setCode, resendIn,
-    docType, setDocType, idImage, docReuploadRequired, idInputRef,
+    docTypes, docType, setDocType, idImage, docReuploadRequired, idInputRef,
     suggestDocRedo, backToDocument, docRedoMode, prevDocImage, continueToFace,
     onSendCode, onVerifyCode, onPickImage, onSubmitDoc, onSubmitFace,
   } = flow
@@ -77,13 +77,9 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
       {step === 'document' && (
         <div className="space-y-3">
           <select value={docType} className={inputCls} onChange={(e) => setDocType(e.target.value as DocType)}>
-            <option value="ktp">{t('kyc.docKtp')}</option>
-            <option value="sim">{t('kyc.docSim')}</option>
-            <option value="philid">{t('kyc.docPhilid')}</option>
-            <option value="passport">{t('kyc.docPassport')}</option>
-            <option value="drivers_license">{t('kyc.docDriversLicense')}</option>
-            <option value="umid">{t('kyc.docUmid')}</option>
-            <option value="acr_icard">{t('kyc.docAcrIcard')}</option>
+            {docTypes.map((type) => (
+              <option key={type} value={type}>{t(`kyc.docType.${type}`)}</option>
+            ))}
           </select>
 
           {docRedoMode && !idImage && (

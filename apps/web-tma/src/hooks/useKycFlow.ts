@@ -2,10 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '@/api/client'
 import { fetchKycDocImage, fetchKycStatus, sendKycOtp, submitKycDocument, submitKycFace, verifyKycOtp } from '@/api/kyc'
-import { getAppLocale } from '@/i18n'
+import { getSiteMarket, type SiteMarket } from '@/config/market'
 
-export const DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard', 'ktp', 'sim'] as const
+export const DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard', 'ktp', 'sim', 'aadhaar', 'voter_id', 'nrega_job_card', 'npr_letter'] as const
 export type DocType = (typeof DOC_TYPES)[number]
+export const DOC_TYPES_BY_MARKET: Record<SiteMarket, readonly DocType[]> = {
+  PH: ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard'],
+  ID: ['passport', 'drivers_license', 'ktp', 'sim'],
+  IN: ['passport', 'drivers_license', 'aadhaar', 'voter_id', 'nrega_job_card', 'npr_letter'],
+}
 export type KycStep = 'phone' | 'document' | 'reviewing' | 'face' | 'done'
 
 function compressImage(file: File, maxDim = 1280, quality = 0.82): Promise<string> {
@@ -102,7 +107,7 @@ function resolveStep(s: Awaited<ReturnType<typeof fetchKycStatus>>): KycStep {
 }
 
 /** 实名认证流程的状态与动作，供提现弹窗与 KYC Setting 页共用。active=true 时拉取状态。 */
-export function useKycFlow(active: boolean, onApproved?: () => void) {
+export function useKycFlow(active: boolean, onApproved?: () => void, currency?: string) {
   const { t } = useTranslation()
   const [step, setStep] = useState<KycStep>('phone')
   const [loading, setLoading] = useState(false)
@@ -113,7 +118,9 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
   const [code, setCode] = useState('')
   const [resendIn, setResendIn] = useState(0)
 
-  const [docType, setDocType] = useState<DocType>(() => getAppLocale() === 'id' ? 'ktp' : 'philid')
+  const initialMarket: SiteMarket = currency?.toUpperCase() === 'INR' ? 'IN' : getSiteMarket()
+  const [docTypes, setDocTypes] = useState<readonly DocType[]>(DOC_TYPES_BY_MARKET[initialMarket])
+  const [docType, setDocType] = useState<DocType>(() => DOC_TYPES_BY_MARKET[initialMarket][0])
   const [idImage, setIdImage] = useState<string | null>(null)
   const [docReuploadRequired, setDocReuploadRequired] = useState(false)
   const idInputRef = useRef<HTMLInputElement>(null)
@@ -135,7 +142,9 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
     setSuggestDocRedo(false)
     setDocRedoMode(false)
     setPrevDocImage(null)
-    void fetchKycStatus().then((s) => {
+    void fetchKycStatus(currency).then((s) => {
+      const availableDocTypes = DOC_TYPES_BY_MARKET[s.market]
+      setDocTypes(availableDocTypes)
       setRequirePhone(s.requirePhone)
       setRequireDocument(s.requireDocument)
       setRequireFace(s.requireFace)
@@ -146,8 +155,10 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
       } else if (s.phone) {
         setPhone(s.phone)
       }
-      if (s.docType && DOC_TYPES.includes(s.docType as DocType)) {
+      if (s.docType && availableDocTypes.includes(s.docType as DocType)) {
         setDocType(s.docType as DocType)
+      } else {
+        setDocType(availableDocTypes[0])
       }
       if (s.status === 'rejected' && s.rejectStep === 'document' && !s.docVerified) {
         setIdImage(null)
@@ -157,7 +168,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
         setIdImage(null)
       }
     }).catch(() => {})
-  }, [active, t])
+  }, [active, currency, t])
 
   useEffect(() => {
     if (resendIn <= 0) return
@@ -169,7 +180,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
     if (!phone.trim()) { setError(t('kyc.fillAll')); return }
     setLoading(true); setError(null)
     try {
-      const res = await sendKycOtp(phone.trim())
+      const res = await sendKycOtp(phone.trim(), currency)
       setResendIn(res.resendInSec || 60)
     } catch (e) {
       setError(e instanceof ApiError ? translateKycError(e.message, t) : t('auth.loginFailed'))
@@ -180,7 +191,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
     if (!code.trim()) { setError(t('kyc.fillAll')); return }
     setLoading(true); setError(null)
     try {
-      const res = await verifyKycOtp(code.trim())
+      const res = await verifyKycOtp(code.trim(), undefined, currency)
       if (res.status === 'approved') {
         setStep('done')
         onApproved?.()
@@ -213,7 +224,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
     // 提交新证件即视为放弃"继续人脸"捷径:提交结果可能覆盖服务端已通过的旧证件,之后按常规被拒/重传流程走
     setDocRedoMode(false)
     try {
-      const res = await submitKycDocument({ docType, idImage })
+      const res = await submitKycDocument({ docType, idImage, currency })
       if (res.docVerified) {
         if (res.status === 'approved') {
           setStep('done')
@@ -272,7 +283,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
   async function onSubmitFace(selfieImage: string) {
     setLoading(true); setError(null)
     try {
-      const res = await submitKycFace(selfieImage)
+      const res = await submitKycFace(selfieImage, currency)
       if (res.faceVerified) {
         setStep('done')
         onApproved?.()
@@ -290,7 +301,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
   return {
     step, requirePhone, requireDocument, requireFace, loading, error,
     phone, setPhone, phoneLocked, code, setCode, resendIn,
-    docType, setDocType, idImage, docReuploadRequired, idInputRef,
+    docTypes, docType, setDocType, idImage, docReuploadRequired, idInputRef,
     suggestDocRedo, backToDocument, docRedoMode, prevDocImage, continueToFace,
     onSendCode, onVerifyCode, onPickImage, onSubmitDoc, onSubmitFace,
   }

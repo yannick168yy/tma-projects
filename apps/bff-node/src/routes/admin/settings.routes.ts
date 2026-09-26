@@ -6,6 +6,8 @@ import { getOpPasswordHash, setOpPassword, getSmsTestMode, setSmsTestMode, getMa
 import { hashPassword, verifyPassword } from '../../services/admin-auth.service.js'
 import { fail, ok } from '../../utils/response.js'
 import { requireRole } from '../../middleware/require-role.js'
+import { getKycFaceMatchThreshold, getKycStepConfig } from '../../services/kyc.service.js'
+import type { SiteMarket } from '../../services/site-domain.service.js'
 import { listSmsSendLogs } from '../../services/sms/send-log.js'
 import {
   DEFAULT_SMS_DAILY_IP_LIMIT,
@@ -401,32 +403,34 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
 
 // ── KYC 手机/证件/人脸验证开关 ────────────────────────────────────────────────
 
+function kycMarket(raw: unknown): SiteMarket | null {
+  const value = String(raw ?? '').toUpperCase()
+  return value === 'PH' || value === 'ID' || value === 'IN' ? value : null
+}
+
 router.get('/kyc', async (ctx) => {
-  const [phone, doc, face, threshold] = await Promise.all([
-    getAdminSetting(ctx.state.env, 'kyc_require_phone'),
-    getAdminSetting(ctx.state.env, 'kyc_require_document'),
-    getAdminSetting(ctx.state.env, 'kyc_require_face'),
-    getAdminSetting(ctx.state.env, 'kyc_face_match_threshold'),
+  const market = kycMarket(ctx.query.market) ?? 'PH'
+  const [cfg, faceMatchThreshold] = await Promise.all([
+    getKycStepConfig(ctx.state.redis, ctx.state.env, undefined, market),
+    getKycFaceMatchThreshold(ctx.state.env, market),
   ])
-  const requireDocument = doc !== '0'
-  const parsed = threshold != null ? Number(threshold) : NaN
-  const faceMatchThreshold = Number.isFinite(parsed) && parsed >= 0 && parsed <= 1
-    ? parsed
-    : ctx.state.env.KYC_FACE_MATCH_MIN
-  ok(ctx, { requirePhone: phone !== '0', requireDocument, requireFace: requireDocument && face !== '0', faceMatchThreshold })
+  ok(ctx, { market, ...cfg, faceMatchThreshold })
 })
 
 router.put('/kyc', requireRole('super_admin', 'Only super_admin can manage KYC verification settings'), async (ctx) => {
-  const body = ctx.request.body as { requirePhone?: unknown; requireDocument?: unknown; requireFace?: unknown; faceMatchThreshold?: unknown }
+  const body = ctx.request.body as { market?: unknown; requirePhone?: unknown; requireDocument?: unknown; requireFace?: unknown; faceMatchThreshold?: unknown }
+  const market = kycMarket(body.market)
+  if (!market) { fail(ctx, 400, 'market must be PH, ID or IN'); return }
   if (typeof body.requirePhone !== 'boolean' || typeof body.requireDocument !== 'boolean' || typeof body.requireFace !== 'boolean') {
     fail(ctx, 400, 'requirePhone, requireDocument and requireFace must be booleans'); return
   }
   // 人脸验证需证件照比对，证件关闭时人脸强制关闭
   const requireDocument = body.requireDocument
   const requireFace = requireDocument && body.requireFace
-  await setAdminSetting(ctx.state.env, 'kyc_require_phone', body.requirePhone ? '1' : '0')
-  await setAdminSetting(ctx.state.env, 'kyc_require_document', requireDocument ? '1' : '0')
-  await setAdminSetting(ctx.state.env, 'kyc_require_face', requireFace ? '1' : '0')
+  const suffix = market.toLowerCase()
+  await setAdminSetting(ctx.state.env, `kyc_require_phone_${suffix}`, body.requirePhone ? '1' : '0')
+  await setAdminSetting(ctx.state.env, `kyc_require_document_${suffix}`, requireDocument ? '1' : '0')
+  await setAdminSetting(ctx.state.env, `kyc_require_face_${suffix}`, requireFace ? '1' : '0')
 
   let faceMatchThreshold = ctx.state.env.KYC_FACE_MATCH_MIN
   if (body.faceMatchThreshold !== undefined) {
@@ -435,18 +439,18 @@ router.put('/kyc', requireRole('super_admin', 'Only super_admin can manage KYC v
       fail(ctx, 400, 'faceMatchThreshold must be a number between 0 and 1'); return
     }
     faceMatchThreshold = n
-    await setAdminSetting(ctx.state.env, 'kyc_face_match_threshold', String(n))
+    await setAdminSetting(ctx.state.env, `kyc_face_match_threshold_${suffix}`, String(n))
   }
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
     action: 'kyc_steps_update',
     targetType: 'settings',
-    targetId: 'kyc_steps',
-    detail: { requirePhone: body.requirePhone, requireDocument, requireFace, faceMatchThreshold },
+    targetId: `kyc_steps_${suffix}`,
+    detail: { market, requirePhone: body.requirePhone, requireDocument, requireFace, faceMatchThreshold },
     ip: ctx.ip,
   })
-  ok(ctx, { requirePhone: body.requirePhone, requireDocument, requireFace, faceMatchThreshold })
+  ok(ctx, { market, requirePhone: body.requirePhone, requireDocument, requireFace, faceMatchThreshold })
 })
 
 // ── 汇率管理 ──────────────────────────────────────────────────────────────────

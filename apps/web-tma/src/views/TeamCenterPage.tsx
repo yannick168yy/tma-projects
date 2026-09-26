@@ -8,6 +8,7 @@ import { translateApiError } from '@/utils/translateApiError'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
+import { useWalletStore } from '@/stores/wallet'
 import { analytics } from '@/utils/analytics'
 import threeCircleHero from '@/assets/team/3-circles/hero.webp'
 import { localizedImage } from '@/utils/localizedImage'
@@ -160,7 +161,8 @@ export default function TeamCenterPage() {
   const [withdrawing, setWithdrawing] = useState(false)
   const [enabling, setEnabling] = useState(false)
   const [withdrawError, setWithdrawError] = useState('')
-  const { kycApproved, kycOpen, setKycOpen, onKycClose, onKycApproved } = useKycGate(activeTab === 'rewards')
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
+  const { kycApproved, kycOpen, setKycOpen, onKycClose, onKycApproved } = useKycGate(activeTab === 'rewards', activeCurrency)
 
   // 树形视图状态
   const [treeView, setTreeView] = useState(true)
@@ -791,7 +793,7 @@ export default function TeamCenterPage() {
           </div>
         </div>
       )}
-      <KycModal open={kycOpen} onClose={onKycClose} onApproved={onKycApproved} />
+      <KycModal open={kycOpen} onClose={onKycClose} onApproved={onKycApproved} currency={activeCurrency} />
     </div>
   )
 }

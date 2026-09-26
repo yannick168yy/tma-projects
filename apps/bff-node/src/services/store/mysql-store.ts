@@ -938,6 +938,7 @@ function mapKyc(r: RowDataPacket): KycSubmission {
     submissionId: r.user_id as string,
     userId: r.user_id as string,
     status: r.status as KycSubmission['status'],
+    market: (r.market as KycSubmission['market']) ?? undefined,
     fullName: (r.full_name as string) ?? '',
     gender: '',
     dob: '',
@@ -971,12 +972,12 @@ export async function getKyc(env: Env, userId: string): Promise<KycSubmission | 
 
 export async function saveKyc(env: Env, s: KycSubmission): Promise<void> {
   await pool(env).execute(
-    `INSERT INTO bg_kyc (user_id, status, phone, phone_verified, doc_verified, face_verified, full_name, doc_type, verify_mode,
+    `INSERT INTO bg_kyc (user_id, status, market, phone, phone_verified, doc_verified, face_verified, full_name, doc_type, verify_mode,
        extracted_id_no, gemini_confidence, gemini_result, doc_image_key, selfie_image_key, liveness_frames,
        reject_reason, reject_step, submitted_at, doc_submitted_at, face_submitted_at, reviewed_at, reviewed_by, badge_ignored)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON DUPLICATE KEY UPDATE
-       status=VALUES(status), phone=COALESCE(VALUES(phone), phone),
+       status=VALUES(status), market=VALUES(market), phone=COALESCE(VALUES(phone), phone),
        phone_verified=VALUES(phone_verified), doc_verified=VALUES(doc_verified), face_verified=VALUES(face_verified),
        full_name=COALESCE(VALUES(full_name), full_name),
        doc_type=VALUES(doc_type), verify_mode=VALUES(verify_mode),
@@ -989,7 +990,7 @@ export async function saveKyc(env: Env, s: KycSubmission): Promise<void> {
        face_submitted_at=VALUES(face_submitted_at),
        reviewed_at=VALUES(reviewed_at), reviewed_by=VALUES(reviewed_by), badge_ignored=VALUES(badge_ignored)`,
     [
-      s.userId, s.status, s.phone ?? null, s.phoneVerified ? 1 : 0, s.docVerified ? 1 : 0, s.faceVerified ? 1 : 0,
+      s.userId, s.status, s.market ?? null, s.phone ?? null, s.phoneVerified ? 1 : 0, s.docVerified ? 1 : 0, s.faceVerified ? 1 : 0,
       s.fullName || null, s.docType ?? null, s.verifyMode ?? null, s.extractedIdNo ?? null,
       s.geminiConfidence ?? null, s.geminiResult ? JSON.stringify(s.geminiResult) : null,
       s.docImageKey ?? null, s.selfieImageKey ?? null,

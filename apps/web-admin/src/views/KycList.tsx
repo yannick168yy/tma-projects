@@ -47,9 +47,13 @@ export default function KycList() {
   const [total, setTotal] = useState(0)
   const [{ status, page, pageSize }, setQuery] = useState<KycQuery>(() => loadListState('kyc', DEFAULT_QUERY))
   const [cfg, setCfg] = useState<KycStepSettings | null>(null)
+  const [cfgMarket, setCfgMarket] = useState<KycStepSettings['market']>('PH')
   const [savingCfg, setSavingCfg] = useState(false)
 
-  useEffect(() => { void getKycSettings().then(setCfg).catch(() => {}) }, [])
+  useEffect(() => {
+    setCfg(null)
+    void getKycSettings(cfgMarket).then(setCfg).catch(() => {})
+  }, [cfgMarket])
 
   async function saveCfg(next: KycStepSettings) {
     setSavingCfg(true)
@@ -118,14 +122,27 @@ export default function KycList() {
       <Card size="small" title="验证流程设置" style={{ marginBottom: 16 }}>
         <Space size={32} wrap>
           <Space>
-            <Tooltip title="开=绑定手机号需短信 OTP 验证；关=免验证码直接绑定。两种情况下用户都必须绑定手机号">
+            <span>市场</span>
+            <Select
+              value={cfgMarket}
+              style={{ width: 150 }}
+              onChange={setCfgMarket}
+              options={[
+                { value: 'PH', label: '菲律宾（PH）' },
+                { value: 'ID', label: '印尼（ID）' },
+                { value: 'IN', label: '印度（IN）' },
+              ]}
+            />
+          </Space>
+          <Space>
+            <Tooltip title="开=必须通过短信 OTP 证明手机号归属；关=实名流程跳过手机号步骤，不具备手机号归属证明">
               <span>手机号短信验证（OTP）</span>
             </Tooltip>
             <Switch
               checked={cfg?.requirePhone ?? true}
               loading={savingCfg}
               disabled={!cfg}
-              onChange={(v) => void saveCfg({ requirePhone: v, requireDocument: cfg?.requireDocument ?? true, requireFace: cfg?.requireFace ?? true, faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
+              onChange={(v) => void saveCfg({ market: cfgMarket, requirePhone: v, requireDocument: cfg?.requireDocument ?? true, requireFace: cfg?.requireFace ?? true, faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
             />
           </Space>
           <Space>
@@ -134,7 +151,7 @@ export default function KycList() {
               checked={cfg?.requireDocument ?? true}
               loading={savingCfg}
               disabled={!cfg}
-              onChange={(v) => void saveCfg({ requirePhone: cfg?.requirePhone ?? true, requireDocument: v, requireFace: v && (cfg?.requireFace ?? true), faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
+              onChange={(v) => void saveCfg({ market: cfgMarket, requirePhone: cfg?.requirePhone ?? true, requireDocument: v, requireFace: v && (cfg?.requireFace ?? true), faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
             />
           </Space>
           <Space>
@@ -143,7 +160,7 @@ export default function KycList() {
               checked={cfg?.requireFace ?? true}
               loading={savingCfg}
               disabled={!cfg || !cfg.requireDocument}
-              onChange={(v) => void saveCfg({ requirePhone: cfg?.requirePhone ?? true, requireDocument: cfg?.requireDocument ?? true, requireFace: v, faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
+              onChange={(v) => void saveCfg({ market: cfgMarket, requirePhone: cfg?.requirePhone ?? true, requireDocument: cfg?.requireDocument ?? true, requireFace: v, faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
             />
           </Space>
           <Space>
@@ -158,7 +175,7 @@ export default function KycList() {
             />
             <span style={{ color: '#999', fontSize: 12 }}>0~1，自拍与证件照相似度达到此值才通过</span>
           </Space>
-          <span style={{ color: '#999', fontSize: 12 }}>关闭手机号验证后实名流程不再要求 OTP；关闭证件验证将一并关闭人脸验证（人脸需证件照比对）。</span>
+          <span style={{ color: '#999', fontSize: 12 }}>未接短信供应商时请关闭该市场的手机号 OTP，否则用户无法完成实名；关闭后不应把手机号当作已验证身份因子。关闭证件验证将一并关闭人脸验证。</span>
         </Space>
       </Card>
       <div style={{ background: '#fff', marginBottom: 16, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

@@ -5,6 +5,7 @@ export type KycRejectStep = 'phone' | 'document' | 'face'
 
 export interface KycStatus {
   status: KycStatusValue
+  market: 'PH' | 'ID' | 'IN'
   phoneVerified: boolean
   docVerified: boolean
   faceVerified: boolean
@@ -21,8 +22,9 @@ export interface KycStatus {
   requireFace: boolean
 }
 
-export function fetchKycStatus(): Promise<KycStatus> {
-  return apiRequest<KycStatus>('/kyc/status')
+export function fetchKycStatus(currency?: string): Promise<KycStatus> {
+  const query = currency ? `?currency=${encodeURIComponent(currency)}` : ''
+  return apiRequest<KycStatus>(`/kyc/status${query}`)
 }
 
 /**
@@ -41,34 +43,30 @@ export function isKycGatePassed(s: KycStatus): boolean {
   return true
 }
 
-export function sendKycOtp(phone: string): Promise<{ phone: string; resendInSec: number }> {
-  return apiRequest('/kyc/phone/send-otp', { method: 'POST', body: JSON.stringify({ phone }) })
+export function sendKycOtp(phone: string, currency?: string): Promise<{ phone: string; resendInSec: number }> {
+  return apiRequest('/kyc/phone/send-otp', { method: 'POST', body: JSON.stringify({ phone, currency }) })
 }
 
 /** password：非手机号注册用户顺带设密码，绑完即可手机+密码登录 */
-export function verifyKycOtp(code: string, password?: string): Promise<{ phoneVerified: true; status: KycStatusValue }> {
-  return apiRequest('/kyc/phone/verify', { method: 'POST', body: JSON.stringify({ code, password }) })
-}
-
-/** OTP 关闭时的直接绑定通道（开关开启时后端会拒绝，须走 sendKycOtp/verifyKycOtp） */
-export function bindKycPhone(phone: string, password?: string): Promise<{ phoneVerified: true; status: KycStatusValue }> {
-  return apiRequest('/kyc/phone/bind', { method: 'POST', body: JSON.stringify({ phone, password }) })
+export function verifyKycOtp(code: string, password?: string, currency?: string): Promise<{ phoneVerified: true; status: KycStatusValue }> {
+  return apiRequest('/kyc/phone/verify', { method: 'POST', body: JSON.stringify({ code, password, currency }) })
 }
 
 export function submitKycDocument(input: {
   docType: string
   idImage: string
+  currency?: string
 }): Promise<{ docVerified: boolean; status: KycStatusValue; rejectReason?: string; rejectStep?: string }> {
   return apiRequest('/kyc/document', { method: 'POST', body: JSON.stringify(input), timeoutMs: 70_000 })
 }
 
-export function submitKycFace(selfieImage: string): Promise<{
+export function submitKycFace(selfieImage: string, currency?: string): Promise<{
   faceVerified: boolean
   status: KycStatusValue
   rejectReason?: string
   rejectStep?: string
 }> {
-  return apiRequest('/kyc/face', { method: 'POST', body: JSON.stringify({ selfieImage }), timeoutMs: 70_000 })
+  return apiRequest('/kyc/face', { method: 'POST', body: JSON.stringify({ selfieImage, currency }), timeoutMs: 70_000 })
 }
 
 /** 人脸回退重传时取回已上传的证件图（dataURL；无图返回 null） */

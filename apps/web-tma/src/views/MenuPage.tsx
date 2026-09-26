@@ -292,10 +292,10 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
       setKycStatus(null)
       return
     }
-    fetchKycStatus()
+    fetchKycStatus(activeCurrency)
       .then(setKycStatus)
       .catch(() => setKycStatus(null))
-  }, [isLoggedIn, auth.user?.id])
+  }, [isLoggedIn, auth.user?.id, activeCurrency])
 
   function showComingSoon() {
     if (comingSoonTimer.current) clearTimeout(comingSoonTimer.current)

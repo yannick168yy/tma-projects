@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import { randomBytes } from 'node:crypto'
-import { creditWallet, getKyc, getWallet, getWalletBalances, getWithdraw, listWithdrawals, saveWithdraw } from '../services/store.js'
+import { creditWallet, getWallet, getWalletBalances, getWithdraw, listWithdrawals, saveWithdraw } from '../services/store.js'
 import { generateMerchantOrderNo, initMatrixWithdrawOrder } from '../services/matrix.service.js'
 import { isMatrixEnabled } from '../clients/matrix.client.js'
 import { getCryptoWithdrawGate, resolveCryptoWithdrawGasFee } from '../services/payment-channel.service.js'
@@ -15,6 +15,7 @@ import { resolveUserWithdrawRejectReason } from '../services/withdraw-reject-rea
 import { isKycApproved } from '../services/kyc.service.js'
 import { riskAllowed } from '../utils/risk-guard.js'
 import type { WithdrawOrder } from '../types/domain.js'
+import { resolveRequestMarket } from '../utils/request-market.js'
 
 const router = new Router({ prefix: '/withdrawals' })
 
@@ -28,11 +29,10 @@ router.get('/eligibility', async (ctx) => {
   }
 
   const userId = ctx.state.userId!
-  const [wallet, kyc] = await Promise.all([
+  const [wallet, kycApproved] = await Promise.all([
     getWallet(ctx.state.redis, userId),
-    getKyc(ctx.state.redis, userId),
+    resolveRequestMarket(ctx, currency).then((market) => isKycApproved(ctx.state.redis, ctx.state.env, userId, market)),
   ])
-  const kycApproved = kyc?.status === 'approved'
   const mysqlEnabled = isMysqlEnabled(ctx.state.env)
   const pool = mysqlEnabled ? getMysqlPool(ctx.state.env) : null
   const [gate, hasDeposit] = mysqlEnabled && pool
@@ -116,7 +116,7 @@ router.post('/', async (ctx) => {
     const redis = ctx.state.redis
 
     // KYC 硬闸门：未实名禁止提款
-    if (!(await isKycApproved(redis, ctx.state.env, userId))) {
+    if (!(await isKycApproved(redis, ctx.state.env, userId, await resolveRequestMarket(ctx, symbol)))) {
       fail(ctx, 403, 'errors.kycRequired', 403)
       return
     }
@@ -219,7 +219,7 @@ router.post('/', async (ctx) => {
   const redis = ctx.state.redis
 
   // KYC 硬闸门：未实名禁止提款
-  if (!(await isKycApproved(redis, ctx.state.env, userId))) {
+  if (!(await isKycApproved(redis, ctx.state.env, userId, await resolveRequestMarket(ctx, body.currency)))) {
     fail(ctx, 403, 'errors.kycRequired', 403)
     return
   }

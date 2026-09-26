@@ -449,6 +449,7 @@ describe('KYC 接口', () => {
       expect.anything(),
       'BG-10001',
       expect.objectContaining({ fullName: '', docType: 'philid' }),
+      'PH',
     )
   })
 
