@@ -34,6 +34,7 @@ import {
   FEATURE_BONUS_LOCK_ENABLED_KEY,
   FEATURE_BONUS_LOCK_MIN_AMOUNT_KEY,
   FEATURE_BONUS_LOCK_MIN_AMOUNT_IDR_KEY,
+  FEATURE_BONUS_LOCK_MIN_AMOUNT_INR_KEY,
   FEATURE_BONUS_LOCK_MIN_MULTIPLE_KEY,
   FEATURE_BONUS_LOCK_WAGER_MULT_KEY,
   getFeatureBonusLockConfig,
@@ -267,6 +268,7 @@ router.get('/system-params', async (ctx) => {
     featureBonusLockEnabled: featureBonusLock.enabled,
     featureBonusLockMinAmount: featureBonusLock.minAmount,
     featureBonusLockMinAmountIdr: featureBonusLock.minAmountIdr,
+    featureBonusLockMinAmountInr: featureBonusLock.minAmountInr,
     featureBonusLockMinMultiple: featureBonusLock.minMultiple,
     featureBonusLockWagerMult: featureBonusLock.wagerMult,
   })
@@ -284,6 +286,7 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
     featureBonusLockEnabled?: unknown
     featureBonusLockMinAmount?: unknown
     featureBonusLockMinAmountIdr?: unknown
+    featureBonusLockMinAmountInr?: unknown
     featureBonusLockMinMultiple?: unknown
     featureBonusLockWagerMult?: unknown
   }
@@ -318,6 +321,7 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
   const featureBonusLockEnabled = body.featureBonusLockEnabled === true || body.featureBonusLockEnabled === '1' || body.featureBonusLockEnabled === 1
   const featureBonusLockMinAmount = Number(body.featureBonusLockMinAmount)
   const featureBonusLockMinAmountIdr = Number(body.featureBonusLockMinAmountIdr)
+  const featureBonusLockMinAmountInr = Number(body.featureBonusLockMinAmountInr)
   const featureBonusLockMinMultiple = Number(body.featureBonusLockMinMultiple)
   const featureBonusLockWagerMult = Number(body.featureBonusLockWagerMult)
   if (!Number.isFinite(featureBonusLockMinAmount) || featureBonusLockMinAmount < 0 || featureBonusLockMinAmount > 1000000) {
@@ -326,6 +330,9 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
   // IDR 量级比 PHP 大三个数量级，上限单独放宽，否则合理阈值都填不进来
   if (!Number.isFinite(featureBonusLockMinAmountIdr) || featureBonusLockMinAmountIdr < 0 || featureBonusLockMinAmountIdr > 1000000000) {
     fail(ctx, 400, 'featureBonusLockMinAmountIdr must be a number between 0 and 1000000000'); return
+  }
+  if (!Number.isFinite(featureBonusLockMinAmountInr) || featureBonusLockMinAmountInr < 0 || featureBonusLockMinAmountInr > 1000000) {
+    fail(ctx, 400, 'featureBonusLockMinAmountInr must be a number between 0 and 1000000'); return
   }
   if (!Number.isFinite(featureBonusLockMinMultiple) || featureBonusLockMinMultiple < 1 || featureBonusLockMinMultiple > 100000) {
     fail(ctx, 400, 'featureBonusLockMinMultiple must be a number between 1 and 100000'); return
@@ -349,6 +356,7 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
   await setAdminSetting(ctx.state.env, FEATURE_BONUS_LOCK_ENABLED_KEY, featureBonusLockEnabled ? '1' : '0')
   await setAdminSetting(ctx.state.env, FEATURE_BONUS_LOCK_MIN_AMOUNT_KEY, String(featureBonusLockMinAmount))
   await setAdminSetting(ctx.state.env, FEATURE_BONUS_LOCK_MIN_AMOUNT_IDR_KEY, String(featureBonusLockMinAmountIdr))
+  await setAdminSetting(ctx.state.env, FEATURE_BONUS_LOCK_MIN_AMOUNT_INR_KEY, String(featureBonusLockMinAmountInr))
   await setAdminSetting(ctx.state.env, FEATURE_BONUS_LOCK_MIN_MULTIPLE_KEY, String(featureBonusLockMinMultiple))
   await setAdminSetting(ctx.state.env, FEATURE_BONUS_LOCK_WAGER_MULT_KEY, String(featureBonusLockWagerMult))
   // 镜像到 Redis 供 core-node 派彩回调即时读取

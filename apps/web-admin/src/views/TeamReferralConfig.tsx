@@ -107,16 +107,25 @@ export default function TeamReferralConfig() {
             <Form.Item label="激活门槛 (IDR分)" name="min_activation_idr_cents">
               <InputNumber min={0} precision={0} style={{ width: '100%' }} />
             </Form.Item>
+            <Form.Item label="激活门槛 (INR分)" name="min_activation_inr_cents">
+              <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+            </Form.Item>
             <Form.Item label="最低提现 (PHP分)" name="min_withdrawal_cents">
               <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item label="最低提现 (IDR分)" name="min_withdrawal_idr_cents">
               <InputNumber min={0} precision={0} style={{ width: '100%' }} />
             </Form.Item>
+            <Form.Item label="最低提现 (INR分)" name="min_withdrawal_inr_cents">
+              <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+            </Form.Item>
             <Form.Item label="单次结算佣金上限 (PHP分，空=不限)" name="max_commission_per_settlement_cents">
               <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item label="单次结算佣金上限 (IDR分，空=不限)" name="max_commission_per_settlement_idr_cents">
+              <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item label="单次结算佣金上限 (INR分，空=不限)" name="max_commission_per_settlement_inr_cents">
               <InputNumber min={0} precision={0} style={{ width: '100%' }} />
             </Form.Item>
           </div>

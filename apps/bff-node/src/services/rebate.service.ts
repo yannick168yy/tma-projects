@@ -3,6 +3,7 @@ import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { creditWalletTx } from './store/mysql-store.js'
 import { randomBytes } from 'node:crypto'
+import { tzSuffix } from '../utils/market.js'
 
 export interface RebateConfig {
   gameCategory: string
@@ -119,6 +120,11 @@ const SQL_REBATE_CAPPED = `
   END
 `
 
+/** 各币种的业务日切偏移：印尼 UTC+7，印度 UTC+5:30（半小时），其余按马尼拉 UTC+8 */
+export function currencyOffsetHours(currency = 'PHP'): number {
+  return currency === 'IDR' ? 7 : currency === 'INR' ? 5.5 : 8
+}
+
 /** PHT = UTC+8，计算给定 Date 对象的 PHT 日期字符串 YYYY-MM-DD */
 function toBusinessDateStr(d: Date, offsetHours = 8): string {
   const pht = new Date(d.getTime() + offsetHours * 60 * 60 * 1000)
@@ -126,20 +132,20 @@ function toBusinessDateStr(d: Date, offsetHours = 8): string {
 }
 
 export function todayPHT(currency = 'PHP'): string {
-  return toBusinessDateStr(new Date(), currency === 'IDR' ? 7 : 8)
+  return toBusinessDateStr(new Date(), currencyOffsetHours(currency))
 }
 
 export function yesterdayPHT(currency = 'PHP'): string {
   const d = new Date()
   d.setTime(d.getTime() - 24 * 60 * 60 * 1000)
-  return toBusinessDateStr(d, currency === 'IDR' ? 7 : 8)
+  return toBusinessDateStr(d, currencyOffsetHours(currency))
 }
 
 // PHT 日历日 → UTC 区间 [start, end)。created_at 存 UTC, 用区间比较可走 (user_id, created_at) 索引,
 // 避免 DATE(CONVERT_TZ(created_at)) 包裹列导致全量扫描。
 function phtDayUtcRange(phtDate: string, currency = 'PHP'): [Date, Date] {
   const [y, m, d] = phtDate.split('-').map(Number)
-  const off = (currency === 'IDR' ? 7 : 8) * 60 * 60 * 1000
+  const off = currencyOffsetHours(currency) * 60 * 60 * 1000
   return [new Date(Date.UTC(y, m - 1, d) - off), new Date(Date.UTC(y, m - 1, d + 1) - off)]
 }
 
@@ -547,7 +553,7 @@ export async function runDailyRebateSettlement(
   if (!isMysqlEnabled(env)) return { users: 0, totalRebate: 0, byCurrency: {} }
   const pool = getMysqlPool(env)
   const currencies = opts.currencies ?? ['PHP', 'IDR', 'USDT', 'USDC']
-  const timezone = `${(opts.timezoneOffsetHours ?? 8) >= 0 ? '+' : '-'}${String(Math.abs(opts.timezoneOffsetHours ?? 8)).padStart(2, '0')}:00`
+  const timezone = tzSuffix(opts.timezoneOffsetHours ?? 8)
 
   await pool.query(
     `INSERT IGNORE INTO bg_rebate_record

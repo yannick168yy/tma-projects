@@ -127,21 +127,23 @@ export function createApp(env: Env): Koa {
     }, 120_000)
   }
 
-  // 洗码每日结算：菲律宾 UTC+8、印尼 UTC+7 分开切业务日。
+  // 洗码每日结算：各市场在本地零点切业务日 —— 菲律宾 UTC+8、印尼 UTC+7、印度 UTC+5:30。
+  // 印度是半小时偏移，本地零点落在 UTC 18:30，故调度要能指定分钟。
   if (singletonJobs && isMysqlEnabled(env)) {
-    const scheduleRebate = (utcHour: number, currencies: string[], timezoneOffsetHours: number) => {
+    const scheduleRebate = (utcHour: number, utcMinute: number, currencies: string[], timezoneOffsetHours: number) => {
       const run = () => forEachTenant(`rebate-utc${timezoneOffsetHours}`, async (tenant) => {
         const { users, totalRebate } = await runDailyRebateSettlement(env, yesterdayPHT(currencies[0]), { currencies, timezoneOffsetHours })
         log.rebate.info({ tenant: tenant.code, users, totalRebate, timezoneOffsetHours }, 'rebate settlement done')
       }).catch((err) => log.rebate.error({ err, timezoneOffsetHours }, 'rebate settlement error'))
       const now = new Date()
       const next = new Date()
-      next.setUTCHours(utcHour, 0, 0, 0)
+      next.setUTCHours(utcHour, utcMinute, 0, 0)
       if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
       setTimeout(() => { run(); setInterval(run, 24 * 60 * 60 * 1000) }, next.getTime() - now.getTime())
     }
-    scheduleRebate(16, ['PHP', 'USDT', 'USDC'], 8)
-    scheduleRebate(17, ['IDR'], 7)
+    scheduleRebate(16, 0, ['PHP', 'USDT', 'USDC'], 8)
+    scheduleRebate(17, 0, ['IDR'], 7)
+    scheduleRebate(18, 30, ['INR'], 5.5)
   }
 
   // 负盈利返水（路线A）：每小时 :30 检查，PHT 到达配置的结算时刻（lossRebate.settleHour）时结算「昨天」整日
@@ -152,6 +154,8 @@ export function createApp(env: Env): Koa {
       if (!cfg.enabled) return
       const phtHour = new Date(Date.now() + 8 * 60 * 60 * 1000).getUTCHours()
       const idHour = new Date(Date.now() + 7 * 60 * 60 * 1000).getUTCHours()
+      // 本巡检跑在每小时 :30，印度 +5:30 后正好落在整点，取小时比较即可
+      const inHour = new Date(Date.now() + 5.5 * 60 * 60 * 1000).getUTCHours()
       if (phtHour === cfg.settleHour) {
         const result = await runDailyLossRebate(env, { currencies: ['PHP', 'USDT', 'USDC'], timezoneOffsetHours: 8 })
         log.vip.info({ ...result, timezone: 'UTC+8' }, 'daily loss rebate settled')
@@ -159,6 +163,10 @@ export function createApp(env: Env): Koa {
       if (idHour === cfg.settleHour) {
         const result = await runDailyLossRebate(env, { currencies: ['IDR'], timezoneOffsetHours: 7 })
         log.vip.info({ ...result, timezone: 'UTC+7' }, 'daily loss rebate settled')
+      }
+      if (inHour === cfg.settleHour) {
+        const result = await runDailyLossRebate(env, { currencies: ['INR'], timezoneOffsetHours: 5.5 })
+        log.vip.info({ ...result, timezone: 'UTC+5:30' }, 'daily loss rebate settled')
       }
     }).catch((err: unknown) => log.vip.error({ err }, 'daily loss rebate settlement error'))
     const msUntilNextHalfHour = () => {

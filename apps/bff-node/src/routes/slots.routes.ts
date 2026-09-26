@@ -13,7 +13,7 @@ import {
 } from '../services/sg-game.service.js'
 import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
-import { getBettingActivity, type BetTab } from '../services/betting-activity.service.js'
+import { getBettingActivity, type ActivityCurrency, type BetTab } from '../services/betting-activity.service.js'
 import type { Env } from '../config/env.js'
 import { getTenantFeatures } from '../services/tenant-feature.service.js'
 import { resolveGameRoute } from '../services/game-routing.service.js'
@@ -188,7 +188,8 @@ router.get('/betting-activity', (ctx) => {
     fail(ctx, 400, 'Invalid tab')
     return
   }
-  const currency = String(ctx.query.currency ?? 'PHP').toUpperCase() === 'IDR' ? 'IDR' : 'PHP'
+  const raw = String(ctx.query.currency ?? 'PHP').toUpperCase()
+  const currency: ActivityCurrency = raw === 'IDR' ? 'IDR' : raw === 'INR' ? 'INR' : 'PHP'
   ok(ctx, getBettingActivity(tab as BetTab, currency))
 })
 

@@ -17,7 +17,8 @@ import { handleHuitoneCallback } from '../handlers/huitone-callback.handler.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 const ID_OFFSET_MS = 7 * 60 * 60 * 1000
-export type TeamMarket = 'PH' | 'ID'
+const IN_OFFSET_MS = 5.5 * 60 * 60 * 1000
+export type TeamMarket = 'PH' | 'ID' | 'IN'
 
 // 共用：钱包入账 + ledger（在已开启的事务内调用）
 async function creditWalletInTx(
@@ -253,9 +254,9 @@ export async function internalRoutes(app: FastifyInstance) {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return reply.status(400).send({ code: 400, message: 'date 格式应为 YYYY-MM-DD' })
     }
-    const markets: TeamMarket[] = market ? [market] : ['PH', 'ID']
-    if (market && market !== 'PH' && market !== 'ID') {
-      return reply.status(400).send({ code: 400, message: 'market 应为 PH 或 ID' })
+    const markets: TeamMarket[] = market ? [market] : ['PH', 'ID', 'IN']
+    if (market && market !== 'PH' && market !== 'ID' && market !== 'IN') {
+      return reply.status(400).send({ code: 400, message: 'market 应为 PH、ID 或 IN' })
     }
     void (async () => {
       for (const item of markets) await runDailySettlement(app, date, force, item)
@@ -322,7 +323,7 @@ export async function internalRoutes(app: FastifyInstance) {
 // ── 每日流水结算引擎 ──────────────────────────────────────────────────────────
 export async function runDailySettlement(app: FastifyInstance, date: string, force = false, market: TeamMarket = 'PH'): Promise<void> {
   const db = app.mysql
-  const settlementCurrency = market === 'ID' ? 'IDR' : 'PHP'
+  const settlementCurrency = market === 'ID' ? 'IDR' : market === 'IN' ? 'INR' : 'PHP'
 
   // 覆盖模式：先回滚已入账佣金，再删旧记录
   // 回滚顺序：先扣 available_cents，不够再扣 frozen_cents（待审提现）
@@ -380,9 +381,9 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
 
   app.log.info({ date, force, market }, '[daily-settle] start')
 
-  // 菲律宾按 UTC+8、印尼按 UTC+7 切各自业务日。
+  // 菲律宾按 UTC+8、印尼按 UTC+7、印度按 UTC+5:30 切各自业务日。
   const [y, m, d] = date.split('-').map(Number)
-  const offsetMs = market === 'ID' ? ID_OFFSET_MS : PHT_OFFSET_MS
+  const offsetMs = market === 'ID' ? ID_OFFSET_MS : market === 'IN' ? IN_OFFSET_MS : PHT_OFFSET_MS
   const startDate = new Date(Date.UTC(y, m - 1, d)     - offsetMs)
   const endDate   = new Date(Date.UTC(y, m - 1, d + 1) - offsetMs)
 
@@ -434,11 +435,14 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
 
   // 上限配置
   const [[cfg]] = await db.query<RowDataPacket[]>(
-    `SELECT max_commission_per_settlement_cents, max_commission_per_settlement_idr_cents
+    `SELECT max_commission_per_settlement_cents, max_commission_per_settlement_idr_cents,
+            max_commission_per_settlement_inr_cents
      FROM bg_team_config WHERE id = 1 LIMIT 1`,
   )
   const maxField = market === 'ID'
     ? cfg?.max_commission_per_settlement_idr_cents
+    : market === 'IN'
+    ? cfg?.max_commission_per_settlement_inr_cents
     : cfg?.max_commission_per_settlement_cents
   const maxCommission: number | null =
     maxField != null

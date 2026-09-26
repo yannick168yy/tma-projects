@@ -27,7 +27,7 @@ export default function SystemParams() {
   const { role } = useAuthStore()
   const isSuperAdmin = role === 'super_admin'
   const [rows, setRows] = useState<ParamRow[]>([])
-  const [feat, setFeat] = useState({ enabled: true, minAmount: 50, minAmountIdr: 14400, minMultiple: 20, wagerMult: 2 })
+  const [feat, setFeat] = useState({ enabled: true, minAmount: 50, minAmountIdr: 14400, minAmountInr: 77, minMultiple: 20, wagerMult: 2 })
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<ParamType | 'all'>('all')
   const [loading, setLoading] = useState(false)
@@ -99,6 +99,7 @@ export default function SystemParams() {
         enabled: params.featureBonusLockEnabled,
         minAmount: params.featureBonusLockMinAmount,
         minAmountIdr: params.featureBonusLockMinAmountIdr,
+        minAmountInr: params.featureBonusLockMinAmountInr,
         minMultiple: params.featureBonusLockMinMultiple,
         wagerMult: params.featureBonusLockWagerMult,
       })
@@ -127,7 +128,7 @@ export default function SystemParams() {
         message.warning(`${row.name}必须是 1-${row.max} 的整数`); return
       }
     }
-    if (!(feat.minAmount >= 0) || !(feat.minAmountIdr >= 0) || !(feat.minMultiple >= 1) || !(feat.wagerMult >= 0)) {
+    if (!(feat.minAmount >= 0) || !(feat.minAmountIdr >= 0) || !(feat.minAmountInr >= 0) || !(feat.minMultiple >= 1) || !(feat.wagerMult >= 0)) {
       message.warning('彩金流水闸：单笔最小额≥0、倍数阈值≥1、流水倍数≥0'); return
     }
     const next: SystemParamsDTO = {
@@ -135,6 +136,7 @@ export default function SystemParams() {
       featureBonusLockEnabled: feat.enabled,
       featureBonusLockMinAmount: feat.minAmount,
       featureBonusLockMinAmountIdr: feat.minAmountIdr,
+      featureBonusLockMinAmountInr: feat.minAmountInr,
       featureBonusLockMinMultiple: feat.minMultiple,
       featureBonusLockWagerMult: feat.wagerMult,
     }
@@ -146,6 +148,7 @@ export default function SystemParams() {
         enabled: saved.featureBonusLockEnabled,
         minAmount: saved.featureBonusLockMinAmount,
         minAmountIdr: saved.featureBonusLockMinAmountIdr,
+        minAmountInr: saved.featureBonusLockMinAmountInr,
         minMultiple: saved.featureBonusLockMinMultiple,
         wagerMult: saved.featureBonusLockWagerMult,
       })
@@ -256,6 +259,11 @@ export default function SystemParams() {
             <span style={{ display: 'inline-block', width: 200 }}>单笔派彩最小额(IDR)</span>
             <InputNumber min={0} max={1000000000} precision={2} value={feat.minAmountIdr} disabled={!isSuperAdmin} style={{ width: 160 }} onChange={(v) => setFeat((f) => ({ ...f, minAmountIdr: Number(v ?? 0) }))} />
             <Typography.Text type="secondary">印尼盾单独设阈值，共用 PHP 的值会让这道闸对 IDR 失效</Typography.Text>
+          </Space>
+          <Space>
+            <span style={{ display: 'inline-block', width: 200 }}>单笔派彩最小额(INR)</span>
+            <InputNumber min={0} max={1000000} precision={2} value={feat.minAmountInr} disabled={!isSuperAdmin} style={{ width: 160 }} onChange={(v) => setFeat((f) => ({ ...f, minAmountInr: Number(v ?? 0) }))} />
+            <Typography.Text type="secondary">印度卢比单独设阈值，默认 ₹77（≈₱50）</Typography.Text>
           </Space>
           <Space>
             <span style={{ display: 'inline-block', width: 200 }}>派彩倍数阈值(派彩÷触发注)</span>

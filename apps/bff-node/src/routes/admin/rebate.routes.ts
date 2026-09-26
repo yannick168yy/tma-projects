@@ -143,14 +143,20 @@ router.delete('/featured-games/:id', async (ctx) => {
 router.post('/payout/manual', async (ctx) => {
   const utc8Date = todayPHT()
   const utc7Date = todayPHT('IDR')
-  const [other, idr] = await Promise.all([
+  const utc530Date = todayPHT('INR')
+  const [other, idr, inr] = await Promise.all([
     runDailyRebateSettlement(ctx.state.env, utc8Date, { currencies: ['PHP', 'USDT', 'USDC'], timezoneOffsetHours: 8 }),
     runDailyRebateSettlement(ctx.state.env, utc7Date, { currencies: ['IDR'], timezoneOffsetHours: 7 }),
+    runDailyRebateSettlement(ctx.state.env, utc530Date, { currencies: ['INR'], timezoneOffsetHours: 5.5 }),
   ])
   ok(ctx, {
-    users: other.users + idr.users,
-    byCurrency: { ...other.byCurrency, ...idr.byCurrency },
-    results: { utc8: { date: utc8Date, ...other }, utc7: { date: utc7Date, ...idr } },
+    users: other.users + idr.users + inr.users,
+    byCurrency: { ...other.byCurrency, ...idr.byCurrency, ...inr.byCurrency },
+    results: {
+      utc8: { date: utc8Date, ...other },
+      utc7: { date: utc7Date, ...idr },
+      utc530: { date: utc530Date, ...inr },
+    },
   })
 })
 

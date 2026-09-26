@@ -9,11 +9,18 @@ import { reviewTeamWithdrawal } from '../services/team-withdraw-review.service.j
 
 const router = new Router({ prefix: '/promotions/team' })
 
-type TeamCurrency = 'PHP' | 'IDR'
+type TeamCurrency = 'PHP' | 'IDR' | 'INR'
+
+/** 团队佣金最低转入门槛：每个市场一套，缺列时退回该市场的种子默认值 */
+function minWithdrawalOf(cfg: RowDataPacket | undefined, currency: TeamCurrency): number {
+  if (currency === 'IDR') return Number(cfg?.min_withdrawal_idr_cents ?? 1440000)
+  if (currency === 'INR') return Number(cfg?.min_withdrawal_inr_cents ?? 7700)
+  return Number(cfg?.min_withdrawal_cents ?? 5000)
+}
 
 async function teamCurrency(db: ReturnType<typeof getMysqlPool>, userId: string): Promise<TeamCurrency> {
   const [[user]] = await db.query<RowDataPacket[]>(`SELECT market FROM bg_user WHERE id = ? LIMIT 1`, [userId])
-  return user?.market === 'ID' ? 'IDR' : 'PHP'
+  return user?.market === 'ID' ? 'IDR' : user?.market === 'IN' ? 'INR' : 'PHP'
 }
 
 // GET /promotions/team/status
@@ -219,14 +226,14 @@ router.get('/wallet', async (ctx) => {
     [userId, currency],
   )
   const [[cfg]] = await db.query<RowDataPacket[]>(
-    `SELECT min_withdrawal_cents, min_withdrawal_idr_cents FROM bg_team_config WHERE id = 1 LIMIT 1`,
+    `SELECT min_withdrawal_cents, min_withdrawal_idr_cents, min_withdrawal_inr_cents FROM bg_team_config WHERE id = 1 LIMIT 1`,
   )
   ok(ctx, {
     currency,
     availableCents:      Number(row?.available_cents ?? 0),
     frozenCents:         Number(row?.frozen_cents ?? 0),
     lifetimeEarnedCents: Number(row?.lifetime_earned_cents ?? 0),
-    minWithdrawalCents:  Number(currency === 'IDR' ? cfg?.min_withdrawal_idr_cents ?? 1440000 : cfg?.min_withdrawal_cents ?? 5000),
+    minWithdrawalCents:  minWithdrawalOf(cfg, currency),
   })
 })
 
@@ -240,9 +247,9 @@ router.post('/withdraw', async (ctx) => {
   const db = getMysqlPool(ctx.state.env)
   const currency = await teamCurrency(db, userId)
   const [[cfg]] = await db.query<RowDataPacket[]>(
-    `SELECT min_withdrawal_cents, min_withdrawal_idr_cents FROM bg_team_config WHERE id = 1 LIMIT 1`,
+    `SELECT min_withdrawal_cents, min_withdrawal_idr_cents, min_withdrawal_inr_cents FROM bg_team_config WHERE id = 1 LIMIT 1`,
   )
-  const minWithdrawalCents = Number(currency === 'IDR' ? cfg?.min_withdrawal_idr_cents ?? 1440000 : cfg?.min_withdrawal_cents ?? 5000)
+  const minWithdrawalCents = minWithdrawalOf(cfg, currency)
   if (amountCents < minWithdrawalCents) {
     fail(ctx, 400, `errors.minWithdrawal:${(minWithdrawalCents / 100).toFixed(0)}`); return
   }

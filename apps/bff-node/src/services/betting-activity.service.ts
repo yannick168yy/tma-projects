@@ -1,5 +1,6 @@
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
+import { currencyOffsetHours } from './rebate.service.js'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { getGamesFromCache, type DbGame } from './sg-game.service.js'
 
@@ -12,26 +13,30 @@ export interface BetRecord {
   provider: string
   imageUrl: string | null
   betAmount: number
-  currency: 'PHP' | 'IDR'
+  currency: ActivityCurrency
 }
+
+/** 投注榜按市场本币分池：菲律宾 PHP、印尼 IDR、印度 INR */
+export type ActivityCurrency = 'PHP' | 'IDR' | 'INR'
+const ACTIVITY_CURRENCIES: ActivityCurrency[] = ['PHP', 'IDR', 'INR']
 
 // ── 内存缓存 ────────────────────────────────────────────────────────────────
 
-const latestBets: Record<'PHP' | 'IDR', BetRecord[]> = { PHP: [], IDR: [] }
-const weekTop: Record<'PHP' | 'IDR', BetRecord[]> = { PHP: [], IDR: [] }
-const monthTop: Record<'PHP' | 'IDR', BetRecord[]> = { PHP: [], IDR: [] }
+const latestBets: Record<ActivityCurrency, BetRecord[]> = { PHP: [], IDR: [], INR: [] }
+const weekTop: Record<ActivityCurrency, BetRecord[]> = { PHP: [], IDR: [], INR: [] }
+const monthTop: Record<ActivityCurrency, BetRecord[]> = { PHP: [], IDR: [], INR: [] }
 
 // Latest 展示门槛：₱5 起显示（87% 注单是 ₱5 以下的最小额 spin，全放会滚一屏 ₱1）。
 // 玩家常连打几十把相同金额，相邻去重会大幅缩水（生产实测 2000 行→34 条），
 // 因此回看窗口给足 6000 行；去重后够 15 条就坚持门槛，不足才降档兜底，绝不造假数据。
-const LATEST_MIN_AMOUNT: Record<'PHP' | 'IDR', number> = { PHP: 5, IDR: 1500 }
-const LATEST_FALLBACK_AMOUNTS: Record<'PHP' | 'IDR', number[]> = { PHP: [1, 0], IDR: [300, 0] }
+const LATEST_MIN_AMOUNT: Record<ActivityCurrency, number> = { PHP: 5, IDR: 1500, INR: 8 }
+const LATEST_FALLBACK_AMOUNTS: Record<ActivityCurrency, number[]> = { PHP: [1, 0], IDR: [300, 0], INR: [2, 0] }
 const LATEST_SCAN_LIMIT = 6000
 const LATEST_SHOW = 50
 const LATEST_MIN_KEEP = 15
 const RANK_TOP_N = 10
 
-function toRecord(g: DbGame, betAmount: number, currency: 'PHP' | 'IDR'): BetRecord {
+function toRecord(g: DbGame, betAmount: number, currency: ActivityCurrency): BetRecord {
   return {
     uuid: g.uuid,
     name: g.name,
@@ -50,8 +55,8 @@ function gamesByUuid(games: DbGame[]): Map<string, DbGame> {
 }
 
 // bi_daily_game 的 stat_date 是马尼拉日；窗口边界也按马尼拉时区算
-function marketDate(currency: 'PHP' | 'IDR', daysAgo: number): string {
-  const offsetHours = currency === 'IDR' ? 7 : 8
+function marketDate(currency: ActivityCurrency, daysAgo: number): string {
+  const offsetHours = currencyOffsetHours(currency)
   const d = new Date(Date.now() + offsetHours * 3600 * 1000 - daysAgo * 24 * 3600 * 1000)
   return d.toISOString().slice(0, 10)
 }
@@ -65,19 +70,19 @@ export async function refreshLatestPool(env: Env): Promise<void> {
   const byUuid = gamesByUuid(games)
   const [rows] = await getMysqlPool(env).query<RowDataPacket[]>(
     `SELECT gpid, provider_id, amount, currency FROM bg_568win_wallet_txn
-     WHERE txn_type='bet' AND voided_at IS NULL AND currency IN ('PHP','IDR')
+     WHERE txn_type='bet' AND voided_at IS NULL AND currency IN ('PHP','IDR','INR')
      ORDER BY id DESC LIMIT ?`,
     [LATEST_SCAN_LIMIT],
   )
-  const candidates: Record<'PHP' | 'IDR', { g: DbGame; amount: number }[]> = { PHP: [], IDR: [] }
+  const candidates: Record<ActivityCurrency, { g: DbGame; amount: number }[]> = { PHP: [], IDR: [], INR: [] }
   for (const r of rows) {
     if (r.gpid == null) continue
     const g = byUuid.get(`568win:${Number(r.gpid)}:${Number(r.provider_id)}`)
     if (!g) continue // 映射不到 games 缓存的（下架/体育）不展示，行点击要能启动游戏
-    const currency = r.currency === 'IDR' ? 'IDR' : 'PHP'
+    const currency: ActivityCurrency = r.currency === 'IDR' ? 'IDR' : r.currency === 'INR' ? 'INR' : 'PHP'
     candidates[currency].push({ g, amount: Number(r.amount) })
   }
-  for (const currency of ['PHP', 'IDR'] as const) {
+  for (const currency of ACTIVITY_CURRENCIES) {
     for (const min of [LATEST_MIN_AMOUNT[currency], ...LATEST_FALLBACK_AMOUNTS[currency]]) {
       const picked: BetRecord[] = []
       for (const c of candidates[currency]) {
@@ -93,7 +98,7 @@ export async function refreshLatestPool(env: Env): Promise<void> {
       }
     }
   }
-  console.log(`[betting-activity] latest refreshed (PHP=${latestBets.PHP.length}, IDR=${latestBets.IDR.length})`)
+  console.log(`[betting-activity] latest refreshed (PHP=${latestBets.PHP.length}, IDR=${latestBets.IDR.length}, INR=${latestBets.INR.length})`)
 }
 
 // 周榜/月榜：bi_daily_game 滚动 7/30 天真实投注额 Top10（core-node 每 10 分钟重算当日）。
@@ -102,7 +107,7 @@ export async function refreshRankTops(env: Env): Promise<void> {
   const games = await getGamesFromCache(env)
   if (games.length === 0) return
   const byUuid = gamesByUuid(games)
-  for (const currency of ['PHP', 'IDR'] as const) {
+  for (const currency of ACTIVITY_CURRENCIES) {
     const [rows] = await getMysqlPool(env).query<RowDataPacket[]>(
       `SELECT game_provider_id gpid, game_id,
             SUM(CASE WHEN stat_date >= ? THEN bet_amount ELSE 0 END) week_amt,
@@ -119,14 +124,14 @@ export async function refreshRankTops(env: Env): Promise<void> {
     weekTop[currency] = mapped.filter((r) => r.week > 0).sort((a, b) => b.week - a.week).slice(0, RANK_TOP_N).map((r) => toRecord(r.g, r.week, currency))
     monthTop[currency] = mapped.sort((a, b) => b.month - a.month).slice(0, RANK_TOP_N).map((r) => toRecord(r.g, r.month, currency))
   }
-  console.log(`[betting-activity] week/month top refreshed (PHP=${weekTop.PHP.length}+${monthTop.PHP.length}, IDR=${weekTop.IDR.length}+${monthTop.IDR.length})`)
+  console.log(`[betting-activity] week/month top refreshed (PHP=${weekTop.PHP.length}+${monthTop.PHP.length}, IDR=${weekTop.IDR.length}+${monthTop.IDR.length}, INR=${weekTop.INR.length}+${monthTop.INR.length})`)
 }
 
 // ── 对外查询 ────────────────────────────────────────────────────────────────
 
 export type BetTab = 'latest' | 'week' | 'month'
 
-export function getBettingActivity(tab: BetTab, currency: 'PHP' | 'IDR'): BetRecord[] {
+export function getBettingActivity(tab: BetTab, currency: ActivityCurrency): BetRecord[] {
   if (tab === 'week') return weekTop[currency]
   if (tab === 'month') return monthTop[currency]
   return latestBets[currency]

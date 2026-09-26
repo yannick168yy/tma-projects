@@ -71,18 +71,18 @@ router.get('/agents', async (ctx) => {
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.opted_in_at, tn.rate_plan_id,
             rp.name AS rate_plan_name,
-            u.display_name, IF(u.market = 'ID', 'IDR', 'PHP') AS currency,
+            u.display_name, CASE u.market WHEN 'ID' THEN 'IDR' WHEN 'IN' THEN 'INR' ELSE 'PHP' END AS currency,
             (SELECT COUNT(*) FROM bg_team_node WHERE l1_referrer_id = tn.user_id) AS l1_count,
             (SELECT COUNT(*) FROM bg_team_node WHERE l2_referrer_id = tn.user_id) AS l2_count,
             (SELECT COUNT(*) FROM bg_team_node WHERE l3_referrer_id = tn.user_id) AS l3_count,
             COALESCE((SELECT SUM(commission_cents) FROM bg_team_commission
                       WHERE beneficiary_id = tn.user_id AND period LIKE ?
-                        AND currency = IF(u.market = 'ID', 'IDR', 'PHP')), 0) AS this_month_cents,
+                        AND currency = CASE u.market WHEN 'ID' THEN 'IDR' WHEN 'IN' THEN 'INR' ELSE 'PHP' END), 0) AS this_month_cents,
             COALESCE(tw.lifetime_earned_cents, 0) AS lifetime_cents
      FROM bg_team_node tn
      JOIN bg_user u ON u.id = tn.user_id
      LEFT JOIN bg_team_rate_plan rp ON rp.id = tn.rate_plan_id
-     LEFT JOIN bg_team_wallet tw ON tw.user_id = tn.user_id AND tw.currency = IF(u.market = 'ID', 'IDR', 'PHP')
+     LEFT JOIN bg_team_wallet tw ON tw.user_id = tn.user_id AND tw.currency = CASE u.market WHEN 'ID' THEN 'IDR' WHEN 'IN' THEN 'INR' ELSE 'PHP' END
      WHERE tn.opted_in = 1 ${where}
      ORDER BY ${sortCol} ${sortDir}, tn.user_id ASC
      LIMIT ? OFFSET ?`,
@@ -114,7 +114,7 @@ router.get('/agents/:userId', async (ctx) => {
 
   const [[node], [wallet], periods] = await Promise.all([
     db.query<RowDataPacket[]>(
-      `SELECT tn.*, u.display_name, IF(u.market = 'ID', 'IDR', 'PHP') AS currency,
+      `SELECT tn.*, u.display_name, CASE u.market WHEN 'ID' THEN 'IDR' WHEN 'IN' THEN 'INR' ELSE 'PHP' END AS currency,
               rp.name AS rate_plan_name,
               rp.l1_rate_pct, rp.l2_rate_pct, rp.l3_rate_pct
        FROM bg_team_node tn
@@ -127,13 +127,13 @@ router.get('/agents/:userId', async (ctx) => {
       `SELECT available_cents, frozen_cents, lifetime_earned_cents, currency
        FROM bg_team_wallet
        WHERE user_id = ?
-         AND currency = COALESCE((SELECT IF(market = 'ID', 'IDR', 'PHP') FROM bg_user WHERE id = ?), 'PHP')`,
+         AND currency = COALESCE((SELECT CASE market WHEN 'ID' THEN 'IDR' WHEN 'IN' THEN 'INR' ELSE 'PHP' END FROM bg_user WHERE id = ?), 'PHP')`,
       [userId, userId],
     ),
     db.query<RowDataPacket[]>(
       `SELECT LEFT(period, 7) AS month, SUM(commission_cents) AS total, status
        FROM bg_team_commission WHERE beneficiary_id = ?
-         AND currency = COALESCE((SELECT IF(market = 'ID', 'IDR', 'PHP') FROM bg_user WHERE id = ?), 'PHP')
+         AND currency = COALESCE((SELECT CASE market WHEN 'ID' THEN 'IDR' WHEN 'IN' THEN 'INR' ELSE 'PHP' END FROM bg_user WHERE id = ?), 'PHP')
        GROUP BY month, status ORDER BY month DESC LIMIT 24`,
       [userId, userId],
     ),
@@ -151,7 +151,7 @@ router.get('/agents/:userId/tree', async (ctx) => {
     : currentMonthPrefix().replace('%', '')
   const db = getMysqlPool(ctx.state.env)
   const [[agentUser]] = await db.query<RowDataPacket[]>(`SELECT market FROM bg_user WHERE id = ? LIMIT 1`, [userId])
-  const currency = agentUser?.market === 'ID' ? 'IDR' : 'PHP'
+  const currency = agentUser?.market === 'ID' ? 'IDR' : agentUser?.market === 'IN' ? 'INR' : 'PHP'
 
   function turnoverSub(levelCol: string) {
     return `
@@ -293,7 +293,7 @@ router.get('/commissions', async (ctx) => {
 
 // POST /admin/team/settle  { date: YYYY-MM-DD, force?: boolean, market?: PH|ID }
 router.post('/settle', async (ctx) => {
-  const body  = ctx.request.body as { date?: string; force?: boolean; market?: 'PH' | 'ID' }
+  const body  = ctx.request.body as { date?: string; force?: boolean; market?: 'PH' | 'ID' | 'IN' }
   const date  = body?.date ?? yesterdayDate()
   const force = Boolean(body?.force ?? false)
 
@@ -307,7 +307,7 @@ router.post('/settle', async (ctx) => {
     body:    JSON.stringify({ date, force, market: body.market }),
   })
   if (!res.ok) { fail(ctx, 502, 'core-node settlement trigger failed'); return }
-  ok(ctx, { message: `settlement triggered for ${date}`, force, markets: body.market ? [body.market] : ['PH', 'ID'] })
+  ok(ctx, { message: `settlement triggered for ${date}`, force, markets: body.market ? [body.market] : ['PH', 'ID', 'IN'] })
 })
 
 // GET /admin/team/withdrawals?status=&page=1
@@ -476,8 +476,10 @@ router.put('/agents/:userId/rate-plan', async (ctx) => {
 // GET /admin/team/config
 router.get('/config', async (ctx) => {
   const [[row]] = await getMysqlPool(ctx.state.env).query<RowDataPacket[]>(
-    `SELECT min_activation_cents, min_activation_idr_cents, min_withdrawal_cents, min_withdrawal_idr_cents,
-            max_commission_per_settlement_cents, max_commission_per_settlement_idr_cents, settlement_hour,
+    `SELECT min_activation_cents, min_activation_idr_cents, min_activation_inr_cents,
+            min_withdrawal_cents, min_withdrawal_idr_cents, min_withdrawal_inr_cents,
+            max_commission_per_settlement_cents, max_commission_per_settlement_idr_cents,
+            max_commission_per_settlement_inr_cents, settlement_hour,
             last_auto_settlement, commission_basis, updated_at
      FROM bg_team_config WHERE id = 1 LIMIT 1`,
   )
@@ -490,8 +492,10 @@ router.put('/config', async (ctx) => {
   const adminId = (ctx.state as { adminId?: number }).adminId
   const db      = getMysqlPool(ctx.state.env)
 
-  const allowed = ['min_activation_cents', 'min_activation_idr_cents', 'min_withdrawal_cents', 'min_withdrawal_idr_cents',
+  const allowed = ['min_activation_cents', 'min_activation_idr_cents', 'min_activation_inr_cents',
+    'min_withdrawal_cents', 'min_withdrawal_idr_cents', 'min_withdrawal_inr_cents',
                    'max_commission_per_settlement_cents', 'max_commission_per_settlement_idr_cents',
+    'max_commission_per_settlement_inr_cents',
                    'settlement_hour', 'commission_basis']
   const sets: string[] = []
   const vals: unknown[] = []

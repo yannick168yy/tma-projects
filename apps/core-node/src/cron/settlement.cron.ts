@@ -5,6 +5,8 @@ import { forEachTenant } from '../lib/tenant-jobs.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 const ID_OFFSET_MS = 7 * 60 * 60 * 1000
+// 印度 UTC+5:30：本地整点落在 UTC 的 :30，下面按本地时分判断，无需另行处理
+const IN_OFFSET_MS = 5.5 * 60 * 60 * 1000
 
 // 每分钟检查，到达 settlement_hour 时结算前一天（PHT）
 export function startSettlementCron(app: FastifyInstance): void {
@@ -25,6 +27,7 @@ async function check(app: FastifyInstance) {
     for (const item of [
       { market: 'PH' as TeamMarket, offsetMs: PHT_OFFSET_MS },
       { market: 'ID' as TeamMarket, offsetMs: ID_OFFSET_MS },
+      { market: 'IN' as TeamMarket, offsetMs: IN_OFFSET_MS },
     ]) {
       const now = new Date(Date.now() + item.offsetMs)
       if (now.getUTCHours() !== settlementHour || now.getUTCMinutes() !== 0) continue

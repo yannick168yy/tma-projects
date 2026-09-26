@@ -7,6 +7,7 @@ import { getAdminSetting } from './admin-store.js'
 export const FEATURE_BONUS_LOCK_ENABLED_KEY = 'feature_bonus_lock_enabled'
 export const FEATURE_BONUS_LOCK_MIN_AMOUNT_KEY = 'feature_bonus_lock_min_amount'
 export const FEATURE_BONUS_LOCK_MIN_AMOUNT_IDR_KEY = 'feature_bonus_lock_min_amount_idr'
+export const FEATURE_BONUS_LOCK_MIN_AMOUNT_INR_KEY = 'feature_bonus_lock_min_amount_inr'
 export const FEATURE_BONUS_LOCK_MIN_MULTIPLE_KEY = 'feature_bonus_lock_min_multiple'
 export const FEATURE_BONUS_LOCK_WAGER_MULT_KEY = 'feature_bonus_lock_wager_mult'
 
@@ -15,6 +16,8 @@ export const DEFAULT_FEATURE_BONUS_LOCK_MIN_AMOUNT = 50
 // 印尼盾按站内既有惯例换算：ROUND(50 * 287 / 100) * 100（见迁移 206）。
 // 共用 PHP 的 50 会让这道闸对 IDR 形同虚设——Rp 50 约合 ₱0.18。
 export const DEFAULT_FEATURE_BONUS_LOCK_MIN_AMOUNT_IDR = 14400
+// 印度卢比同理：1 PHP≈1.53 INR，共用 PHP 的 50 等于 ₹50（≈₱33），闸会偏松。
+export const DEFAULT_FEATURE_BONUS_LOCK_MIN_AMOUNT_INR = 77
 export const DEFAULT_FEATURE_BONUS_LOCK_MIN_MULTIPLE = 20
 export const DEFAULT_FEATURE_BONUS_LOCK_WAGER_MULT = 2
 
@@ -25,6 +28,7 @@ export interface FeatureBonusLockConfig {
   enabled: boolean
   minAmount: number
   minAmountIdr: number
+  minAmountInr: number
   minMultiple: number
   wagerMult: number
 }
@@ -35,10 +39,11 @@ function numOr(raw: string | null, def: number): number {
 }
 
 export async function getFeatureBonusLockConfig(env: Env): Promise<FeatureBonusLockConfig> {
-  const [enabled, minAmount, minAmountIdr, minMultiple, wagerMult] = await Promise.all([
+  const [enabled, minAmount, minAmountIdr, minAmountInr, minMultiple, wagerMult] = await Promise.all([
     getAdminSetting(env, FEATURE_BONUS_LOCK_ENABLED_KEY),
     getAdminSetting(env, FEATURE_BONUS_LOCK_MIN_AMOUNT_KEY),
     getAdminSetting(env, FEATURE_BONUS_LOCK_MIN_AMOUNT_IDR_KEY),
+    getAdminSetting(env, FEATURE_BONUS_LOCK_MIN_AMOUNT_INR_KEY),
     getAdminSetting(env, FEATURE_BONUS_LOCK_MIN_MULTIPLE_KEY),
     getAdminSetting(env, FEATURE_BONUS_LOCK_WAGER_MULT_KEY),
   ])
@@ -46,6 +51,7 @@ export async function getFeatureBonusLockConfig(env: Env): Promise<FeatureBonusL
     enabled: enabled == null ? DEFAULT_FEATURE_BONUS_LOCK_ENABLED : enabled === '1',
     minAmount: numOr(minAmount, DEFAULT_FEATURE_BONUS_LOCK_MIN_AMOUNT),
     minAmountIdr: numOr(minAmountIdr, DEFAULT_FEATURE_BONUS_LOCK_MIN_AMOUNT_IDR),
+    minAmountInr: numOr(minAmountInr, DEFAULT_FEATURE_BONUS_LOCK_MIN_AMOUNT_INR),
     minMultiple: numOr(minMultiple, DEFAULT_FEATURE_BONUS_LOCK_MIN_MULTIPLE),
     wagerMult: numOr(wagerMult, DEFAULT_FEATURE_BONUS_LOCK_WAGER_MULT),
   }

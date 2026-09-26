@@ -74,16 +74,17 @@ router.put('/benefits', async (ctx) => {
 router.post('/negative-rebate/manual', async (ctx) => {
   const body = (ctx.request.body ?? {}) as { includeToday?: boolean; includeCurrentWeek?: boolean }
   const includeToday = Boolean(body.includeToday ?? body.includeCurrentWeek)
-  const [other, idr] = await Promise.all([
+  const [other, idr, inr] = await Promise.all([
     runDailyLossRebate(ctx.state.env, { includeToday, currencies: ['PHP', 'USDT', 'USDC'], timezoneOffsetHours: 8 }),
     runDailyLossRebate(ctx.state.env, { includeToday, currencies: ['IDR'], timezoneOffsetHours: 7 }),
+    runDailyLossRebate(ctx.state.env, { includeToday, currencies: ['INR'], timezoneOffsetHours: 5.5 }),
   ])
   ok(ctx, {
-    periodKey: idr.periodKey || other.periodKey,
-    users: other.users + idr.users,
-    byCurrency: { ...other.byCurrency, ...idr.byCurrency },
-    skipped: other.skipped && idr.skipped ? 'disabled' : undefined,
-    results: { utc8: other, utc7: idr },
+    periodKey: idr.periodKey || inr.periodKey || other.periodKey,
+    users: other.users + idr.users + inr.users,
+    byCurrency: { ...other.byCurrency, ...idr.byCurrency, ...inr.byCurrency },
+    skipped: other.skipped && idr.skipped && inr.skipped ? 'disabled' : undefined,
+    results: { utc8: other, utc7: idr, utc530: inr },
   })
 })
 

@@ -642,6 +642,7 @@ export interface SystemParams {
   featureBonusLockEnabled: boolean
   featureBonusLockMinAmount: number
   featureBonusLockMinAmountIdr: number
+  featureBonusLockMinAmountInr: number
   featureBonusLockMinMultiple: number
   featureBonusLockWagerMult: number
 }

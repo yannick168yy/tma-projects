@@ -39,6 +39,7 @@ const schema = z.object({
   FEATURE_BONUS_LOCK_ENABLED: z.string().default('true'),
   FEATURE_BONUS_LOCK_MIN_AMOUNT: z.coerce.number().default(50),
   FEATURE_BONUS_LOCK_MIN_AMOUNT_IDR: z.coerce.number().default(14400),
+  FEATURE_BONUS_LOCK_MIN_AMOUNT_INR: z.coerce.number().default(77),
   FEATURE_BONUS_LOCK_MIN_MULTIPLE: z.coerce.number().default(20),
   FEATURE_BONUS_LOCK_WAGER_MULT: z.coerce.number().default(2),
 

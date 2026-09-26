@@ -16,7 +16,7 @@ export async function tryActivateTeamNode(
      WHERE tn.user_id = ?
        AND tn.activated = 0
        AND ROUND(? * 100) >= (
-         SELECT CASE WHEN ? = 'IDR' THEN min_activation_idr_cents ELSE min_activation_cents END
+         SELECT CASE ? WHEN 'IDR' THEN min_activation_idr_cents WHEN 'INR' THEN min_activation_inr_cents ELSE min_activation_cents END
          FROM bg_team_config WHERE id = 1 LIMIT 1
        )`,
     [creditedAmount, activationCurrency, userId, creditedAmount, activationCurrency],
