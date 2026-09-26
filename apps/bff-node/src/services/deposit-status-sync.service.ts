@@ -5,12 +5,13 @@ import { getMysqlPool } from '../clients/mysql.client.js'
 import { queryDeposit as yfpayQueryDeposit } from './yfpay.service.js'
 import { queryDeposit as unispayQueryDeposit, type UnispayOrderQueryResult } from './unispay.service.js'
 import { queryDeposit as wzpayQueryDeposit, type WzpayOrderQueryResult } from './wzpay.service.js'
+import { queryDeposit as huitoneQueryDeposit, type HuitoneOrderResult } from './huitone.service.js'
 
 const QUERY_AFTER_MINUTES = 30
 const FORCE_FAIL_AFTER_MINUTES = 120
 const SCAN_LIMIT = 50
 
-type DepositProvider = 'yfpay' | 'unispay' | 'wzpay'
+type DepositProvider = 'yfpay' | 'unispay' | 'wzpay' | 'huitone'
 
 interface PendingDepositRow extends RowDataPacket {
   order_id: string
@@ -44,6 +45,7 @@ function resolveProvider(order: Pick<OrderDeposit, 'provider' | 'channelId'>): D
   if (raw.includes('yfpay')) return 'yfpay'
   if (raw.includes('unispay')) return 'unispay'
   if (raw.includes('wzpay')) return 'wzpay'
+  if (raw.includes('huitone')) return 'huitone'
   return null
 }
 
@@ -58,6 +60,11 @@ function mapStateToStatus(provider: DepositProvider, state: number): OrderDeposi
     if (state === 2) return 'failed'
     return null
   }
+  if (provider === 'huitone') {
+    if (state === 1) return 'paid'
+    if (state === 2) return 'failed'
+    return null
+  }
   if (state === 2) return 'paid'
   if (state === 3) return 'failed'
   return null
@@ -65,7 +72,7 @@ function mapStateToStatus(provider: DepositProvider, state: number): OrderDeposi
 
 async function queryProviderState(env: Env, provider: DepositProvider, orderId: string): Promise<{
   state: number
-  providerOrder?: UnispayOrderQueryResult | WzpayOrderQueryResult
+  providerOrder?: UnispayOrderQueryResult | WzpayOrderQueryResult | HuitoneOrderResult
 }> {
   if (provider === 'unispay') {
     const result = await unispayQueryDeposit(orderId, env)
@@ -74,6 +81,10 @@ async function queryProviderState(env: Env, provider: DepositProvider, orderId: 
   if (provider === 'wzpay') {
     const result = await wzpayQueryDeposit(orderId, env)
     return { state: result.state, providerOrder: result }
+  }
+  if (provider === 'huitone') {
+    const result = await huitoneQueryDeposit(orderId, env)
+    return { state: result.status === 'SUCCESS' ? 1 : result.status === 'FAIL' ? 2 : 0, providerOrder: result }
   }
   return { state: (await yfpayQueryDeposit(orderId, env)).state }
 }
@@ -103,8 +114,10 @@ async function settleDepositViaCore(
   env: Env,
   provider: DepositProvider,
   order: OrderDeposit,
-  providerOrder?: UnispayOrderQueryResult | WzpayOrderQueryResult,
+  providerOrder?: UnispayOrderQueryResult | WzpayOrderQueryResult | HuitoneOrderResult,
 ): Promise<boolean> {
+  const numericProviderOrder = providerOrder as UnispayOrderQueryResult | WzpayOrderQueryResult | undefined
+  const huitoneProviderOrder = providerOrder as HuitoneOrderResult | undefined
   const res = await fetch(`${env.CORE_NODE_URL}/internal/payment/${provider}`, {
     method: 'POST',
     headers: {
@@ -116,9 +129,16 @@ async function settleDepositViaCore(
       userId: order.userId,
       creditedCents: order.amount,
       ...(provider === 'unispay' || provider === 'wzpay' ? {
-        providerOrderId: providerOrder?.platformId,
-        status: String(providerOrder?.state ?? 0),
-        amount: providerOrder?.amount || order.amount,
+        providerOrderId: numericProviderOrder?.platformId,
+        status: String(numericProviderOrder?.state ?? 0),
+        amount: numericProviderOrder?.amount || order.amount,
+      } : provider === 'huitone' ? {
+        providerOrderId: huitoneProviderOrder?.platformId,
+        status: huitoneProviderOrder?.status,
+        amount: huitoneProviderOrder?.amount || order.amount,
+        event: 'PAYIN',
+        completionTime: huitoneProviderOrder?.completionTime,
+        utr: huitoneProviderOrder?.utr,
       } : {}),
     }),
     signal: AbortSignal.timeout(15000),
@@ -172,7 +192,7 @@ export async function runDepositStatusTick(env: Env, log: { info: (obj: unknown,
     `SELECT order_id, user_id, amount, currency, channel, status, created_at, extra
      FROM bg_deposit_order
      WHERE status = 'pending'
-       AND (channel LIKE 'yfpay\\_%' OR channel LIKE 'unispay\\_%' OR channel LIKE 'wzpay\\_%')
+       AND (channel LIKE 'yfpay\\_%' OR channel LIKE 'unispay\\_%' OR channel LIKE 'wzpay\\_%' OR channel LIKE 'huitone\\_%')
        AND created_at < NOW() - INTERVAL ? MINUTE
      ORDER BY created_at ASC
      LIMIT ?`,

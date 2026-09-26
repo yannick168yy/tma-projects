@@ -13,6 +13,7 @@ import { sendRegisterEvent } from '../services/revosurge.service.js'
 import { tryActivateTeamNode } from '../services/team-activation.service.js'
 import { handleUnispayCallback } from '../handlers/unispay-callback.handler.js'
 import { handleWzpayCallback } from '../handlers/wzpay-callback.handler.js'
+import { handleHuitoneCallback } from '../handlers/huitone-callback.handler.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 const ID_OFFSET_MS = 7 * 60 * 60 * 1000
@@ -221,6 +222,27 @@ export async function internalRoutes(app: FastifyInstance) {
       orderId: providerOrderId,
       status: String(status),
       amount: String(amount),
+    }, app.mysql, app.redis as unknown as Redis)
+    return reply.send({ code: 0, message: 'ok' })
+  })
+
+  app.post<{
+    Body: { orderId: string; providerOrderId: string; status: string; amount: number; event: 'PAYIN' | 'PAYOUT'; completionTime?: string; utr?: string }
+  }>('/internal/payment/huitone', async (req, reply) => {
+    const { orderId, providerOrderId, status, amount, event, completionTime, utr } = req.body
+    if (!orderId || !providerOrderId || !['SUCCESS', 'FAIL'].includes(String(status))
+      || !['PAYIN', 'PAYOUT'].includes(String(event)) || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      return reply.status(400).send({ code: 400, message: 'invalid payload' })
+    }
+    await handleHuitoneCallback({
+      completionTime: completionTime ?? '',
+      event,
+      extInfo: 'internal-query-sync',
+      outTradeNo: orderId,
+      transAmt: String(amount),
+      transNo: providerOrderId,
+      transStatus: status as 'SUCCESS' | 'FAIL',
+      utr: utr ?? '',
     }, app.mysql, app.redis as unknown as Redis)
     return reply.send({ code: 0, message: 'ok' })
   })

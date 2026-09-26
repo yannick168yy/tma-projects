@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Env } from '../config/env.js'
 import { getRate } from '../services/exchange-rate.service.js'
 
 describe('派生币种汇率', () => {
+  // 断网，确保断言的是本地推导结果而不是 CoinGecko 的实时值
+  beforeEach(() => vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') })))
+  afterEach(() => vi.unstubAllGlobals())
+
   it('通过基础汇率计算 IDR 到 USDT，不发起额外汇率请求', async () => {
     const redis = {
       get: vi.fn(async (key: string) => key === 'exchange_rate:USDT:PHP'

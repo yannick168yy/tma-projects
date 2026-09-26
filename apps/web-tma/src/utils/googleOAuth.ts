@@ -20,9 +20,10 @@ const APP_LINK_HOSTS = new Set([
   'betogo.xyz', 'betogo.vip', 'www.188facai.com',
 ])
 
-const APP_LINK_ORIGIN: Record<'PH' | 'ID', string> = {
+const APP_LINK_ORIGIN: Record<'PH' | 'ID' | 'IN', string> = {
   PH: 'https://www.betogo.games',
   ID: 'https://betogo.app',
+  IN: 'https://betogo.app',
 }
 
 /**

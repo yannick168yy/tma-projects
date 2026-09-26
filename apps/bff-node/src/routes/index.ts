@@ -148,9 +148,9 @@ export function createApiRouter(): Router {
     const tenant = ctx.state.tenant
     // 市场白名单按租户开通的市场来，不再写死 PH/ID：租户 App 的 BuildConfig.APP_MARKET
     // 就是这里的取值，写死会让开在别的市场的客户包一启动就 400。
-    // 无租户上下文（strict=false 且平台库同时挂了）时维持原来的 PH/ID
+    // 无租户上下文（strict=false 且平台库同时挂了）时允许内置的三个市场。
     const tenantMarkets = tenant ? await getTenantMarkets(tenant.id).catch(() => []) : []
-    const allowed = tenantMarkets.length ? tenantMarkets.map((m) => m.market) : ['PH', 'ID']
+    const allowed = tenantMarkets.length ? tenantMarkets.map((m) => m.market) : ['PH', 'ID', 'IN']
     if (!allowed.includes(rawMarket)) {
       fail(ctx, 400, `market 必须是 ${allowed.join(' 或 ')}`); return
     }
@@ -188,7 +188,7 @@ export function createApiRouter(): Router {
     ctx.set('Cache-Control', 'no-store')
     const body = ctx.request.body as { market?: unknown; selected?: unknown; results?: unknown }
     const market = String(body.market ?? '').toUpperCase()
-    if (market !== 'PH' && market !== 'ID') { fail(ctx, 400, 'market 必须是 PH 或 ID'); return }
+    if (market !== 'PH' && market !== 'ID' && market !== 'IN') { fail(ctx, 400, 'market 必须是 PH、ID 或 IN'); return }
     if (!Array.isArray(body.results) || body.results.length === 0 || body.results.length > 20) {
       fail(ctx, 400, 'results 必须是 1-20 项的数组'); return
     }

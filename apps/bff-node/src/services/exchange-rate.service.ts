@@ -23,6 +23,7 @@ export const CRYPTO_RATE_CURRENCIES = ['USDT', 'USDC', 'TRX'] as const
 export const RATE_PAIRS: [string, string][] = [
   ...CRYPTO_RATE_CURRENCIES.map((c) => [c, 'PHP'] as [string, string]),
   ['USDT', 'IDR'],
+  ['USDT', 'INR'],
 ]
 
 const COINGECKO_IDS: Record<string, string> = {
@@ -39,6 +40,7 @@ function fallbackRate(from: string, to: string, env: Env): number | null {
   if (to === 'PHP' && (from === 'USD' || from === 'USDT' || from === 'USDC')) return env.USDT_TO_PHP_RATE
   if (to === 'PHP' && from === 'TRX') return env.TRX_TO_PHP_RATE
   if (from === 'USDT' && to === 'IDR') return env.USDT_TO_IDR_RATE
+  if (from === 'USDT' && to === 'INR') return env.USDT_TO_INR_RATE
   return null
 }
 
@@ -52,36 +54,41 @@ function coingeckoHeaders(env: Env): Record<string, string> {
   return headers
 }
 
-/** CoinGecko simple/price：一次请求批量拉取加密货币 → PHP */
+/** CoinGecko simple/price：一次请求拿下 加密货币 × 法币 的全部组合（vs_currencies 本就支持多个） */
 async function fetchCryptoBatchFromCoinGecko(
   symbols: string[],
-  to: string,
+  toCurrencies: string[],
   env: Env,
-): Promise<Record<string, RateResult>> {
+): Promise<Record<string, Record<string, RateResult>>> {
   const ids = [...new Set(symbols.map((s) => COINGECKO_IDS[s]).filter(Boolean))]
-  if (ids.length === 0) return {}
+  const vs = [...new Set(toCurrencies.map((c) => c.toLowerCase()))]
+  if (ids.length === 0 || vs.length === 0) return {}
 
-  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=${to.toLowerCase()}`
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=${vs.join(',')}`
   const res = await fetch(url, { signal: AbortSignal.timeout(12000), headers: coingeckoHeaders(env) })
   if (!res.ok) throw new Error(`CoinGecko ${res.status}: ${await res.text()}`)
 
   const data = await res.json() as Record<string, Record<string, number>>
   const fetchedAt = new Date().toISOString()
-  const out: Record<string, RateResult> = {}
+  const out: Record<string, Record<string, RateResult>> = {}
 
   for (const [coinId, prices] of Object.entries(data)) {
     const symbol = COINGECKO_ID_TO_SYMBOL[coinId]
-    const rate = prices?.[to.toLowerCase()]
-    if (!symbol || typeof rate !== 'number') continue
-    out[symbol] = { rate, fetchedAt, source: 'coingecko' }
+    if (!symbol) continue
+    for (const currency of vs) {
+      const rate = prices?.[currency]
+      if (typeof rate !== 'number') continue
+      out[symbol] ??= {}
+      out[symbol][currency.toUpperCase()] = { rate, fetchedAt, source: 'coingecko' }
+    }
   }
   return out
 }
 
 async function fetchFromCoinGecko(from: string, to: string, env: Env): Promise<RateResult> {
   if (!(from in COINGECKO_IDS)) throw new Error(`Unsupported currency for CoinGecko: ${from}`)
-  const batch = await fetchCryptoBatchFromCoinGecko([from], to, env)
-  const result = batch[from]
+  const batch = await fetchCryptoBatchFromCoinGecko([from], [to], env)
+  const result = batch[from]?.[to.toUpperCase()]
   if (!result) throw new Error(`CoinGecko: missing rate for ${from}→${to}`)
   return result
 }
@@ -96,9 +103,14 @@ export async function getRate(redis: Redis, from: string, to: string, env: Env):
       if (currency === 'USD' || currency === 'USDT') {
         return { rate: 1, fetchedAt: new Date().toISOString(), source: 'identity' }
       }
-      if (currency === 'IDR') {
-        const usdtToIdr = await getRate(redis, 'USDT', 'IDR', env)
-        return { ...usdtToIdr, rate: 1 / usdtToIdr.rate }
+      // 后台维护的 USDT→X 基础对（IDR / INR…）：直接取倒数，不必绕 PHP
+      if (isBasePair('USDT', currency)) {
+        const usdtToCurrency = await getRate(redis, 'USDT', currency, env)
+        return { ...usdtToCurrency, rate: 1 / usdtToCurrency.rate }
+      }
+      // 通用路径是拿 currency→PHP 中转的，它自己必须是基础对，否则这里会原地递归调用自己
+      if (currency !== 'PHP' && !isBasePair(currency, 'PHP')) {
+        throw new Error(`No exchange rate path for ${currency}→USDT`)
       }
       const [currencyToPhp, usdtToPhp] = await Promise.all([
         currency === 'PHP'
@@ -125,7 +137,7 @@ export async function getRate(redis: Redis, from: string, to: string, env: Env):
 
   let result: RateResult
   try {
-    if (to !== 'PHP' || !(from in COINGECKO_IDS)) throw new Error(`No automatic source for ${from}→${to}`)
+    if (!(from in COINGECKO_IDS)) throw new Error(`No automatic source for ${from}→${to}`)
     result = await fetchFromCoinGecko(from, to, env)
   } catch (err) {
     const fb = fallbackRate(from, to, env)
@@ -221,34 +233,38 @@ async function isManualRate(redis: Redis, from: string, to: string): Promise<boo
 
 /** 定时刷新：单次 CoinGecko simple/price 批量请求 */
 export async function refreshRates(redis: Redis, env: Env): Promise<void> {
-  const toRefresh: string[] = []
+  const toRefresh: [string, string][] = []
 
   for (const [from, to] of RATE_PAIRS) {
-    // USDT→IDR 使用环境值或后台手动值，不增加第三方 API 调用次数。
-    if (to !== 'PHP' || !(from in COINGECKO_IDS) || (await isManualRate(redis, from, to))) continue
-    toRefresh.push(from)
+    // 后台手动设过的汇率不覆盖，其余全部交给 CoinGecko
+    if (!(from in COINGECKO_IDS) || (await isManualRate(redis, from, to))) continue
+    toRefresh.push([from, to])
   }
 
   if (toRefresh.length === 0) return
 
+  // 所有币种对合成一次请求：ids=a,b,c & vs_currencies=php,idr,inr
+  const symbols = [...new Set(toRefresh.map(([from]) => from))]
+  const targets = [...new Set(toRefresh.map(([, to]) => to))]
+
   try {
-    const batch = await fetchCryptoBatchFromCoinGecko(toRefresh, 'PHP', env)
-    for (const from of toRefresh) {
-      const result = batch[from]
+    const batch = await fetchCryptoBatchFromCoinGecko(symbols, targets, env)
+    for (const [from, to] of toRefresh) {
+      const result = batch[from]?.[to]
       if (!result) {
-        log.error({ from }, 'refresh failed: missing in CoinGecko batch')
+        log.error({ from, to }, 'refresh failed: missing in CoinGecko batch')
         continue
       }
-      await persistRate(redis, env, from, 'PHP', result)
+      await persistRate(redis, env, from, to, result)
     }
   } catch (err) {
     log.error({ err }, 'batch refresh failed')
-    for (const from of toRefresh) {
+    for (const [from, to] of toRefresh) {
       try {
-        const result = await fetchFromCoinGecko(from, 'PHP', env)
-        await persistRate(redis, env, from, 'PHP', result)
+        const result = await fetchFromCoinGecko(from, to, env)
+        await persistRate(redis, env, from, to, result)
       } catch (singleErr) {
-        log.error({ err: singleErr, from }, 'refresh failed')
+        log.error({ err: singleErr, from, to }, 'refresh failed')
       }
     }
   }

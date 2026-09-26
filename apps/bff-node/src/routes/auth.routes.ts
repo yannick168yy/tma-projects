@@ -36,7 +36,7 @@ async function loginRiskDenied(ctx: import('koa').Context, userId: string, ip: s
 const CLIENT_PLATFORMS = new Set(['web', 'app', 'pwa', 'telegram'])
 
 // 从请求头提取设备指纹（前端 client.ts 统一注入）。全部非致命，缺失即降级
-async function fingerprint(ctx: import('koa').Context): Promise<{ deviceId?: string; fpVisitor?: string; fpSignals?: string; platform?: string; market: 'PH' | 'ID' }> {
+async function fingerprint(ctx: import('koa').Context): Promise<{ deviceId?: string; fpVisitor?: string; fpSignals?: string; platform?: string; market: 'PH' | 'ID' | 'IN' }> {
   const deviceId = ctx.get('x-device-id') || undefined
   const fpVisitor = ctx.get('x-fp-visitor') || undefined
   const rawPlatform = ctx.get('x-platform')
@@ -89,14 +89,14 @@ function entrySource(ctx: import('koa').Context, forceTma = false): string | und
     ?? hostFromHeader(ctx.get('host'))
 }
 
-async function siteMarket(ctx: import('koa').Context): Promise<'PH' | 'ID'> {
+async function siteMarket(ctx: import('koa').Context): Promise<'PH' | 'ID' | 'IN'> {
   const host = entrySource(ctx)?.toLowerCase()
   if (host) {
     const market = marketForHost(await getSiteDomainMappings(ctx.state.redis, ctx.state.env), host)
     if (market) return market
   }
   const header = ctx.get('x-site-market').toUpperCase()
-  return header === 'ID' ? 'ID' : 'PH'
+  return header === 'ID' || header === 'IN' ? header : 'PH'
 }
 
 // 新注册用户的归因：按来源域名归代理 + 落广告投放来源并发注册转化事件。

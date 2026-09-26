@@ -10,7 +10,7 @@ export const TG_ROUTE_CHANNEL_KEY = 'app_route_tg_channel'
 /** App 在正文里按这个前缀找载荷；改了等于让已发布的 App 认不出来，要改必须升版本号 */
 export const TG_ROUTE_MARKER = 'BETOGO-ROUTES-V1:'
 
-const MARKETS: SiteMarket[] = ['PH', 'ID']
+const MARKETS: SiteMarket[] = ['PH', 'IN']
 
 export async function getRouteChannel(env: Env): Promise<string> {
   return (await getAdminSetting(env, TG_ROUTE_CHANNEL_KEY))?.trim() ?? ''

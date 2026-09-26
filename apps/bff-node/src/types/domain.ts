@@ -10,7 +10,7 @@ export interface LivenessFrameMeta {
   key: string
   capturedAt: string
 }
-export type DepositCurrency = 'PHP' | 'USDT' | 'USDC' | 'IDR'
+export type DepositCurrency = 'PHP' | 'USDT' | 'USDC' | 'IDR' | 'INR'
 export type IdentityProvider = 'phone' | 'google' | 'telegram' | 'telegram_oidc'
 
 export interface UserIdentity {
@@ -33,7 +33,7 @@ export interface UserRecord {
   inviteCode: string
   referredBy?: string
   locale: AppLocale
-  market?: 'PH' | 'ID'
+  market?: 'PH' | 'ID' | 'IN'
   /** 被邀请人首充达标（≥₱100）已触发，避免重复处理 */
   referralMilestoneMet?: boolean
   status: UserStatus

@@ -17,11 +17,13 @@ describe('站点域名映射', () => {
       { domain: 'betogo.xyz', market: 'PH', enabled: true },
       { domain: 'betogo666.com', market: 'ph', enabled: false },
       { domain: 'betogo.app', market: 'public', enabled: true },
+      { domain: 'betogo.vip', market: 'in', enabled: true, appMarket: 'in', appPriority: 10 },
       { domain: 'invalid.example', market: 'SG', enabled: true },
     ])).toEqual([
       { domain: 'betogo.xyz', market: 'ID', enabled: true, appMarket: null, appPriority: 100 },
       { domain: 'betogo666.com', market: 'PH', enabled: false, appMarket: null, appPriority: 100 },
       { domain: 'betogo.app', market: 'PUBLIC', enabled: true, appMarket: null, appPriority: 100 },
+      { domain: 'betogo.vip', market: 'IN', enabled: true, appMarket: 'IN', appPriority: 10 },
     ])
   })
 
@@ -69,7 +71,8 @@ describe('站点域名映射', () => {
   it('兜底线路表按优先级给出非空域名', () => {
     expect(defaultAppDomainsForMarket('PH').map((item) => item.domain))
       .toEqual(['betogo.games', 'betogo666.com', 'betogo777.com'])
-    expect(defaultAppDomainsForMarket('ID').every((item) => item.enabled && item.appMarket === 'ID')).toBe(true)
+    expect(defaultAppDomainsForMarket('IN').every((item) => item.enabled && item.appMarket === 'IN')).toBe(true)
+    expect(defaultAppDomainsForMarket('ID')).toEqual([])
   })
 })
 

@@ -37,7 +37,9 @@ function reconcileCurrency(current: string, balance: WalletBalance): string | nu
 export const useWalletStore = create<WalletState & WalletActions>((set, get) => ({
   balance: null,
   loading: false,
-  activeCurrency: localStorage.getItem(CURRENCY_KEY) ?? defaultMarketCurrency(),
+  activeCurrency: localStorage.getItem(CURRENCY_MANUAL_KEY)
+    ? localStorage.getItem(CURRENCY_KEY) ?? defaultMarketCurrency()
+    : defaultMarketCurrency(),
 
   setBalance(balance) {
     const corrected = reconcileCurrency(get().activeCurrency, balance)
@@ -74,7 +76,7 @@ export function getDisplayPhp(): string {
 // 仅保留 PHP + 稳定币(USDT/USDC)；TRX_TESTNET 为测试链，仅充值用，由 AppShell 按余额单独插入
 export const SUPPORTED_CURRENCY_CODES = ['PHP', 'IDR', 'USDT', 'USDC'] as const
 
-export const FIAT_CURRENCY_CODES = ['PHP', 'IDR'] as const
+export const FIAT_CURRENCY_CODES = ['PHP', 'IDR', 'INR'] as const
 
 export function isFiatCurrency(code: string): boolean {
   return (FIAT_CURRENCY_CODES as readonly string[]).includes(code)
@@ -95,6 +97,7 @@ export interface CurrencyMeta {
 export const CURRENCY_META: Record<string, CurrencyMeta> = {
   PHP:         { code: 'PHP',         name: 'Philippine Peso', symbol: '₱' },
   IDR:         { code: 'IDR',         name: 'Indonesian Rupiah', symbol: 'Rp' },
+  INR:         { code: 'INR',         name: 'Indian Rupee',     symbol: '₹' },
   USDT:        { code: 'USDT',        name: 'Tether USD',      symbol: '₮' },
   USDC:        { code: 'USDC',        name: 'USD Coin',        symbol: '$' },
   TRX_TESTNET: { code: 'TRX_TESTNET', name: 'Tron',            symbol: 'T', isTestnet: true },
@@ -108,6 +111,9 @@ export function formatHeaderBalance(currency: string, available: number): string
   if (currency === 'IDR') {
     return `Rp ${available.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
   }
+  if (currency === 'INR') {
+    return `₹ ${available.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
   return available.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
@@ -119,6 +125,9 @@ export function formatRowAmount(currency: string, available: number): string {
   if (currency === 'IDR') {
     return `Rp ${available.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
   }
+  if (currency === 'INR') {
+    return `₹ ${available.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
   return available.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
@@ -129,6 +138,9 @@ export function formatCurrencyAmount(currency: string, available: number): strin
   }
   if (currency === 'IDR') {
     return `Rp ${available.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+  }
+  if (currency === 'INR') {
+    return `₹ ${available.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
   return `${available.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
 }

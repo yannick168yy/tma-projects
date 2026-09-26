@@ -74,7 +74,7 @@ function mapUser(row: UserRow): UserRecord {
     inviteCode: row.invite_code,
     referredBy: row.inviter_id ?? undefined,
     locale: row.locale as UserRecord['locale'],
-    market: row.market === 'ID' ? 'ID' : 'PH',
+    market: row.market === 'ID' || row.market === 'IN' ? row.market : 'PH',
     status: row.status,
     statusReason: row.status_reason ?? undefined,
     label: row.label ?? 'normal',
@@ -887,7 +887,7 @@ export const listWithdrawals = listOrderWithdrawals
 export async function recordUserLogin(
   env: Env,
   userId: string,
-  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string; deviceId?: string; fpVisitor?: string; fpSignals?: string; entrySource?: string; platform?: string; market?: 'PH' | 'ID'; isNewUser?: boolean },
+  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string; deviceId?: string; fpVisitor?: string; fpSignals?: string; entrySource?: string; platform?: string; market?: 'PH' | 'ID' | 'IN'; isNewUser?: boolean },
 ): Promise<void> {
   const conn = await pool(env).getConnection()
   try {
@@ -910,6 +910,12 @@ export async function recordUserLogin(
       `INSERT INTO bg_login_log (user_id, ip, region, user_agent, auth_method, entry_source, platform, device_id, fp_visitor, fp_signals) VALUES (?,?,?,?,?,?,?,?,?,?)`,
       [userId, opts.ip ?? null, opts.region ?? null, opts.userAgent?.slice(0, 512) ?? null, opts.authMethod ?? 'telegram', opts.entrySource?.slice(0, 255) ?? null, opts.platform ?? null, opts.deviceId ?? null, opts.fpVisitor ?? null, opts.fpSignals ?? null],
     )
+    if (opts.isNewUser && opts.market === 'IN') {
+      await conn.execute(
+        `INSERT IGNORE INTO bg_wallet (user_id, currency, available, frozen) VALUES (?, 'INR', 0, 0)`,
+        [userId],
+      )
+    }
     await conn.commit()
   } catch (e) {
     await conn.rollback()

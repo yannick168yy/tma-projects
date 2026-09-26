@@ -3,7 +3,7 @@ import type { Env } from '../config/env.js'
 import { getAdminSetting, setAdminSetting } from './admin-store.js'
 import { currentTenantOrNull } from '../lib/tenant-context.js'
 
-export type SiteMarket = 'PH' | 'ID'
+export type SiteMarket = 'PH' | 'ID' | 'IN'
 export type SiteDomainTarget = SiteMarket | 'PUBLIC'
 export interface SiteDomainMapping {
   domain: string
@@ -27,7 +27,8 @@ const DEFAULT_APP_DOMAINS: Record<SiteMarket, Array<{ domain: string; appPriorit
     { domain: 'betogo666.com', appPriority: 20 },
     { domain: 'betogo777.com', appPriority: 30 },
   ],
-  ID: [
+  ID: [],
+  IN: [
     { domain: 'betogo.app', appPriority: 10 },
     { domain: 'betogo.xyz', appPriority: 20 },
     { domain: 'betogo.vip', appPriority: 30 },
@@ -53,10 +54,10 @@ export function normalizeSiteDomainMappings(value: unknown): SiteDomainMapping[]
     const row = item as Record<string, unknown>
     const domain = normalizeDomain(String(row.domain ?? ''))
     const market = String(row.market ?? '').toUpperCase()
-    if (!domain || (market !== 'PH' && market !== 'ID' && market !== 'PUBLIC') || seen.has(domain)) continue
+    if (!domain || (market !== 'PH' && market !== 'ID' && market !== 'IN' && market !== 'PUBLIC') || seen.has(domain)) continue
     seen.add(domain)
     const rawAppMarket = String(row.appMarket ?? '').toUpperCase()
-    const appMarket = rawAppMarket === 'PH' || rawAppMarket === 'ID' ? rawAppMarket : null
+    const appMarket = rawAppMarket === 'PH' || rawAppMarket === 'ID' || rawAppMarket === 'IN' ? rawAppMarket : null
     const rawPriority = Number(row.appPriority)
     const appPriority = Number.isInteger(rawPriority) && rawPriority >= 1 && rawPriority <= 999 ? rawPriority : 100
     result.push({ domain, market, enabled: row.enabled !== false, appMarket, appPriority })
@@ -65,7 +66,7 @@ export function normalizeSiteDomainMappings(value: unknown): SiteDomainMapping[]
 }
 
 function defaultAppFields(domain: string): { appMarket: SiteMarket | null; appPriority: number } {
-  for (const market of ['PH', 'ID'] as const) {
+  for (const market of ['PH', 'ID', 'IN'] as const) {
     const hit = DEFAULT_APP_DOMAINS[market].find((item) => item.domain === domain)
     if (hit) return { appMarket: market, appPriority: hit.appPriority }
   }
@@ -139,7 +140,7 @@ export function marketForHost(mappings: SiteDomainMapping[], host: string | unde
   const domain = normalizeDomain(host ?? '')
   if (!domain) return null
   const target = mappings.find((item) => item.enabled && item.domain === domain)?.market
-  return target === 'PH' || target === 'ID' ? target : null
+  return target === 'PH' || target === 'ID' || target === 'IN' ? target : null
 }
 
 export function appDomainsForMarket(mappings: SiteDomainMapping[], market: SiteMarket): SiteDomainMapping[] {

@@ -52,8 +52,8 @@ const schema = z.object({
     .transform((v) => v === 'true'),
   SESSION_TTL_SECONDS: z.coerce.number().default(86400),
   MARKET_DOMAIN_MAP: z.string()
-    .default('{"betogo666.com":"PH","betogo777.com":"PH","betogo.ph":"PH","betogo.xyz":"ID","betogo.vip":"ID","betogo888.com":"ID","betogo.cc":"ID","betogo.games":"PH","betogo.app":"ID"}')
-    .transform((value) => value.trim() || '{"betogo666.com":"PH","betogo777.com":"PH","betogo.ph":"PH","betogo.xyz":"ID","betogo.vip":"ID","betogo888.com":"ID","betogo.cc":"ID","betogo.games":"PH","betogo.app":"ID"}'),
+    .default('{"betogo666.com":"PH","betogo777.com":"PH","betogo.ph":"PH","betogo.xyz":"IN","betogo.vip":"IN","betogo888.com":"IN","betogo.cc":"IN","betogo.games":"PH","betogo.app":"IN"}')
+    .transform((value) => value.trim() || '{"betogo666.com":"PH","betogo777.com":"PH","betogo.ph":"PH","betogo.xyz":"IN","betogo.vip":"IN","betogo888.com":"IN","betogo.cc":"IN","betogo.games":"PH","betogo.app":"IN"}'),
   // App 线路表签名私钥（EC P-256，PKCS8 PEM 原文或其 base64）。生成见 scripts/gen-app-route-key.mjs。
   // 留空则不签名：老版本 App 仍按内置白名单工作，装了新版本的客户端会拒绝启动。
   APP_ROUTE_SIGNING_KEY: z.string().default(''),
@@ -79,12 +79,15 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().default(''),
   // CoinGecko API key（可选，无 key 也可用免费 demo tier，50 次/分）
   COINGECKO_API_KEY: z.string().default(''),
-  // 手动兜底汇率（无 API key 或 API 故障时使用）
+  // 手动兜底汇率（API 故障时才生效；正常情况下 PHP/IDR/INR 均走 CoinGecko 实时值）
+  // 基准取自 2026-09-24 CoinGecko 市价
   EUR_TO_PHP_RATE: z.coerce.number().positive().default(62),
-  USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
+  USDT_TO_PHP_RATE: z.coerce.number().positive().default(62.7),
   // 印尼法币基础汇率；其他 IDR 币种对统一从该值推导。
-  USDT_TO_IDR_RATE: z.coerce.number().positive().default(16646),
-  TRX_TO_PHP_RATE: z.coerce.number().positive().default(10),
+  USDT_TO_IDR_RATE: z.coerce.number().positive().default(17927),
+  // 印度法币基础汇率；无自动数据源，只走此兜底值。
+  USDT_TO_INR_RATE: z.coerce.number().positive().default(95.9),
+  TRX_TO_PHP_RATE: z.coerce.number().positive().default(21.3),
   YFPAY_USERNAME: z.string().default(''),
   YFPAY_API_KEY: z.string().default(''),
   YFPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/yfpay'),
@@ -100,6 +103,11 @@ const schema = z.object({
   WZPAY_API_KEY: z.string().default(''),
   WZPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/wzpay'),
   WZPAY_RETURN_URL: z.string().default('https://www.188facai.com'),
+  // ── Huitone 印度通道 ──────────────────────────────────────────────────────
+  HUITONE_BASE_URL: z.string().default('https://api.huitone.ai'),
+  HUITONE_MERCHANT_ID: z.string().default(''),
+  HUITONE_MERCHANT_KEY: z.string().default(''),
+  HUITONE_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/huitone'),
   NACOS_SERVER_ADDR: z.string().default(''),
   NACOS_NAMESPACE: z.string().default('batogo'),
   NACOS_DATA_ID: z.string().default('bff-node'),

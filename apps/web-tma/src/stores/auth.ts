@@ -12,6 +12,7 @@ import { isRememberMeEnabled, saveLastLogin } from '@/utils/lastLogin'
 import { clearToken, getToken, setToken } from '@/utils/tokenStore'
 import { analytics, setAnalyticsUser } from '@/utils/analytics'
 import type { LoginProvider, PasswordMethod, TelegramWidgetUser } from '@/types/api'
+import { defaultMarketCurrency } from '@/config/market'
 
 const LOGOUT_FLAG = 'betogo_logged_out'
 import { i18n } from '@/i18n'
@@ -134,10 +135,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       localStorage.setItem('betogo_seen', '1')
       clearStoredReferral()
     }
-    // 首次登录按当前语言选择当地法币；一次性标记避免覆盖用户之后手动选择
+    // 首次登录按当前域名市场选择当地法币；一次性标记避免覆盖用户之后手动选择
     if (!localStorage.getItem('betogo_currency_init')) {
       localStorage.setItem('betogo_currency_init', '1')
-      useWalletStore.getState().setActiveCurrency(i18n.language === 'id' ? 'IDR' : 'PHP')
+      useWalletStore.getState().setActiveCurrency(defaultMarketCurrency())
     }
   },
 

@@ -25,7 +25,7 @@ describe('Telegram 旁路线路发布', () => {
     expect(raw.startsWith(TG_ROUTE_MARKER)).toBe(true)
 
     const body = JSON.parse(Buffer.from(raw.slice(TG_ROUTE_MARKER.length), 'base64').toString('utf8'))
-    for (const market of ['PH', 'ID'] as const) {
+    for (const market of ['PH', 'IN'] as const) {
       const slot = body[market]
       expect(slot.domains.length).toBeGreaterThan(0)
       const verifier = createVerify('SHA256')

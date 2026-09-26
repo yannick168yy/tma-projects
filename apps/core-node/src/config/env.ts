@@ -52,15 +52,19 @@ const schema = z.object({
   WZPAY_MERCHANT_ID: z.string().default('10114'),
   WZPAY_API_KEY: z.string().default(''),
 
+  // Huitone 印度通道回调验签
+  HUITONE_MERCHANT_KEY: z.string().default(''),
+
   // Matrix 通知密钥（入站验签解密）
   MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY: z.string().default(''),
   MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY: z.string().default(''),
 
   // 汇率兜底；业务统一以 USDT 为基准币种。
-  USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
+  USDT_TO_PHP_RATE: z.coerce.number().positive().default(62.7),
   EUR_TO_PHP_RATE:  z.coerce.number().positive().default(62),
-  TRX_TO_PHP_RATE:  z.coerce.number().positive().default(19),
-  USDT_TO_IDR_RATE: z.coerce.number().positive().default(16646),
+  TRX_TO_PHP_RATE:  z.coerce.number().positive().default(21.3),
+  USDT_TO_IDR_RATE: z.coerce.number().positive().default(17927),
+  USDT_TO_INR_RATE: z.coerce.number().positive().default(95.9),
 
   // 内部服务间通信 token
   INTERNAL_TOKEN: z.string().default(''),

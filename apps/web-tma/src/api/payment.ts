@@ -13,6 +13,9 @@ export interface PaymentDepositResult {
   platformId: string
   payUrl: string
   qrcode?: string
+  upi?: string
+  upiLink?: string
+  walletList?: { clickUrl?: string; walletCode?: string }[]
   amount: number
   state: number
   provider: string
@@ -86,6 +89,7 @@ export async function createPaymentWithdrawal(params: {
   amount: number
   targetOwner: string
   targetAccount: string
+  ifsc?: string
   currency?: string
 }): Promise<PaymentWithdrawResult> {
   return apiRequest<PaymentWithdrawResult>('/payment/withdraw/create', {

@@ -6,6 +6,7 @@ import { parseNotify, buildWithdrawCheckResponse, normalizePem, type MatrixEnvel
 import type { RowDataPacket } from 'mysql2/promise'
 import { recordUnispayIssue } from '../handlers/unispay-callback.handler.js'
 import { recordWzpayIssue } from '../handlers/wzpay-callback.handler.js'
+import { recordHuitoneIssue } from '../handlers/huitone-callback.handler.js'
 
 export async function callbackRoutes(app: FastifyInstance) {
   // ── 通用回调入口：验签 → NATS ──────────────────────────────────────────────
@@ -25,6 +26,7 @@ export async function callbackRoutes(app: FastifyInstance) {
         app.log.warn({ provider }, 'Callback: invalid signature')
         if (provider === 'unispay') await recordUnispayIssue(app.mysql, 'invalid_signature', payload as never)
         if (provider === 'wzpay') await recordWzpayIssue(app.mysql, 'invalid_signature', payload as never)
+        if (provider === 'huitone') await recordHuitoneIssue(app.mysql, 'invalid_signature', payload as never)
         return reply.status(401).send({ code: 1, message: 'invalid signature' })
       }
 
@@ -43,6 +45,17 @@ export async function callbackRoutes(app: FastifyInstance) {
         if (missing.length > 0 || !Number.isFinite(Number(payload.amount)) || Number(payload.amount) <= 0 || !['0', '1', '2'].includes(String(payload.status))) {
           app.log.warn({ missing, orderId: payload.orderId }, 'WZPAY callback: invalid payload')
           await recordWzpayIssue(app.mysql, 'invalid_payload', payload as never, { missing })
+          return reply.status(400).send({ code: 1, message: 'invalid payload' })
+        }
+      }
+      if (provider === 'huitone') {
+        const required = ['completionTime', 'event', 'extInfo', 'outTradeNo', 'transAmt', 'transNo', 'transStatus', 'utr'] as const
+        const missing = required.filter((key) => payload[key] === undefined || payload[key] === null || String(payload[key]).trim() === '')
+        if (missing.length > 0 || !Number.isFinite(Number(payload.transAmt)) || Number(payload.transAmt) <= 0
+          || !['PAYIN', 'PAYOUT'].includes(String(payload.event))
+          || !['SUCCESS', 'FAIL'].includes(String(payload.transStatus))) {
+          app.log.warn({ missing, transNo: payload.transNo }, 'Huitone callback: invalid payload')
+          await recordHuitoneIssue(app.mysql, 'invalid_payload', payload as never, { missing })
           return reply.status(400).send({ code: 1, message: 'invalid payload' })
         }
       }
@@ -70,6 +83,10 @@ export async function callbackRoutes(app: FastifyInstance) {
       if (provider === 'wzpay') {
         reply.type('text/plain')
         return reply.send('success')
+      }
+      if (provider === 'huitone') {
+        reply.type('text/plain')
+        return reply.send('SUCCESS')
       }
       return reply.send({ code: 0, message: 'ok' })
     }

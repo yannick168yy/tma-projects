@@ -96,6 +96,27 @@ function verifyWzpay(req: FastifyRequest, env: Record<string, string>): boolean 
   return timingSafeEqual(Buffer.from(received), Buffer.from(expected))
 }
 
+// ── Huitone ─────────────────────────────────────────────────────────────────
+
+function huitoneSign(params: Record<string, unknown>, merchantKey: string): string {
+  const sorted = Object.entries(params)
+    .filter(([key, value]) => key !== 'sign' && value !== null && value !== undefined && value !== '')
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, value]) => `${key}=${value}`)
+    .join('&')
+  return createHash('md5').update(`${sorted}${merchantKey}`).digest('hex').toUpperCase()
+}
+
+function verifyHuitone(req: FastifyRequest, env: Record<string, string>): boolean {
+  const merchantKey = env['HUITONE_MERCHANT_KEY']
+  if (!merchantKey) return false
+  const body = req.body as Record<string, unknown>
+  const received = String(body.sign ?? '').toUpperCase()
+  const expected = huitoneSign(body, merchantKey)
+  if (received.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(received), Buffer.from(expected))
+}
+
 // ── Matrix ────────────────────────────────────────────────────────────────────
 
 function verifyMatrix(req: FastifyRequest, env: Record<string, string>): boolean {
@@ -127,5 +148,6 @@ export const providerVerifiers: Record<string, VerifyFn> = {
   yfpay: verifyYfpay,
   unispay: verifyUnispay,
   wzpay: verifyWzpay,
+  huitone: verifyHuitone,
   matrix: verifyMatrix,
 }
