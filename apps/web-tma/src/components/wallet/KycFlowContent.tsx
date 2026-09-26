@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { getSiteMarket } from '@/config/market'
 import { Check, Loader2, ShieldCheck, Upload } from 'lucide-react'
 import FaceSelfieCapture from '@/components/wallet/FaceSelfieCapture'
 import type { KycFlow, DocType } from '@/hooks/useKycFlow'
@@ -61,7 +62,7 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
       {step === 'phone' && (
         <div className="space-y-3">
           <div className="flex gap-2">
-            <input value={phone} type="tel" placeholder={t('auth.phonePlaceholder')} className={`flex-1 rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-bold text-foreground focus:border-primary focus:outline-none${phoneLocked ? ' opacity-60' : ''}`} readOnly={phoneLocked} onChange={(e) => setPhone(e.target.value)} />
+            <input value={phone} type="tel" placeholder={t(getSiteMarket() === 'IN' ? 'auth.phonePlaceholderIn' : 'auth.phonePlaceholder')} className={`flex-1 rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-bold text-foreground focus:border-primary focus:outline-none${phoneLocked ? ' opacity-60' : ''}`} readOnly={phoneLocked} onChange={(e) => setPhone(e.target.value)} />
             <button type="button" className="shrink-0 rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-bold text-foreground disabled:opacity-50" disabled={loading || resendIn > 0} onClick={() => void onSendCode()}>
               {resendIn > 0 ? t('kyc.resendIn', { s: resendIn }) : t('kyc.sendCode')}
             </button>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getSiteMarket } from '@/config/market'
 import { createPortal } from 'react-dom'
 import { X, Check, Loader2 } from 'lucide-react'
 import { ApiError } from '@/api/client'
@@ -128,7 +129,7 @@ export default function BindModal({ open, onClose }: Props) {
             </div>
             {expand === 'phone' && !user.boundPhone && (
               <div className="mt-2 space-y-2">
-                <input value={phone} type="tel" placeholder={t('auth.phonePlaceholder')} className={inputCls} onChange={(e) => setPhone(e.target.value)} />
+                <input value={phone} type="tel" placeholder={t(getSiteMarket() === 'IN' ? 'auth.phonePlaceholderIn' : 'auth.phonePlaceholder')} className={inputCls} onChange={(e) => setPhone(e.target.value)} />
                 <input value={phonePassword} type="password" placeholder={t('auth.passwordPlaceholder')} className={inputCls} onChange={(e) => setPhonePassword(e.target.value)} />
                 <button type="button" className="w-full rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading} onClick={() => void run(() => bindPhone(phone.trim(), phonePassword))}>{loading ? <Loader2 size={15} className="mx-auto animate-spin" /> : t('bind.confirm')}</button>
               </div>

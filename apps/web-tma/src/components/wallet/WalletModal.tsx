@@ -47,6 +47,7 @@ const DEPOSIT_PRESETS: Record<string, number[]> = {
   USDC: [1, 5, 10, 50, 100, 500, 1000],
   TRX: [100, 500, 1000, 5000, 10000],
 }
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/
 function currencySymbol(cur: string) { return cur === 'PHP' ? '₱' : cur === 'IDR' ? 'Rp' : cur === 'INR' ? '₹' : cur === 'TRX' ? '' : '$' }
 function formatFiatAmount(amount: number, cur: string) {
   if (cur === 'IDR') return `Rp ${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
@@ -518,7 +519,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const fiatWithdrawAmountValid = Number(amount) > 0
     && (fiatWithdrawMin == null || Number(amount) >= fiatWithdrawMin)
     && (fiatWithdrawMax == null || Number(amount) <= fiatWithdrawMax)
-  const canSubmitWithdraw = Boolean(!withdrawLoading && hasRealDepositForWithdraw && isFiatWithdraw && fiatWithdrawAmountValid && withdrawAccount.trim() && withdrawOwner.trim() && (!isHuitoneWithdraw || withdrawIfsc.trim()))
+  const canSubmitWithdraw = Boolean(!withdrawLoading && hasRealDepositForWithdraw && isFiatWithdraw && fiatWithdrawAmountValid && withdrawAccount.trim() && withdrawOwner.trim() && (!isHuitoneWithdraw || IFSC_RE.test(withdrawIfsc.trim())))
   const matrixWithdrawGasFee = (() => {
     const n = Number(matrixCryptoAmount)
     if (
@@ -1229,6 +1230,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                     {withdrawAccountLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}
                     <input value={withdrawOwner} type="text" placeholder={t('wallet.yfpayFullName')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setWithdrawOwner(e.target.value)} />
                     {isHuitoneWithdraw&&<input value={withdrawIfsc} type="text" autoCapitalize="characters" placeholder={t('wallet.ifscCode')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary uppercase" onChange={(e)=>setWithdrawIfsc(e.target.value.toUpperCase())} />}
+                    {isHuitoneWithdraw&&withdrawIfsc.trim().length>=11&&!IFSC_RE.test(withdrawIfsc.trim())&&<p className="text-xs text-red-400">{t('errors.invalidIfsc')}</p>}
                   </>}
                   {withdrawMessage&&!isMatrixWithdraw&&<p className={`text-xs font-bold text-center ${withdrawSuccess?'text-emerald-400':'text-amber-400'}`}>{withdrawMessage}</p>}
                   {tab==='withdraw'&&isMatrixWithdraw&&<>

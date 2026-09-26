@@ -29,6 +29,7 @@ import {
 } from './store/index.js'
 import { randomToken } from '../utils/id.js'
 import { normalizePhone, normalizePhonePH } from '../utils/phone.js'
+import type { SiteMarket } from './site-domain.service.js'
 import { verifyTelegramWidget } from '../utils/telegramWidget.js'
 import { hashPassword, verifyPassword } from '../utils/password.js'
 import type { UserRecord } from '../types/domain.js'
@@ -323,8 +324,8 @@ export async function loginWithGoogleCode(
   }
 }
 
-function normalizeIdentifier(_method: PasswordMethod, identifier: string): string {
-  const e164 = normalizePhone(identifier.trim())
+function normalizeIdentifier(_method: PasswordMethod, identifier: string, market: SiteMarket): string {
+  const e164 = normalizePhone(identifier.trim(), market)
   if (!e164) throw new AuthError('Invalid phone number', 400)
   return e164
 }
@@ -341,7 +342,7 @@ interface ForgotOtpState {
 export async function registerWithPassword(
   redis: Redis,
   env: Env,
-  input: { method: PasswordMethod; identifier: string; password: string; referralCode?: string },
+  input: { method: PasswordMethod; identifier: string; password: string; referralCode?: string; market: SiteMarket },
   ip?: string,
 ): Promise<{
   token: string
@@ -353,7 +354,7 @@ export async function registerWithPassword(
   if (!input.password || input.password.length < 8) {
     throw new AuthError('Password must be at least 8 characters', 400)
   }
-  const identifier = normalizeIdentifier(input.method, input.identifier)
+  const identifier = normalizeIdentifier(input.method, input.identifier, input.market)
 
   const existing = await getUserByPhoneAccount(redis, identifier)
   if (existing) {
@@ -396,7 +397,7 @@ export async function registerWithPassword(
 export async function loginWithPassword(
   redis: Redis,
   env: Env,
-  input: { method: PasswordMethod; identifier: string; password: string },
+  input: { method: PasswordMethod; identifier: string; password: string; market: SiteMarket },
 ): Promise<{
   token: string
   expiresIn: number
@@ -404,7 +405,7 @@ export async function loginWithPassword(
   isNewUser: boolean
   trialRedPacketEligible: boolean
 }> {
-  const identifier = normalizeIdentifier(input.method, input.identifier)
+  const identifier = normalizeIdentifier(input.method, input.identifier, input.market)
   const identity = await getUserIdentity(redis, input.method, identifier)
   const user = identity ? await getUser(redis, identity.userId) : null
 
@@ -422,9 +423,10 @@ export async function sendForgotPasswordOtp(
   redis: Redis,
   env: Env,
   phoneRaw: string,
+  market: SiteMarket,
   ip?: string,
 ): Promise<{ phone: string; resendInSec: number }> {
-  const phone = normalizeIdentifier('phone', phoneRaw)
+  const phone = normalizeIdentifier('phone', phoneRaw, market)
   const identity = await getUserIdentity(redis, 'phone', phone)
   const user = identity ? await getUser(redis, identity.userId) : null
   if (!user || !identity?.credentialHash) {
@@ -475,11 +477,12 @@ export async function resetForgotPassword(
   phoneRaw: string,
   code: string,
   password: string,
+  market: SiteMarket,
 ): Promise<void> {
   if (!password || password.length < 8) {
     throw new AuthError('Password must be at least 8 characters', 400)
   }
-  const phone = normalizeIdentifier('phone', phoneRaw)
+  const phone = normalizeIdentifier('phone', phoneRaw, market)
   const identity = await getUserIdentity(redis, 'phone', phone)
   const user = identity ? await getUser(redis, identity.userId) : null
   if (!user || !identity?.credentialHash) {
@@ -725,8 +728,9 @@ export async function bindPhone(
   userId: string,
   phoneRaw: string,
   password: string,
+  market: SiteMarket = 'PH',
 ): Promise<UserRecord> {
-  const phone = normalizePhone(phoneRaw)
+  const phone = normalizePhone(phoneRaw, market)
   if (!phone) throw new AuthError('Invalid phone number', 400)
   // 全局互斥：手机登录号 + KYC 已验手机
   const owner = await getUserByPhoneAccount(redis, phone)

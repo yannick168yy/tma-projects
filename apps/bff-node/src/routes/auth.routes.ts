@@ -252,7 +252,7 @@ router.post('/register', async (ctx) => {
     const result = await registerWithPassword(
       ctx.state.redis,
       ctx.state.env,
-      { method: body.method, identifier: body.identifier, password: body.password, referralCode: body.referralCode },
+      { method: body.method, identifier: body.identifier, password: body.password, referralCode: body.referralCode, market: await siteMarket(ctx) },
       ip,
     )
     if (await loginRiskDenied(ctx, result.user.id, ip)) return
@@ -305,6 +305,7 @@ router.post('/login', async (ctx) => {
       method: body.method,
       identifier: body.identifier,
       password: body.password,
+      market: await siteMarket(ctx),
     })
     await ctx.state.redis.del(throttleKey, lockKey)
     if (await loginRiskDenied(ctx, result.user.id, ip)) return
@@ -349,7 +350,7 @@ router.post('/forgot-password/send-otp', async (ctx) => {
     return
   }
   try {
-    const result = await sendForgotPasswordOtp(ctx.state.redis, ctx.state.env, body.phone, ctx.ip)
+    const result = await sendForgotPasswordOtp(ctx.state.redis, ctx.state.env, body.phone, await siteMarket(ctx), ctx.ip)
     ok(ctx, result)
   } catch (e) {
     if (e instanceof AuthError) {
@@ -368,7 +369,7 @@ router.post('/forgot-password/reset', async (ctx) => {
     return
   }
   try {
-    await resetForgotPassword(ctx.state.redis, ctx.state.env, body.phone, body.code, body.password)
+    await resetForgotPassword(ctx.state.redis, ctx.state.env, body.phone, body.code, body.password, await siteMarket(ctx))
     ok(ctx, null)
   } catch (e) {
     if (e instanceof AuthError) {

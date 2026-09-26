@@ -10,6 +10,7 @@ import { getStoredReferral } from '@/utils/referral'
 import { translateApiError } from '@/utils/translateApiError'
 import { TURNSTILE_SITE_KEY, loadTurnstile } from '@/utils/turnstile'
 import { isTelegramOidcLoginAvailable } from '@/constants/telegram'
+import { getSiteMarket } from '@/config/market'
 
 interface Props {
   open: boolean
@@ -37,6 +38,7 @@ function GoogleIcon() {
 
 export default function LoginSheet({ open, onClose }: Props) {
   const { t } = useTranslation()
+  const isIndia = getSiteMarket() === 'IN'
   const isTelegram = useAuthStore((s) => s.isTelegram)
   const loginReason = useAuthStore((s) => s.loginReason)
   const loginWithTelegram = useAuthStore((s) => s.loginWithTelegram)
@@ -135,7 +137,8 @@ export default function LoginSheet({ open, onClose }: Props) {
 
   function normalizePhoneInput(value: string): string {
     const cleaned = value.replace(/[^\d+]/g, '')
-    if (!cleaned || cleaned.startsWith('0') || cleaned.startsWith('+') || cleaned.startsWith('63')) return cleaned
+    // 印度号码直接输 10 位或带 91，补 0 会把 91xxxxxxxxxx 变成无效号
+    if (!cleaned || cleaned.startsWith('0') || cleaned.startsWith('+') || cleaned.startsWith('63') || isIndia) return cleaned
     return `0${cleaned}`
   }
 
@@ -348,7 +351,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                     value={identifier}
                     type="tel"
                     autoComplete="tel"
-                    placeholder={t('auth.phonePlaceholder')}
+                    placeholder={t(isIndia ? 'auth.phonePlaceholderIn' : 'auth.phonePlaceholder')}
                     className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-4 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                     onChange={(e) => onIdentifierChange(e.target.value)}
                     onFocus={() => setTurnstileArmed(true)}
@@ -448,7 +451,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                   value={resetPhone}
                   type="tel"
                   autoComplete="tel"
-                  placeholder={t('auth.phonePlaceholder')}
+                  placeholder={t(isIndia ? 'auth.phonePlaceholderIn' : 'auth.phonePlaceholder')}
                   className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-4 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                   onChange={(e) => setResetPhone(normalizePhoneInput(e.target.value))}
                 />

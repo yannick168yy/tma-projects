@@ -389,8 +389,9 @@ router.post('/payment/withdraw/create', async (ctx) => {
     if (provider === 'huitone' && currency !== 'INR') {
       fail(ctx, 400, 'Huitone 仅支持 INR'); return
     }
-    if (provider === 'huitone' && !ifsc) {
-      fail(ctx, 400, 'Huitone 提现必须填写 IFSC'); return
+    // IFSC：4 位银行代码 + 固定 0 + 6 位分行码，格式不对代付必然被上游退回
+    if (provider === 'huitone' && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      fail(ctx, 400, 'errors.invalidIfsc'); return
     }
 
     let wzpayCustomer: Awaited<ReturnType<typeof getWzpayCustomer>> | undefined

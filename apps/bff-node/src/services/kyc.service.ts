@@ -394,7 +394,7 @@ export async function sendKycOtp(
   if (!(await getKycStepConfig(redis, env, userId, market)).requirePhone) {
     throw new KycError('手机验证已关闭', 400)
   }
-  const phone = normalizePhone(phoneRaw)
+  const phone = normalizePhone(phoneRaw, market)
   if (!phone) throw new KycError('kyc.errors.invalidPhone', 400)
 
   const phoneIdentity = (await listUserIdentities(redis, userId)).find((item) => item.provider === 'phone')

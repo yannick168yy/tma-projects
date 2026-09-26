@@ -6,6 +6,7 @@ import { toPublicUser } from '../services/userPresentation.js'
 import { AuthError, bindGoogleAccount, bindPhone, bindTelegramOidc, bindTelegramWidget } from '../services/auth.service.js'
 import { isAppLocale } from '../types/locale.js'
 import { fail, ok } from '../utils/response.js'
+import { resolveRequestMarket } from '../utils/request-market.js'
 
 const router = new Router({ prefix: '/user' })
 
@@ -92,7 +93,7 @@ router.post('/bind/phone', async (ctx) => {
   if (!body.phone) { fail(ctx, 400, 'phone is required'); return }
   if (!body.password) { fail(ctx, 400, 'password is required'); return }
   try {
-    const user = await bindPhone(ctx.state.redis, ctx.state.userId!, body.phone, body.password)
+    const user = await bindPhone(ctx.state.redis, ctx.state.userId!, body.phone, body.password, await resolveRequestMarket(ctx))
     ok(ctx, { user: toPublicUser(user, await listUserIdentities(ctx.state.redis, user.id)) })
   } catch (e) { if (!handleBindError(ctx, e)) throw e }
 })
