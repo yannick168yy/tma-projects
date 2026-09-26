@@ -225,7 +225,7 @@ export default function CsFaq() {
             </Col>
             <Col span={6}>
               <Form.Item label="语言" name="lang">
-                <Select options={[{ value: 'zh', label: '中文' }, { value: 'en', label: 'English' }, { value: 'tl', label: 'Filipino' }, { value: 'id', label: 'Bahasa Indonesia' }]} />
+                <Select options={[{ value: 'zh', label: '中文' }, { value: 'en', label: 'English' }, { value: 'tl', label: 'Filipino' }, { value: 'id', label: 'Bahasa Indonesia' }, { value: 'hi', label: 'हिन्दी' }]} />
               </Form.Item>
             </Col>
             <Col span={5}>
