@@ -333,7 +333,16 @@ export async function saveMessage(
   return { id: result.insertId, conversationId, role, content, createdAt: new Date() }
 }
 
-export async function searchFaq(env: Env, keyword: string): Promise<{ question: string; answer: string; category: string }[]> {
+/** 用户注册时落的市场（bg_user.market）；游客没有账号，返回 null */
+export async function getUserMarket(env: Env, userId: string): Promise<'PH' | 'ID' | 'IN' | null> {
+  if (userId.startsWith('guest:')) return null
+  const [[row]] = await db(env).query<RowDataPacket[]>(`SELECT market FROM bg_user WHERE id = ? LIMIT 1`, [userId])
+  const market = row?.market
+  return market === 'PH' || market === 'ID' || market === 'IN' ? market : null
+}
+
+/** market 为 null（游客）时不按市场过滤；否则只取该市场条目与通用条目（market IS NULL） */
+export async function searchFaq(env: Env, keyword: string, market: string | null): Promise<{ question: string; answer: string; category: string }[]> {
   // 按空格拆词,任一词命中即返回;命中词数多的排前
   const words = keyword.trim().split(/\s+/).filter(Boolean).slice(0, 5)
   if (!words.length) return []
@@ -342,9 +351,9 @@ export async function searchFaq(env: Env, keyword: string): Promise<{ question: 
   const scoreExpr = perWord.map(() => `(question LIKE ? OR answer LIKE ? OR category LIKE ?)`).join(' + ')
   const [rows] = await db(env).query<RowDataPacket[]>(
     `SELECT category, question, answer, (${scoreExpr}) AS hits FROM cs_faq
-     WHERE is_active = 1 AND (${perWord.join(' OR ')})
+     WHERE is_active = 1 AND (${perWord.join(' OR ')})${market ? ' AND (market IS NULL OR market = ?)' : ''}
      ORDER BY hits DESC, sort_order LIMIT 5`,
-    [...params, ...params],
+    [...params, ...params, ...(market ? [market] : [])],
   )
   return rows.map((r) => ({ category: r.category, question: r.question, answer: r.answer }))
 }

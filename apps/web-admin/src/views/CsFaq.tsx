@@ -11,7 +11,16 @@ const CATEGORIES = [
   { value: 'kyc', label: 'KYC', color: 'cyan' },
   { value: 'game', label: '游戏', color: 'green' },
   { value: 'bonus', label: '奖金', color: 'gold' },
+  { value: 'support_policy', label: '处理准则', color: 'magenta' },
   { value: 'other', label: '其他', color: 'default' },
+]
+
+// 空串 = 通用（存库为 NULL）；客服按用户注册市场只检索本市场与通用条目
+const MARKETS = [
+  { value: '', label: '通用' },
+  { value: 'PH', label: '菲律宾' },
+  { value: 'ID', label: '印尼' },
+  { value: 'IN', label: '印度' },
 ]
 
 function categoryLabel(val: string) { return CATEGORIES.find((c) => c.value === val)?.label ?? val }
@@ -54,6 +63,7 @@ function WelcomeConfig() {
 export default function CsFaq() {
   const [keyword, setKeyword] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>()
+  const [marketFilter, setMarketFilter] = useState<string | undefined>()
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<FaqItem[]>([])
   const [total, setTotal] = useState(0)
@@ -64,12 +74,12 @@ export default function CsFaq() {
   const [saving, setSaving] = useState(false)
   const [translating, setTranslating] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [form] = Form.useForm<{ category: string; question: string; answer: string; lang: string; sort_order: number }>()
+  const [form] = Form.useForm<{ category: string; question: string; answer: string; lang: string; market: string; sort_order: number }>()
 
-  async function load(p = 1, ps = pageSize) {
+  async function load(p = 1, ps = pageSize, market = marketFilter) {
     setPage(p); setPageSize(ps); setLoading(true)
     try {
-      const res = await getFaqList({ page: p, pageSize: ps, keyword: keyword || undefined, category: categoryFilter })
+      const res = await getFaqList({ page: p, pageSize: ps, keyword: keyword || undefined, category: categoryFilter, market })
       setItems(res.items); setTotal(res.total)
     } finally { setLoading(false) }
   }
@@ -93,13 +103,13 @@ export default function CsFaq() {
 
   function openCreate() {
     setEditingId(null)
-    form.setFieldsValue({ category: 'deposit', question: '', answer: '', lang: 'en', sort_order: 0 })
+    form.setFieldsValue({ category: 'deposit', question: '', answer: '', lang: 'en', market: '', sort_order: 0 })
     setModalOpen(true)
   }
 
   function openEdit(record: FaqItem) {
     setEditingId(record.id)
-    form.setFieldsValue({ category: record.category, question: record.question, answer: record.answer, lang: record.lang, sort_order: record.sort_order })
+    form.setFieldsValue({ category: record.category, question: record.question, answer: record.answer, lang: record.lang, market: record.market ?? '', sort_order: record.sort_order })
     setModalOpen(true)
   }
 
@@ -142,6 +152,7 @@ export default function CsFaq() {
     { title: '问题', dataIndex: 'question', key: 'question', ellipsis: true },
     { title: '答案', key: 'answer', render: (_: unknown, r: FaqItem) => <Typography.Text ellipsis={{ tooltip: r.answer }} style={{ maxWidth: 320 }}>{r.answer}</Typography.Text> },
     { title: '语言', dataIndex: 'lang', key: 'lang', width: 70 },
+    { title: '市场', key: 'market', width: 80, render: (_: unknown, r: FaqItem) => MARKETS.find((m) => m.value === (r.market ?? ''))?.label ?? r.market },
     { title: '排序', dataIndex: 'sort_order', key: 'sort_order', width: 70 },
     { title: '启用', key: 'is_active', width: 80, render: (_: unknown, r: FaqItem) => <Switch checked={r.is_active === 1} loading={togglingId === r.id} onChange={(val) => onToggle(r, val)} /> },
     {
@@ -184,6 +195,14 @@ export default function CsFaq() {
           onChange={(v) => { setCategoryFilter(v); void load(1) }}
           options={CATEGORIES.map((c) => ({ value: c.value, label: c.label }))}
         />
+        <Select
+          value={marketFilter}
+          placeholder="全部市场"
+          allowClear
+          style={{ width: 120 }}
+          onChange={(v) => { setMarketFilter(v); void load(1, pageSize, v) }}
+          options={MARKETS.map((m) => ({ value: m.value || 'ALL', label: m.value ? m.label : '仅通用' }))}
+        />
         <Button type="primary" onClick={openCreate}>+ 新增 FAQ</Button>
       </Space>
       <Table columns={columns} dataSource={items} loading={loading} pagination={pagination} rowKey="id" size="small" />
@@ -199,7 +218,7 @@ export default function CsFaq() {
       >
         <Form form={form} layout="vertical" style={{ marginTop: 8 }}>
           <Row gutter={12}>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item label="分类" name="category" required>
                 <Select options={CATEGORIES.map((c) => ({ value: c.value, label: c.label }))} placeholder="请选择分类" />
               </Form.Item>
@@ -209,7 +228,12 @@ export default function CsFaq() {
                 <Select options={[{ value: 'zh', label: '中文' }, { value: 'en', label: 'English' }, { value: 'tl', label: 'Filipino' }, { value: 'id', label: 'Bahasa Indonesia' }]} />
               </Form.Item>
             </Col>
-            <Col span={6}>
+            <Col span={5}>
+              <Form.Item label="市场" name="market">
+                <Select options={MARKETS} />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
               <Form.Item label="排序" name="sort_order">
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>

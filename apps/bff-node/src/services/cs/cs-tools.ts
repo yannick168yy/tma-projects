@@ -2,7 +2,7 @@ import { SchemaType, type Tool } from '@google/generative-ai'
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
-import { searchFaq, escalateConversation } from './cs-store.js'
+import { searchFaq, escalateConversation, getUserMarket } from './cs-store.js'
 import { queryRecentOrders, type CsOrder } from './cs-orders.js'
 import { getTurnoverProgress } from '../turnover.service.js'
 import { isHumanOnDuty } from './cs-duty.js'
@@ -192,22 +192,28 @@ export async function executeTool(
         promo[id] = promo[id] ?? {}
         promo[id][String(r.config_key)] = String(r.config_value)
       }
+      const market = await getUserMarket(env, context.userId)
+      const currency = market === 'IN' ? 'INR' : market === 'ID' ? 'IDR' : 'PHP'
       const [spinRows] = await pool.query<RowDataPacket[]>(`SELECT enabled FROM bg_spin_config LIMIT 1`)
       const [levelRows] = await pool.query<RowDataPacket[]>(
-        `SELECT level, min_turnover FROM bg_rebate_level_threshold WHERE currency = 'PHP' ORDER BY level`,
+        `SELECT level, min_turnover FROM bg_rebate_level_threshold WHERE currency = ? ORDER BY level`,
+        [currency],
       )
       return {
+        currency,
         firstDepositBonus:
           promo.firstdep?.enabled === '1'
             ? {
                 matchPercent: promo.firstdep.match_pct,
-                maxBonusPHP: promo.firstdep.max_bonus,
-                minDepositPHP: promo.firstdep.min_deposit,
                 wageringMultiplier: promo.firstdep.turnover_x,
+                // firstdep 的 max_bonus / min_deposit 是 PHP 口径，其他币种的档位在活动页展示
+                ...(currency === 'PHP'
+                  ? { maxBonus: promo.firstdep.max_bonus, minDeposit: promo.firstdep.min_deposit }
+                  : { amounts: `Shown on the Promotions page in ${currency}` }),
               }
             : null,
         luckySpin: spinRows[0]?.enabled === 1,
-        cashbackLevels: levelRows.map((l) => ({ level: Number(l.level), minTotalWageringPHP: Number(l.min_turnover) })),
+        cashbackLevels: levelRows.map((l) => ({ level: Number(l.level), minTotalWagering: Number(l.min_turnover) })),
       }
     }
 
@@ -240,7 +246,7 @@ export async function executeTool(
 
     case 'search_faq': {
       const keyword = String(input.keyword ?? '')
-      const results = await searchFaq(env, keyword)
+      const results = await searchFaq(env, keyword, await getUserMarket(env, context.userId))
       return { found: results.length > 0, results }
     }
 

@@ -211,7 +211,7 @@ router.post('/cs/conversations/:id/ignore', async (ctx) => {
 
 // GET /admin/cs/faq
 router.get('/cs/faq', async (ctx) => {
-  const { keyword, category, page = '1', pageSize = '20' } = ctx.query as Record<string, string>
+  const { keyword, category, market, page = '1', pageSize = '20' } = ctx.query as Record<string, string>
   const pool = getMysqlPool(ctx.state.env)
   const limit = Math.min(Number(pageSize), 1000)
   const offset = (Number(page) - 1) * limit
@@ -227,10 +227,17 @@ router.get('/cs/faq', async (ctx) => {
     conditions.push('category = ?')
     params.push(category)
   }
+  // market=ALL 只看通用条目（market IS NULL）
+  if (market === 'ALL') {
+    conditions.push('market IS NULL')
+  } else if (market) {
+    conditions.push('market = ?')
+    params.push(market)
+  }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, category, question, answer, lang, sort_order, is_active, created_at, updated_at
+    `SELECT id, category, question, answer, lang, market, sort_order, is_active, created_at, updated_at
      FROM cs_faq ${where} ORDER BY category, sort_order, id LIMIT ? OFFSET ?`,
     [...params, limit, offset],
   )
@@ -243,14 +250,14 @@ router.get('/cs/faq', async (ctx) => {
 
 // POST /admin/cs/faq
 router.post('/cs/faq', async (ctx) => {
-  const { category, question, answer, lang = 'zh', sort_order = 0 } = ctx.request.body as Record<string, unknown>
+  const { category, question, answer, lang = 'zh', market = null, sort_order = 0 } = ctx.request.body as Record<string, unknown>
   if (!category || !question || !answer) {
     fail(ctx, 400, '分类、问题、答案不能为空'); return
   }
   const pool = getMysqlPool(ctx.state.env)
   const [result] = await pool.query<ResultSetHeader>(
-    `INSERT INTO cs_faq (category, question, answer, lang, sort_order) VALUES (?, ?, ?, ?, ?)`,
-    [category, question, answer, lang, Number(sort_order)],
+    `INSERT INTO cs_faq (category, question, answer, lang, market, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
+    [category, question, answer, lang, market || null, Number(sort_order)],
   )
   const [rows] = await pool.query<RowDataPacket[]>(`SELECT * FROM cs_faq WHERE id = ?`, [result.insertId])
   ok(ctx, rows[0])
@@ -264,10 +271,10 @@ router.patch('/cs/faq/:id', async (ctx) => {
 
   const fields: string[] = []
   const vals: unknown[] = []
-  for (const key of ['category', 'question', 'answer', 'lang', 'sort_order', 'is_active']) {
+  for (const key of ['category', 'question', 'answer', 'lang', 'market', 'sort_order', 'is_active']) {
     if (key in body) {
       fields.push(`${key} = ?`)
-      vals.push(key === 'sort_order' ? Number(body[key]) : key === 'is_active' ? Number(body[key]) : body[key])
+      vals.push(key === 'sort_order' ? Number(body[key]) : key === 'is_active' ? Number(body[key]) : key === 'market' ? body[key] || null : body[key])
     }
   }
   if (!fields.length) { fail(ctx, 400, '无可更新字段'); return }

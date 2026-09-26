@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI, type Content, type FunctionCall } from '@google/generative-ai'
 import type { Env } from '../../config/env.js'
-import { getOrCreateConversation, getConversationById, getMessages, saveMessage, escalateConversation } from './cs-store.js'
+import { getOrCreateConversation, getConversationById, getMessages, saveMessage, escalateConversation, getUserMarket } from './cs-store.js'
 import { GEMINI_TOOLS, executeTool } from './cs-tools.js'
 import { getSystemPrompt } from './cs-prompt.js'
 import { isHumanOnDuty } from './cs-duty.js'
@@ -107,7 +107,7 @@ export async function handleUserMessage(
 
   const model = getClient(env).getGenerativeModel({
     model: MODEL,
-    systemInstruction: await getSystemPrompt(env, conversation.agentName),
+    systemInstruction: await getSystemPrompt(env, conversation.agentName, await getUserMarket(env, userId)),
     tools: GEMINI_TOOLS,
   })
 

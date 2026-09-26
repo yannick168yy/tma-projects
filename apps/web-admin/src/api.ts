@@ -1063,14 +1063,14 @@ export const clearManualRate = (from: string, to: string) =>
 // FAQ 知识库
 export interface FaqItem {
   id: number; category: string; question: string; answer: string
-  lang: string; sort_order: number; is_active: number
+  lang: string; market: string | null; sort_order: number; is_active: number
   created_at: string; updated_at: string
 }
-export const getFaqList = (params: { keyword?: string; category?: string; page?: number; pageSize?: number }) =>
+export const getFaqList = (params: { keyword?: string; category?: string; market?: string; page?: number; pageSize?: number }) =>
   get<{ items: FaqItem[]; total: number; page: number; pageSize: number }>('/admin/cs/faq', params)
-export const createFaq = (data: { category: string; question: string; answer: string; lang?: string; sort_order?: number }) =>
+export const createFaq = (data: { category: string; question: string; answer: string; lang?: string; market?: string; sort_order?: number }) =>
   post<FaqItem>('/admin/cs/faq', data)
-export const updateFaq = (id: number, data: Partial<{ category: string; question: string; answer: string; lang: string; sort_order: number; is_active: number }>) =>
+export const updateFaq = (id: number, data: Partial<{ category: string; question: string; answer: string; lang: string; market: string; sort_order: number; is_active: number }>) =>
   req<FaqItem>('PATCH', `/admin/cs/faq/${id}`, data)
 export const deleteFaq = (id: number) =>
   req<{ success: boolean }>('DELETE', `/admin/cs/faq/${id}`)
