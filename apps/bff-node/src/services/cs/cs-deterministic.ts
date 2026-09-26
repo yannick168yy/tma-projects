@@ -195,6 +195,7 @@ function canGuestUseIntent(intent: string): boolean {
 function money(amount: number, currency = 'PHP'): string {
   if (currency === 'PHP') return `₱${amount.toFixed(2)}`
   if (currency === 'IDR') return `Rp${amount.toLocaleString('id-ID', { maximumFractionDigits: 2 })}`
+  if (currency === 'INR') return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return `${amount.toFixed(2)} ${currency}`
 }
 

@@ -24,8 +24,9 @@ interface Props {
   onOpenLossRebate: () => void
 }
 
-function teamMoneyDisplay(cents: number, currency: 'PHP' | 'IDR') {
+function teamMoneyDisplay(cents: number, currency: 'PHP' | 'IDR' | 'INR') {
   const amount = cents / 100
+  if (currency === 'INR') return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return currency === 'IDR'
     ? `Rp ${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
     : `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -69,8 +70,11 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const fmtBonus = (amt: number) => activeCurrency === 'PHP'
     ? `₱${amt.toLocaleString('en-PH')}`
-    : activeCurrency === 'IDR' ? `Rp ${amt.toLocaleString('en-US')}` : `${amt.toLocaleString('en-US')} ${activeCurrency}`
+    : activeCurrency === 'IDR' ? `Rp ${amt.toLocaleString('en-US')}`
+    : activeCurrency === 'INR' ? `₹${amt.toLocaleString('en-IN')}` : `${amt.toLocaleString('en-US')} ${activeCurrency}`
   const displayWinnerAmount = (value: string) => {
+    // 印度活动数值与菲律宾同数，只换符号
+    if (activeCurrency === 'INR') return value.replace('₱', '₹')
     if (activeCurrency !== 'IDR') return value
     const php = Number(value.replace(/[^\d.]/g, ''))
     return Number.isFinite(php) ? `Rp ${(Math.round(php * 287 / 100) * 100).toLocaleString('en-US')}` : value

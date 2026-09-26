@@ -83,7 +83,7 @@ export interface TeamCommissionItem {
   phpEquivCents: number
   ratePct: number
   commissionCents: number
-  currency: 'PHP' | 'IDR'
+  currency: 'PHP' | 'IDR' | 'INR'
   status: string
   paidAt: string | null
   currencyBreakdown: CurrencyBreakdownItem[] | null
@@ -99,7 +99,7 @@ export interface TeamCommissionSummary {
 
 export interface TeamWithdrawal {
   id: number
-  currency: 'PHP' | 'IDR'
+  currency: 'PHP' | 'IDR' | 'INR'
   amountCents: number
   status: string
   rejectReason: string | null
@@ -111,11 +111,11 @@ export async function fetchTeamDownlines(level: 1 | 2 | 3, page: number): Promis
   return apiRequest(`/promotions/team/downlines?level=${level}&page=${page}`)
 }
 
-export async function fetchTeamCommissions(month: string): Promise<{ summary: TeamCommissionSummary; items: TeamCommissionItem[]; month: string; currency: 'PHP' | 'IDR' }> {
+export async function fetchTeamCommissions(month: string): Promise<{ summary: TeamCommissionSummary; items: TeamCommissionItem[]; month: string; currency: 'PHP' | 'IDR' | 'INR' }> {
   return apiRequest(`/promotions/team/commissions?month=${month}`)
 }
 
-export async function fetchTeamWallet(): Promise<{ currency: 'PHP' | 'IDR'; availableCents: number; frozenCents: number; lifetimeEarnedCents: number; minWithdrawalCents: number }> {
+export async function fetchTeamWallet(): Promise<{ currency: 'PHP' | 'IDR' | 'INR'; availableCents: number; frozenCents: number; lifetimeEarnedCents: number; minWithdrawalCents: number }> {
   return apiRequest('/promotions/team/wallet')
 }
 
@@ -137,7 +137,7 @@ export interface TeamTreeNode {
   children: TeamTreeNode[]
 }
 
-export async function fetchTeamTree(month: string): Promise<{ currency: 'PHP' | 'IDR'; l1Members: TeamTreeNode[] }> {
+export async function fetchTeamTree(month: string): Promise<{ currency: 'PHP' | 'IDR' | 'INR'; l1Members: TeamTreeNode[] }> {
   return apiRequest(`/promotions/team/tree?month=${encodeURIComponent(month)}`)
 }
 

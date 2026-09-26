@@ -33,6 +33,7 @@ export default function BettingTable({ currency, locale, t, onTapGame }: {
   const [betLoaded, setBetLoaded] = useState<Record<BetTab, boolean>>({ latest: false, week: false, month: false })
 
   function formatBet(amount: number, cur: string) {
+    if (cur === 'INR') return `₹ ${amount.toLocaleString('en-IN')}`
     return cur === 'IDR' ? `Rp ${amount.toLocaleString('en-US')}` : `₱ ${amount.toLocaleString('en-PH')}`
   }
 

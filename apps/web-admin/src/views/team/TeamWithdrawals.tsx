@@ -11,6 +11,7 @@ function phpDisplay(cents: number) {
 }
 function moneyDisplay(cents: number, currency: string) {
   if (currency === 'PHP') return phpDisplay(cents)
+  if (currency === 'INR') return `₹${((cents ?? 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return `Rp${Math.round((cents ?? 0) / 100).toLocaleString('id-ID')}`
 }
 function wdColor(s: string) {

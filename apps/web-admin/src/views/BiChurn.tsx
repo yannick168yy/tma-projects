@@ -20,7 +20,7 @@ export default function BiChurn() {
   const grant = async (userId: string) => {
     setGranting(userId)
     try {
-      const r = await grantChurnRedepOffer(userId, market === 'ID' ? 'IDR' : 'PHP')
+      const r = await grantChurnRedepOffer(userId, market === 'ID' ? 'IDR' : market === 'IN' ? 'INR' : 'PHP')
       if (r.ok) message.success(`已开窗：充值满 ${r.minDeposit} 送 ${r.bonusAmount}（用户下次进站可见）`)
       else message.warning(r.reason ?? '未能开窗')
     } finally {

@@ -16,7 +16,7 @@ const text = {
 
 function money(value: number, currency: string) {
   const amount = value.toLocaleString('en-US', { maximumFractionDigits: currency === 'IDR' ? 0 : 2 })
-  return currency === 'PHP' ? `₱${amount}` : currency === 'IDR' ? `Rp ${amount}` : `${amount} ${currency}`
+  return currency === 'PHP' ? `₱${amount}` : currency === 'IDR' ? `Rp ${amount}` : currency === 'INR' ? `₹${amount}` : `${amount} ${currency}`
 }
 
 export default function RegularRedepClaims({ currency, refreshKey = 0 }: Props) {

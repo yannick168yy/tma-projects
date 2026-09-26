@@ -11,10 +11,11 @@ import {
 } from '../api'
 
 // 与平台库 001_init.sql 的种子数据、site-domain.service.ts 的市场判定保持一致。
-// 目前只开放这两个市场；新市场上线时这里和后端 provision 逻辑要一起扩。
+// 新市场上线时这里和后端 provision 逻辑要一起扩。
 const MARKET_PRESET: Record<string, { label: string; currency: string; timezone: string }> = {
   PH: { label: '菲律宾 PH', currency: 'PHP', timezone: 'Asia/Manila' },
   ID: { label: '印尼 ID', currency: 'IDR', timezone: 'Asia/Jakarta' },
+  IN: { label: '印度 IN', currency: 'INR', timezone: 'Asia/Kolkata' },
 }
 
 const CODE_RULE = { pattern: /^[a-z][a-z0-9]{2,15}$/, message: '3-16 位小写字母数字，且以字母开头' }

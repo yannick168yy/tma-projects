@@ -30,10 +30,11 @@ function turnoverLabel(m: TeamTreeMember): string | null {
 
 function moneyDisplay(cents: number, currency: string) {
   if (currency === 'PHP') return phpDisplay(cents)
+  if (currency === 'INR') return `₹${((cents ?? 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return `Rp${Math.round((cents ?? 0) / 100).toLocaleString('id-ID')}`
 }
 
-function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3, currency: 'PHP' | 'IDR'): TreeNodeItem {
+function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3, currency: 'PHP' | 'IDR' | 'INR'): TreeNodeItem {
   const levelColor = level === 1 ? 'gold' : level === 2 ? 'blue' : 'green'
   const turnover = turnoverLabel(m)
   return {
@@ -74,7 +75,7 @@ export default function TeamAgents() {
   const [agentSort, setAgentSort] = useState<{ by?: string; order?: 'asc' | 'desc' }>({ by: 'lifetime', order: 'desc' })
   const [treeVisible, setTreeVisible] = useState(false)
   const [treeAgent, setTreeAgent] = useState<TeamAgent | null>(null)
-  const [treeData, setTreeData] = useState<{ currency: 'PHP' | 'IDR'; l1Members: TeamTreeMember[] } | null>(null)
+  const [treeData, setTreeData] = useState<{ currency: 'PHP' | 'IDR' | 'INR'; l1Members: TeamTreeMember[] } | null>(null)
   const [treeLoading, setTreeLoading] = useState(false)
   const [treeExpandedKeys, setTreeExpandedKeys] = useState<(string | number)[]>([])
   const [treePeriod, setTreePeriod] = useState(currentPeriod())

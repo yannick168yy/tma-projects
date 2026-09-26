@@ -77,7 +77,7 @@ export default function Deposits() {
           { value: 'failed', label: '失败' }, { value: 'cancelled', label: '已取消' },
           { value: 'rejected', label: '已拒绝' },
         ]} />
-        <Select value={currencyFilter} placeholder="币种" allowClear style={{ width: 110 }} onChange={setCurrencyFilter} options={['IDR', 'PHP', 'USDT', 'USDC'].map((value) => ({ value, label: value }))} />
+        <Select value={currencyFilter} placeholder="币种" allowClear style={{ width: 110 }} onChange={setCurrencyFilter} options={['IDR', 'INR', 'PHP', 'USDT', 'USDC'].map((value) => ({ value, label: value }))} />
         <Input value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} placeholder="渠道，如 unispay_qris" style={{ width: 190 }} allowClear />
         <RangePicker
           value={dateRange}

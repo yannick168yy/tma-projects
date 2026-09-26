@@ -1093,7 +1093,7 @@ export interface TeamOverview {
 export interface TeamAgent {
   userId: string
   displayName: string
-  currency: 'PHP' | 'IDR'
+  currency: 'PHP' | 'IDR' | 'INR'
   l1Count: number; l2Count: number; l3Count: number
   thisMonthCommissionCents: number
   lifetimeEarnedCents: number
@@ -1115,7 +1115,7 @@ export interface TeamCommission {
 export interface TeamWithdrawalAdmin {
   id: number
   user_id: string; display_name: string
-  currency: 'PHP' | 'IDR'
+  currency: 'PHP' | 'IDR' | 'INR'
   amount_cents: number; status: string
   reject_reason: string | null; reviewed_at: string | null; created_at: string
 }
@@ -1155,7 +1155,7 @@ export interface TeamTreeMember {
   children: TeamTreeMember[]
 }
 export const getTeamAgentTree = (userId: string, date?: string) =>
-  get<{ currency: 'PHP' | 'IDR'; l1Members: TeamTreeMember[] }>(`/admin/team/agents/${userId}/tree`, date ? { date } : undefined)
+  get<{ currency: 'PHP' | 'IDR' | 'INR'; l1Members: TeamTreeMember[] }>(`/admin/team/agents/${userId}/tree`, date ? { date } : undefined)
 
 export const getTeamCommissions = (params?: { period?: string; beneficiaryId?: string; status?: string; page?: number; pageSize?: number }) =>
   get<{ items: TeamCommission[]; total: number; page: number; pageSize: number }>('/admin/team/commissions', params)

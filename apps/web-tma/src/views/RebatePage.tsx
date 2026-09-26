@@ -96,7 +96,7 @@ function EveryIcon({ currency }: { currency: string }) {
         <path d="M38 28a15 15 0 0 1-26.5 5.5" stroke={GOLD} strokeWidth="2.5" strokeLinecap="round" />
         <path d="M11 41.5V33h8.5" stroke={GOLD} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </g>
-      <text x="24" y="29.5" textAnchor="middle" fill="#f6c453" fontSize={currency === 'IDR' ? '11' : '16'} fontWeight="900" fontFamily="inherit">{currency === 'IDR' ? 'Rp' : currency === 'PHP' ? '₱' : '$'}</text>
+      <text x="24" y="29.5" textAnchor="middle" fill="#f6c453" fontSize={currency === 'IDR' ? '11' : '16'} fontWeight="900" fontFamily="inherit">{currency === 'IDR' ? 'Rp' : currency === 'PHP' ? '₱' : currency === 'INR' ? '₹' : '$'}</text>
     </svg>
   )
 }

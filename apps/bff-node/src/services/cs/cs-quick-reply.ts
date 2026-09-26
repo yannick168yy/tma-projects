@@ -36,6 +36,7 @@ function money(amount: string | number, currency: string): string {
   const n = Number(amount)
   if (currency === 'PHP') return `₱${n.toFixed(2)}`
   if (currency === 'IDR') return `Rp${n.toLocaleString('id-ID', { maximumFractionDigits: 2 })}`
+  if (currency === 'INR') return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return `${n.toFixed(2)} ${currency}`
 }
 

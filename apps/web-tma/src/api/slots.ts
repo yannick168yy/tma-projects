@@ -139,7 +139,7 @@ export interface BetRecord {
   provider: string
   imageUrl: string | null
   betAmount: number
-  currency: 'PHP' | 'IDR'
+  currency: 'PHP' | 'IDR' | 'INR'
 }
 
 export type BetTab = 'latest' | 'week' | 'month'

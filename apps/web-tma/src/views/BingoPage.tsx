@@ -45,6 +45,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
   const subGames = bingoGames.slice(1, 5)
   const marqueeWinners = useMemo(() => Array.from({ length: 24 }, (_, i) => PERYA_WINNERS[i % PERYA_WINNERS.length]), [])
   const displayPesoAmount = (value: string) => {
+    if (activeCurrency === 'INR') return value.replace('₱', '₹')
     if (activeCurrency !== 'IDR') return value
     const php = Number(value.replace(/[^\d.]/g, ''))
     return Number.isFinite(php) ? `Rp ${(Math.round(php * 287 / 100) * 100).toLocaleString('en-US')}` : value

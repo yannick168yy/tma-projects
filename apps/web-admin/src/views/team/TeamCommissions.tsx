@@ -13,6 +13,7 @@ function usdtCell(cents: number) {
 }
 function commissionCell(cents: number, currency: string) {
   if (currency === 'PHP') return phpCell(cents)
+  if (currency === 'INR') return <span>{`₹${((cents ?? 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</span>
   return <span>{`Rp${Math.round((cents ?? 0) / 100).toLocaleString('id-ID')}`}</span>
 }
 

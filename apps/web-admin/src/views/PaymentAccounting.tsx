@@ -128,7 +128,7 @@ export default function PaymentAccounting() {
         title="服务商余额"
         extra={
           <Space>
-            <Segmented value={currency} onChange={(v) => setCurrency(String(v))} options={['IDR', 'PHP', 'USDT']} />
+            <Segmented value={currency} onChange={(v) => setCurrency(String(v))} options={['IDR', 'INR', 'PHP', 'USDT']} />
             <span style={{ color: '#999', fontSize: 12 }}>每小时自动刷新</span>
             <Button size="small" icon={<ReloadOutlined />} loading={refreshing} onClick={handleRefreshBalances}>手动刷新</Button>
           </Space>

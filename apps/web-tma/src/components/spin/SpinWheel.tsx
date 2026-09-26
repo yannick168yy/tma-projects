@@ -16,6 +16,7 @@ const PRIZE_IMAGES = [prize1Img, prize2Img, prize3Img, prize4Img, prize5Img, pri
 
 function fmtPrize(prize: SpinPrize) {
   if (prize.currency === 'IDR') return `Rp${Math.round(prize.amountPhp).toLocaleString('en-US')}`
+  if (prize.currency === 'INR') return `₹${Math.round(prize.amountPhp).toLocaleString('en-IN')}`
   if ((prize.currency ?? 'PHP') !== 'PHP') {
     return `${prize.amountPhp.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${prize.currency}`
   }

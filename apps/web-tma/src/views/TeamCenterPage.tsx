@@ -47,6 +47,7 @@ function phpDisplay(cents: number) {
 function moneyDisplay(cents: number, currency: string) {
   if (currency === 'PHP') return phpDisplay(cents)
   const val = Math.abs((cents ?? 0) / 100)
+  if (currency === 'INR') return `${cents < 0 ? '-' : ''}₹${val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return `${cents < 0 ? '-' : ''}Rp${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
 }
 
@@ -106,7 +107,7 @@ type SharePlatform = 'facebook' | 'viber' | 'whatsapp' | 'telegram' | 'x' | 'lin
 function TreeNodeRow({ node, depth, currency, expandedIds, onToggle }: {
   node: TeamTreeNode
   depth: 1 | 2 | 3
-  currency: 'PHP' | 'IDR'
+  currency: 'PHP' | 'IDR' | 'INR'
   expandedIds: Set<string>
   onToggle: (id: string) => void
 }) {
@@ -166,7 +167,7 @@ export default function TeamCenterPage() {
 
   // 树形视图状态
   const [treeView, setTreeView] = useState(true)
-  const [treeData, setTreeData] = useState<{ currency: 'PHP' | 'IDR'; l1Members: TeamTreeNode[] } | null>(null)
+  const [treeData, setTreeData] = useState<{ currency: 'PHP' | 'IDR' | 'INR'; l1Members: TeamTreeNode[] } | null>(null)
   const [treeLoading, setTreeLoading] = useState(false)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [guideOpen, setGuideOpen] = useState(false)
@@ -689,7 +690,7 @@ export default function TeamCenterPage() {
                   <p className={sectionTitleClass}>{t('team.withdrawAmount')}</p>
                   <div className="flex gap-3">
                     <div className="flex-1 relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg">{teamCurrency === 'IDR' ? 'Rp' : '₱'}</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg">{teamCurrency === 'IDR' ? 'Rp' : teamCurrency === 'INR' ? '₹' : '₱'}</span>
                       <input type="number" value={withdrawInput} placeholder={moneyDisplay(teamWallet?.minWithdrawalCents ?? 0, teamCurrency)} min={(teamWallet?.minWithdrawalCents ?? 0) / 100} step="1"
                         className="h-12 w-full rounded-xl border border-white/10 bg-[#06101a] pl-9 pr-3 text-base font-medium text-white outline-none focus:ring-1 focus:ring-amber-500"
                         onChange={(e) => setWithdrawInput(e.target.value)} />

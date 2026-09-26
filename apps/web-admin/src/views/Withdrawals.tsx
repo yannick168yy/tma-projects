@@ -161,7 +161,7 @@ export default function Withdrawals() {
         <Select value={verdictFilter} placeholder="审核结果" allowClear style={{ width: 140 }} onChange={setVerdictFilter} options={[
           { value: 'manual', label: '转人工' }, { value: 'pass', label: '自动通过' }, { value: 'none', label: '未审核' },
         ]} />
-        <Select value={currencyFilter} placeholder="币种" allowClear style={{ width: 110 }} onChange={setCurrencyFilter} options={['IDR', 'PHP', 'USDT', 'USDC'].map((value) => ({ value, label: value }))} />
+        <Select value={currencyFilter} placeholder="币种" allowClear style={{ width: 110 }} onChange={setCurrencyFilter} options={['IDR', 'INR', 'PHP', 'USDT', 'USDC'].map((value) => ({ value, label: value }))} />
         <Input value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} placeholder="渠道，如 unispay_bank" style={{ width: 190 }} allowClear />
         <Button type="primary" onClick={() => load(1)}>查询</Button>
       </Space>

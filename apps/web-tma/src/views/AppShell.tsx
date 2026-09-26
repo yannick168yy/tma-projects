@@ -120,7 +120,7 @@ export default function AppShell() {
   const activeAvailable = allBalances.find((b) => b.code === activeCurrency)?.available ?? 0
   const displayBalance = wallet.balance
     ? formatHeaderBalance(activeCurrency, activeAvailable)
-    : (activeCurrency === 'PHP' ? '₱ —' : activeCurrency === 'IDR' ? 'Rp —' : '—')
+    : (activeCurrency === 'PHP' ? '₱ —' : activeCurrency === 'IDR' ? 'Rp —' : activeCurrency === 'INR' ? '₹ —' : '—')
 
   const nav = useAppNavigation()
   const {

@@ -147,7 +147,7 @@ function RuleTable({
       >
         <Form form={ruleForm} layout="vertical" style={{ marginTop: 8 }}>
           <Form.Item label="币种" name="currency">
-            <Select options={[{ value: 'PHP', label: 'PHP' }, { value: 'IDR', label: 'IDR' }, { value: 'USDT', label: 'USDT' }]} />
+            <Select options={[{ value: 'PHP', label: 'PHP' }, { value: 'IDR', label: 'IDR' }, { value: 'INR', label: 'INR' }, { value: 'USDT', label: 'USDT' }]} />
           </Form.Item>
           <Form.Item label="交易类型" name="txType">
             <Select options={[
