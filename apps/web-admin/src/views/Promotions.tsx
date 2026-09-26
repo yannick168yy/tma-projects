@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Card, InputNumber, Select, Switch, Button, message, Typography, Row, Col, Spin, Tabs, Table, Space, Segmented, Popconfirm } from 'antd'
 import { GiftOutlined, PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
-import { getPromoConfig, savePromoConfig, triggerVipNegativeRebate, listPromoTemplates, applyPromoTemplate, FIRSTDEP_CURRENCIES, CONFIG_CCY_OPTIONS, type PromoConfig, type FirstDepTier, type RegularRedepTier, type PopupConfig, type BonusCard, type PromoTemplateOption } from '../api'
+import { getPromoConfig, savePromoConfig, triggerVipNegativeRebate, listPromoTemplates, applyPromoTemplate, FIRSTDEP_CURRENCIES, CONFIG_CCY_OPTIONS, type PromoConfig, type FirstDepTier, type RegularRedepTier, type PopupConfig, type BonusCard, type PromoTemplateOption , ccyPrecision } from '../api'
 
 const { Title, Text } = Typography
 
@@ -37,12 +37,13 @@ const FREQUENCY_OPTIONS = [
 function currencyPrefix(currency: string): string {
   if (currency === 'PHP') return '₱'
   if (currency === 'IDR') return 'Rp'
+  if (currency === 'INR') return '₹'
   return currency
 }
 
 function formatCurrencyTotals(byCurrency: Record<string, number>): string {
   return Object.entries(byCurrency)
-    .map(([currency, amount]) => `${currencyPrefix(currency)}${Number(amount).toLocaleString('en-US', { maximumFractionDigits: currency === 'IDR' ? 0 : 4 })}`)
+    .map(([currency, amount]) => `${currencyPrefix(currency)}${Number(amount).toLocaleString('en-US', { maximumFractionDigits: ccyPrecision(currency) === 0 ? 0 : 4 })}`)
     .join(' / ')
 }
 
@@ -310,7 +311,7 @@ export default function Promotions() {
         <Row gutter={24}>
           <Col span={8}>
             <Text>注册奖励金额（{generalCcy}）</Text>
-            <InputNumber style={{ width: '100%', marginTop: 4 }} min={1} precision={generalCcy === 'IDR' ? 0 : 2} value={cfg.trial.amountByCcy[generalCcy]} onChange={(v) => patch((d) => { d.trial.amountByCcy[generalCcy] = Number(v ?? 0); if (generalCcy === 'PHP') d.trial.amount = Number(v ?? 0) })} />
+            <InputNumber style={{ width: '100%', marginTop: 4 }} min={1} precision={ccyPrecision(generalCcy)} value={cfg.trial.amountByCcy[generalCcy]} onChange={(v) => patch((d) => { d.trial.amountByCcy[generalCcy] = Number(v ?? 0); if (generalCcy === 'PHP') d.trial.amount = Number(v ?? 0) })} />
           </Col>
           <Col span={8}>
             <Text>流水倍率（0=不要求）</Text>
@@ -333,7 +334,7 @@ export default function Promotions() {
         <Row gutter={24}>
           <Col span={8}>
             <Text>礼金金额（{generalCcy}）</Text>
-            <InputNumber style={{ width: '100%', marginTop: 4 }} min={1} precision={generalCcy === 'IDR' ? 0 : 2} value={cfg.appdl.amountByCcy[generalCcy]} onChange={(v) => patch((d) => { d.appdl.amountByCcy[generalCcy] = Number(v ?? 0); if (generalCcy === 'PHP') d.appdl.amount = Number(v ?? 0) })} />
+            <InputNumber style={{ width: '100%', marginTop: 4 }} min={1} precision={ccyPrecision(generalCcy)} value={cfg.appdl.amountByCcy[generalCcy]} onChange={(v) => patch((d) => { d.appdl.amountByCcy[generalCcy] = Number(v ?? 0); if (generalCcy === 'PHP') d.appdl.amount = Number(v ?? 0) })} />
           </Col>
           <Col span={8}>
             <Text>流水倍率（0=不要求）</Text>
@@ -369,12 +370,12 @@ export default function Promotions() {
           key: currency, label,
           children: <>
             <Text>每日赠金上限（{currency}）</Text>
-            <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} prefix={currencyPrefix(currency)} style={{ width: 220, margin: '0 0 12px 8px' }} value={cfg.regularRedep.dailyBonusCaps[currency] ?? 0} onChange={(v) => patch((d) => { d.regularRedep.dailyBonusCaps[currency] = Number(v ?? 0) })} />
+            <InputNumber min={0} precision={ccyPrecision(currency)} prefix={currencyPrefix(currency)} style={{ width: 220, margin: '0 0 12px 8px' }} value={cfg.regularRedep.dailyBonusCaps[currency] ?? 0} onChange={(v) => patch((d) => { d.regularRedep.dailyBonusCaps[currency] = Number(v ?? 0) })} />
             <Table<RegularRedepTier> size="small" pagination={false} rowKey={(_, idx) => `regular-${currency}-${idx}`}
               dataSource={cfg.regularRedep.tiers[currency]}
               columns={[
-                { title: `充值门槛（${currency}）`, render: (_: unknown, __: RegularRedepTier, idx: number) => <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} value={cfg.regularRedep.tiers[currency][idx].depositAmount} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].depositAmount = Number(v ?? 0) })} /> },
-                { title: `赠金（${currency}）`, render: (_: unknown, __: RegularRedepTier, idx: number) => <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} value={cfg.regularRedep.tiers[currency][idx].bonusAmount} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].bonusAmount = Number(v ?? 0) })} /> },
+                { title: `充值门槛（${currency}）`, render: (_: unknown, __: RegularRedepTier, idx: number) => <InputNumber min={0} precision={ccyPrecision(currency)} value={cfg.regularRedep.tiers[currency][idx].depositAmount} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].depositAmount = Number(v ?? 0) })} /> },
+                { title: `赠金（${currency}）`, render: (_: unknown, __: RegularRedepTier, idx: number) => <InputNumber min={0} precision={ccyPrecision(currency)} value={cfg.regularRedep.tiers[currency][idx].bonusAmount} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].bonusAmount = Number(v ?? 0) })} /> },
                 { title: '赠金流水', render: (_: unknown, __: RegularRedepTier, idx: number) => <InputNumber min={0} max={100} suffix="x" value={cfg.regularRedep.tiers[currency][idx].turnoverX} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].turnoverX = Number(v ?? 0) })} /> },
                 { title: '操作', width: 80, render: (_: unknown, __: RegularRedepTier, idx: number) => <Button danger type="text" icon={<DeleteOutlined />} onClick={() => patch((d) => { d.regularRedep.tiers[currency].splice(idx, 1) })} /> },
               ]} />
@@ -402,13 +403,13 @@ export default function Promotions() {
       <Row gutter={24} style={{ marginBottom: 16 }}>
         <Col span={8}>
           <Text>达标充值额（{redepCcy}）</Text>
-          <InputNumber prefix={currencyPrefix(redepCcy)} style={{ width: '100%', marginTop: 4 }} min={0} precision={redepCcy === 'IDR' ? 0 : 2}
+          <InputNumber prefix={currencyPrefix(redepCcy)} style={{ width: '100%', marginTop: 4 }} min={0} precision={ccyPrecision(redepCcy)}
             value={cfg.redep.byCcy[redepCcy]?.minDeposit ?? 0}
             onChange={(v) => patch((d) => { d.redep.byCcy[redepCcy] = { ...d.redep.byCcy[redepCcy], minDeposit: Number(v ?? 0) }; if (redepCcy === 'PHP') d.redep.minDeposit = Number(v ?? 0) })} />
         </Col>
         <Col span={8}>
           <Text>额外奖励（{redepCcy}）</Text>
-          <InputNumber prefix={currencyPrefix(redepCcy)} style={{ width: '100%', marginTop: 4 }} min={0} precision={redepCcy === 'IDR' ? 0 : 2}
+          <InputNumber prefix={currencyPrefix(redepCcy)} style={{ width: '100%', marginTop: 4 }} min={0} precision={ccyPrecision(redepCcy)}
             value={cfg.redep.byCcy[redepCcy]?.bonusAmount ?? 0}
             onChange={(v) => patch((d) => { d.redep.byCcy[redepCcy] = { ...d.redep.byCcy[redepCcy], bonusAmount: Number(v ?? 0) }; if (redepCcy === 'PHP') d.redep.bonusAmount = Number(v ?? 0) })} />
         </Col>
@@ -464,7 +465,7 @@ export default function Promotions() {
               })}
             />
           </Space>
-          <InputNumber prefix={currencyPrefix(lossCcy)} style={{ width: '100%', marginTop: 4 }} min={0} precision={lossCcy === 'IDR' ? 0 : 2}
+          <InputNumber prefix={currencyPrefix(lossCcy)} style={{ width: '100%', marginTop: 4 }} min={0} precision={ccyPrecision(lossCcy)}
             value={cfg.lossRebate.minDepositByCcy[lossCcy] ?? 0}
             onChange={(v) => patch((d) => { d.lossRebate.minDepositByCcy[lossCcy] = Number(v ?? 0); if (lossCcy === 'PHP') d.lossRebate.minDeposit = Number(v ?? 0) })} />
         </Col>

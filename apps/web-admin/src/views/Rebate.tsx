@@ -12,7 +12,7 @@ import {
   getFeaturedGames, addFeaturedGame, removeFeaturedGame,
   triggerRebatePayout, getRebateRecords,
   getWin568ProviderStats, getAdminWin568Games,
-  CONFIG_CCY_OPTIONS,
+  CONFIG_CCY_OPTIONS, ccySymbol, ccyPrecision,
   type RebateConfigItem, type RebateThresholdItem, type RebateFeaturedGame, type RebateRecord, type AdminWin568Game,
 } from '../api'
 import { PAGE_SIZE_OPTIONS } from '../pagination'
@@ -220,7 +220,7 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
     try {
       const res = await triggerRebatePayout()
       const totals = Object.entries(res.byCurrency)
-        .map(([currency, amount]) => `${currency === 'PHP' ? '₱' : currency === 'IDR' ? 'Rp' : currency}${Number(amount).toLocaleString('en-US', { maximumFractionDigits: currency === 'IDR' ? 0 : 4 })}`)
+        .map(([currency, amount]) => `${ccySymbol(currency)}${Number(amount).toLocaleString('en-US', { maximumFractionDigits: ccyPrecision(currency) === 0 ? 0 : 4 })}`)
         .join(' / ')
       message.success(`已结算至当前时间：${res.users} 个用户币种，${totals} 待领取`)
       void loadRecords()

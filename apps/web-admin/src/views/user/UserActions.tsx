@@ -19,7 +19,7 @@ export default function UserActions({ userId, currentStatus, currentLabel, onSuc
   const [adjustOpPwd, setAdjustOpPwd] = useState('')
   const [opLoading, setOpLoading] = useState(false)
 
-  const adjustDigits = adjustCurrency === 'IDR' ? 0 : adjustCurrency === 'PHP' ? 2 : 6
+  const adjustDigits = adjustCurrency === 'IDR' || adjustCurrency === 'INR' ? 0 : adjustCurrency === 'PHP' ? 2 : 6
 
   useEffect(() => { setNewStatus(currentStatus) }, [currentStatus])
   useEffect(() => { setNewLabel(currentLabel) }, [currentLabel])
@@ -88,7 +88,7 @@ export default function UserActions({ userId, currentStatus, currentLabel, onSuc
                   label: c === 'TRX_TESTNET' ? <span>TRX <sup style={{ color: '#faad14', fontSize: 10, fontWeight: 700 }}>TEST</sup></span> : c,
                 }))}
               />
-              <InputNumber value={adjustAmount} onChange={(v) => setAdjustAmount(v ?? 0)} step={adjustCurrency === 'IDR' || adjustCurrency === 'PHP' ? 1 : 0.000001} precision={adjustDigits} style={{ width: 160 }} placeholder="金额" />
+              <InputNumber value={adjustAmount} onChange={(v) => setAdjustAmount(v ?? 0)} step={adjustCurrency === 'IDR' || adjustCurrency === 'INR' || adjustCurrency === 'PHP' ? 1 : 0.000001} precision={adjustDigits} style={{ width: 160 }} placeholder="金额" />
               <Input value={adjustNote} onChange={(e) => setAdjustNote(e.target.value)} placeholder="备注" style={{ width: 200 }} />
             </Space>
             <Space>

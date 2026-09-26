@@ -15,13 +15,14 @@ function labelText(l: string) {
 }
 function fmtDate(s: string) { return new Date(s).toLocaleString('zh-CN') }
 function fmtBalance(n: number, currency: string) {
-  const digits = currency === 'IDR' ? 0 : currency === 'PHP' ? 2 : 6
+  const digits = currency === 'IDR' || currency === 'INR' ? 0 : currency === 'PHP' ? 2 : 6
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
 
 function currencyPrefix(currency: string) {
   if (currency === 'PHP') return '₱'
   if (currency === 'IDR') return 'Rp'
+  if (currency === 'INR') return '₹'
   return `${currency} `
 }
 

@@ -2,6 +2,9 @@ import axios from 'axios'
 
 const BASE = import.meta.env.VITE_ADMIN_API_BASE_URL || '/api/v1'
 
+/** 后台报表的市场口径，与 MarketScope 的切换项一致 */
+export type AdminMarket = 'ALL' | 'PH' | 'ID' | 'IN'
+
 export const http = axios.create({ baseURL: BASE })
 
 http.interceptors.request.use((config) => {
@@ -91,7 +94,7 @@ export const getDashboard = () => get<{
 
 export interface HomeDashboard {
   asOf: string
-  market: 'ALL' | 'PH' | 'ID'; currency: 'USDT' | 'PHP' | 'IDR'; timezone: 'UTC+7' | 'UTC+8'
+  market: AdminMarket; currency: 'USDT' | 'PHP' | 'IDR' | 'INR'; timezone: string
   todos: { manualWithdrawals: number; rejectedKyc: number; csConversations: number; openAlerts: number }
   today: BiWindowStats
   yesterdaySameTime: BiWindowStats
@@ -111,7 +114,7 @@ export interface HomeDashboard {
   }
   users: { total: number; active: number; frozen: number }
 }
-export const getHomeDashboard = (market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<HomeDashboard>('/admin/dashboard/v2', { market })
+export const getHomeDashboard = (market: AdminMarket = 'ALL') => get<HomeDashboard>('/admin/dashboard/v2', { market })
 
 // BI 数据分析
 export interface BiWindowStats {
@@ -125,13 +128,13 @@ export interface BiWindowStats {
 }
 export interface BiOverview {
   asOf: string
-  market: 'ALL' | 'PH' | 'ID'; currency: 'USDT' | 'PHP' | 'IDR'; timezone: 'UTC+7' | 'UTC+8'
+  market: AdminMarket; currency: 'USDT' | 'PHP' | 'IDR' | 'INR'; timezone: string
   today: BiWindowStats
   yesterdaySameTime: BiWindowStats
   lastWeekSameTime: BiWindowStats
   yesterdayFull: BiWindowStats
 }
-export const getBiOverview = (market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<BiOverview>('/admin/bi/overview', { market })
+export const getBiOverview = (market: AdminMarket = 'ALL') => get<BiOverview>('/admin/bi/overview', { market })
 
 export interface BiTrendPoint {
   date: string; deposit: number; withdraw: number; betAmount: number
@@ -163,34 +166,34 @@ export interface BiAlertRow {
 export const getBiAlerts = (status?: string) => get<BiAlertRow[]>('/admin/bi/alerts', status ? { status } : undefined)
 
 export interface BiFunnel { registered: number; kycApproved: number; firstDep: number; redep: number }
-export const getBiFunnel = (params: { days: number; source?: string; market?: 'ALL' | 'PH' | 'ID' }) => get<BiFunnel>('/admin/bi/funnel', params)
+export const getBiFunnel = (params: { days: number; source?: string; market?: AdminMarket }) => get<BiFunnel>('/admin/bi/funnel', params)
 
 export interface BiRetentionCohort { week: string; size: number; d1: number; d3: number; d7: number; d14: number; d30: number }
-export const getBiRetention = (weeks: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<BiRetentionCohort[]>('/admin/bi/retention', { weeks, market })
+export const getBiRetention = (weeks: number, market: AdminMarket = 'ALL') => get<BiRetentionCohort[]>('/admin/bi/retention', { weeks, market })
 
 export interface BiRfmCell { valueTier: string; recency: string; users: number; depositAmount: number }
-export const getBiRfm = (days: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') =>
+export const getBiRfm = (days: number, market: AdminMarket = 'ALL') =>
   get<{ cells: BiRfmCell[]; nonDepositors: number; totalUsers: number }>('/admin/bi/rfm', { days, market })
 
 export interface BiLtvCohort { week: string; size: number; d7: number; d30: number; d60: number; d90: number }
-export const getBiLtv = (weeks: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<BiLtvCohort[]>('/admin/bi/ltv', { weeks, market })
+export const getBiLtv = (weeks: number, market: AdminMarket = 'ALL') => get<BiLtvCohort[]>('/admin/bi/ltv', { weeks, market })
 
 export interface BiTopWinner { userId: string; displayName: string; netWin: number; betAmount: number }
-export const getBiTopWinners = (days: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<BiTopWinner[]>('/admin/bi/top-winners', { days, market })
+export const getBiTopWinners = (days: number, market: AdminMarket = 'ALL') => get<BiTopWinner[]>('/admin/bi/top-winners', { days, market })
 
 export interface BiAcquisitionRow {
   source: string; newUsers: number; firstDepUsers: number
   conversion: number | null; bonusCost: number; ngr: number
 }
-export const getBiAcquisition = (days: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') =>
+export const getBiAcquisition = (days: number, market: AdminMarket = 'ALL') =>
   get<{ sources: BiAcquisitionRow[]; dauTrend: { dates: string[]; series: { name: string; data: number[] }[] }; currency: string }>('/admin/bi/acquisition', { days, market })
 
 export interface BiForecastPoint { date: string; value: number }
-export const getBiForecast = (metric: 'ggr' | 'deposit', market: 'ALL' | 'PH' | 'ID' = 'ALL') =>
+export const getBiForecast = (metric: 'ggr' | 'deposit', market: AdminMarket = 'ALL') =>
   get<{ history: BiForecastPoint[]; forecast: BiForecastPoint[]; currency?: string }>('/admin/bi/forecast', { metric, market })
 
-export const getBiTargets = (period: string, market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<{ metric: string; targetValue: number }[]>('/admin/bi/targets', { period, market })
-export const putBiTarget = (period: string, metric: string, targetValue: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') =>
+export const getBiTargets = (period: string, market: AdminMarket = 'ALL') => get<{ metric: string; targetValue: number }[]>('/admin/bi/targets', { period, market })
+export const putBiTarget = (period: string, metric: string, targetValue: number, market: AdminMarket = 'ALL') =>
   put<{ ok: boolean }>('/admin/bi/targets', { period, metric, targetValue, market })
 
 export interface BiTargetProgress {
@@ -198,13 +201,13 @@ export interface BiTargetProgress {
   timeProgress: number; completion: number; requiredDaily: number
   projected: number; projectedCompletion: number
 }
-export const getBiTargetProgress = (market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<{ period: string; items: BiTargetProgress[]; currency?: string }>('/admin/bi/target-progress', { market })
+export const getBiTargetProgress = (market: AdminMarket = 'ALL') => get<{ period: string; items: BiTargetProgress[]; currency?: string }>('/admin/bi/target-progress', { market })
 
 export interface BiChurnUser {
   userId: string; displayName: string; deposit90d: number
   lastActive: string; idleDays: number; cadenceDays: number; score: number
 }
-export const getBiChurnRisk = (market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<BiChurnUser[]>('/admin/bi/churn-risk', { market })
+export const getBiChurnRisk = (market: AdminMarket = 'ALL') => get<BiChurnUser[]>('/admin/bi/churn-risk', { market })
 export const grantChurnRedepOffer = (userId: string, currency = 'PHP') =>
   post<{ ok: boolean; reason?: string; bonusAmount?: number; minDeposit?: number; endsAt?: string }>('/admin/bi/churn/redep-offer', { userId, currency })
 
@@ -212,7 +215,7 @@ export interface BiChannelRow {
   direction: string; channel: string; total: number; success: number
   rate: number; avgSecs: number | null
 }
-export const getBiChannels = (days: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') =>
+export const getBiChannels = (days: number, market: AdminMarket = 'ALL') =>
   get<{ channels: BiChannelRow[]; trend: { dates: string[]; series: { name: string; data: (number | null)[] }[] } }>('/admin/bi/channels', { days, market })
 export interface AdSourceRow {
   channelCode: string; downloads: number; installs: number; regUsers: number; firstDepUsers: number
@@ -222,11 +225,11 @@ export interface AdSourceReport {
   from: string; to: string; currency: string
   rows: AdSourceRow[]; totals: Omit<AdSourceRow, 'channelCode'>
 }
-export const getAdSources = (params: { from?: string; to?: string; channel?: string; market?: 'ALL' | 'PH' | 'ID' }) =>
+export const getAdSources = (params: { from?: string; to?: string; channel?: string; market?: AdminMarket }) =>
   get<AdSourceReport>('/admin/bi/ad-sources', params)
 
 export interface AdSourceTrendPoint { date: string; regUsers: number; firstDepUsers: number; depositAmount: number; arpu: number | null }
-export const getAdSourceTrend = (params: { channel: string; from?: string; to?: string; market?: 'ALL' | 'PH' | 'ID' }) =>
+export const getAdSourceTrend = (params: { channel: string; from?: string; to?: string; market?: AdminMarket }) =>
   get<{ channel: string; currency: string; points: AdSourceTrendPoint[] }>('/admin/bi/ad-sources/trend', params)
 
 export interface ChannelQualityRow {
@@ -235,7 +238,7 @@ export interface ChannelQualityRow {
   avgLtvPhp: number | null; cpaUsd: number; suspiciousUsers: number
   withdrawAmount: number; walletBalance: number; rejectedWithdraw: number; netCashPhp: number; ngrPhp: number
 }
-export const getChannelQuality = (params: { from?: string; to?: string; market?: 'ALL' | 'PH' | 'ID' }) =>
+export const getChannelQuality = (params: { from?: string; to?: string; market?: AdminMarket }) =>
   get<{ rows: ChannelQualityRow[]; usdToPhp: number }>('/admin/bi/ad-sources/quality', params)
 export const getAdChannelCodes = () => get<string[]>('/admin/bi/ad-sources/channels')
 
@@ -250,7 +253,7 @@ export type RevosurgeStatus = {
 }
 export const getRevosurgeStatus = () => get<RevosurgeStatus>('/admin/bi/revosurge-status')
 
-export const getChannelVerdict = (data: { from: string; to: string; channels: string[]; spends?: Record<string, number>; market?: 'ALL' | 'PH' | 'ID' }) =>
+export const getChannelVerdict = (data: { from: string; to: string; channels: string[]; spends?: Record<string, number>; market?: AdminMarket }) =>
   post<{ text: string; ai: boolean }>('/admin/bi/ad-sources/verdict', data)
 
 export interface ChannelPrice { channelCode: string; cpaUsd: number; remark: string | null; updatedAt: string }
@@ -281,7 +284,7 @@ export interface AdminUser {
   lastLoginAt: string | null; lastLoginRegion: string | null; lastPlatform: string | null
   registerRegion: string | null
   registeredAt: string; balance: number; level: number
-  market: 'PH' | 'ID'; balanceCurrency: 'PHP' | 'IDR'
+  market: 'PH' | 'ID' | 'IN'; balanceCurrency: 'PHP' | 'IDR' | 'INR'
   channelCode: string | null
   depositAmount: number
   depositByCurrency: CurrencyAmount[]
@@ -410,7 +413,7 @@ export const updateUserLabel = (id: string, label: string) =>
   patch<{ label: string }>(`/admin/users/${id}/label`, { label })
 export const resetUserPassword = (id: string, provider: 'phone', password: string, opPassword: string) =>
   post<{ success: boolean }>(`/admin/users/${id}/reset-password`, { provider, password, opPassword })
-export const SUPPORTED_CURRENCIES = ['PHP', 'IDR', 'USDT', 'USDC', 'TRX_TESTNET'] as const
+export const SUPPORTED_CURRENCIES = ['PHP', 'IDR', 'INR', 'USDT', 'USDC', 'TRX_TESTNET'] as const
 export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number]
 
 export const adjustBalance = (id: string, amount: number, opPassword: string, currency: string, note?: string) =>
@@ -1217,12 +1220,28 @@ export const getBetRounds = (params: {
 
 // Promo Config
 export interface FirstDepTier { depositAmount: number; bonusAmount: number }
-export const FIRSTDEP_CURRENCIES = ['PHP', 'IDR', 'USDT', 'USDC'] as const
+export const FIRSTDEP_CURRENCIES = ['PHP', 'IDR', 'INR', 'USDT', 'USDC'] as const
 export type FirstDepCurrency = (typeof FIRSTDEP_CURRENCIES)[number]
+/** 法币无小数位，稳定币保留 2 位 */
+export const ccyPrecision = (currency: string): number => (currency === 'IDR' || currency === 'INR' ? 0 : 2)
+
+/** 后台新建配置时按 1 PHP = 1.53 INR 预填；≥1000 取百位，100~999 取十位，<100 取个位 */
+export function toInrRounded(phpAmount: number): number {
+  if (phpAmount <= 0) return 0
+  const raw = phpAmount * 1.53
+  if (raw >= 1000) return Math.round(raw / 100) * 100
+  if (raw >= 100) return Math.round(raw / 10) * 10
+  return Math.max(1, Math.round(raw))
+}
+
+export const ccySymbol = (currency: string): string =>
+  currency === 'PHP' ? '₱' : currency === 'IDR' ? 'Rp' : currency === 'INR' ? '₹' : currency
+
 // 激励类配置币种选项：稳定币 USDT/USDC 共用一套（保存 USDT 后端自动同步 USDC），后台只需维护两套
 export const CONFIG_CCY_OPTIONS = [
   { value: 'PHP', label: 'PHP' },
   { value: 'IDR', label: 'IDR' },
+  { value: 'INR', label: 'INR' },
   { value: 'USDT', label: 'USDT / USDC' },
 ] as const
 export type PopupAudience = 'all' | 'guest' | 'no_deposit' | 'new' | 'deposited'

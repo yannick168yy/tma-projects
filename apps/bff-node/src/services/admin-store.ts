@@ -269,6 +269,9 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
 
 const FOLD_CURRENCIES = ['PHP', 'IDR', 'INR', 'USDT', 'USDC', 'TRX_TESTNET']
 
+/** 用户所属市场对应的本币钱包/流水币种 */
+const MARKET_CURRENCY_SQL = `CASE u.market WHEN 'ID' THEN 'IDR' WHEN 'IN' THEN 'INR' ELSE 'PHP' END`
+
 // 排序字段白名单 -> SQL 列（值来自后端固定映射，杜绝注入）
 const USER_SORT_COLUMNS: Record<string, string> = {
   lastLoginAt: 'u.last_login_at',
@@ -356,7 +359,7 @@ export async function listAdminUsers(
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
   const attrJoin = `LEFT JOIN bg_user_attribution attr ON attr.user_id = u.id`
-  const walletJoin = `LEFT JOIN bg_wallet w ON w.user_id = u.id AND w.currency = CASE WHEN u.market = 'ID' THEN 'IDR' ELSE 'PHP' END`
+  const walletJoin = `LEFT JOIN bg_wallet w ON w.user_id = u.id AND w.currency = ${MARKET_CURRENCY_SQL}`
   const baseJoins = `${walletJoin} ${attrJoin} ${depJoin} ${wdJoin}`
 
   const sortCol = USER_SORT_COLUMNS[opts.sortBy ?? ''] ?? null
@@ -391,16 +394,17 @@ export async function listAdminUsers(
       `SELECT t.user_id, t.currency, SUM(t.effective_amount) AS total FROM bg_turnover_logs t
        JOIN bg_user u ON u.id = t.user_id
        WHERE t.is_reversed = 0
-         AND t.currency = CASE WHEN u.market = 'ID' THEN 'IDR' ELSE 'PHP' END
+         AND t.currency = ${MARKET_CURRENCY_SQL}
          AND t.user_id IN (${placeholders}) GROUP BY t.user_id, t.currency`,
       ids,
     )
-    const [phpThresholds, idrThresholds] = await Promise.all([
+    const [phpThresholds, idrThresholds, inrThresholds] = await Promise.all([
       getLevelThresholds(env, 'PHP'),
       getLevelThresholds(env, 'IDR'),
+      getLevelThresholds(env, 'INR'),
     ])
     for (const tr of tRows) {
-      const thresholds = tr.currency === 'IDR' ? idrThresholds : phpThresholds
+      const thresholds = tr.currency === 'IDR' ? idrThresholds : tr.currency === 'INR' ? inrThresholds : phpThresholds
       levelMap.set(String(tr.user_id), resolveLevel(thresholds, Number(tr.total)))
     }
   }
@@ -423,8 +427,8 @@ export async function listAdminUsers(
     registerRegion: r.register_region ? String(r.register_region) : null,
     registeredAt: (() => { const d = new Date(r.registered_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
     balance: Number(r.available),
-    market: r.market === 'ID' ? 'ID' : 'PH',
-    balanceCurrency: r.market === 'ID' ? 'IDR' : 'PHP',
+    market: r.market === 'ID' ? 'ID' : r.market === 'IN' ? 'IN' : 'PH',
+    balanceCurrency: r.market === 'ID' ? 'IDR' : r.market === 'IN' ? 'INR' : 'PHP',
     channelCode: r.channel_code ? String(r.channel_code) : null,
     level: levelMap.get(String(r.id)) ?? 1,
     depositAmount: Number(r.deposit_usdt),

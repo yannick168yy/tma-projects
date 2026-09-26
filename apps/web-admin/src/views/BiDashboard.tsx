@@ -6,6 +6,7 @@ import {
 } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import {
+  ccySymbol,
   getBiAlerts, getBiForecast, getBiOverview, getBiTargetProgress, getBiTargets, getBiTrends, putBiTarget,
   type BiForecastPoint, type BiOverview, type BiTargetProgress, type BiTrendPoint, type BiWindowStats,
 } from '../api'
@@ -20,7 +21,7 @@ const metricLabel = (metric: string, unit: string) => ({
 const fmtMoney = (v: number) => v.toLocaleString('en-PH', { maximumFractionDigits: 0 })
 const formatRawAmount = (value: number, currency: string) => currency === 'PHP'
   ? `₱${fmtMoney(value)}`
-  : currency === 'IDR' ? `Rp ${fmtMoney(value)}` : `${currency} ${fmtMoney(value)}`
+  : `${ccySymbol(currency)}${fmtMoney(value)}`
 
 function DeltaTag({ cur, base, label }: { cur: number; base: number; label: string }) {
   if (!base) return <span style={{ color: '#999', fontSize: 12 }}>{label} —</span>

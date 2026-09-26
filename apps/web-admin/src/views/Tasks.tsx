@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Card, Table, Switch, InputNumber, Input, Select, Button, message, Spin, Tabs, Typography, Tag, Space, Popconfirm, Segmented } from 'antd'
 import {
+  ccyPrecision,
   getTaskConfig, saveTaskConfig, type TaskConfig, type TaskRewardCfg, type TaskRewardType,
   getTaskSocial, saveTaskSocial, type TaskSocialConfig,
   getTaskReviews, reviewTaskManual, type TaskManualReview,
@@ -131,7 +132,7 @@ function SocialConfig() {
           { title: '频道标识', dataIndex: 'channel_ref', width: 150, render: (v: string, r) => <Input placeholder="@channel / chat_id" value={v} onChange={(e) => patch(r.task_key, { channel_ref: e.target.value })} /> },
           { title: '当前暗号', dataIndex: 'redeem_code', width: 120, render: (v: string, r) => <Input value={v} onChange={(e) => patch(r.task_key, { redeem_code: e.target.value })} /> },
           { title: '奖励类型', dataIndex: 'reward_type', width: 110, render: (v: TaskRewardType, r) => <Select style={{ width: 100 }} value={v} options={REWARD_TYPE_OPTS} onChange={(x) => patch(r.task_key, { reward_type: x })} /> },
-          { title: `现金(${currency})`, dataIndex: 'reward_amount', width: 110, render: (_v: number, r) => <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} value={r.reward_by_currency?.[currency] ?? r.reward_amount} onChange={(x) => patch(r.task_key, { reward_amount: currency === 'PHP' ? Number(x) : r.reward_amount, reward_by_currency: { ...(r.reward_by_currency ?? {}), [currency]: Number(x) } })} /> },
+          { title: `现金(${currency})`, dataIndex: 'reward_amount', width: 110, render: (_v: number, r) => <InputNumber min={0} precision={ccyPrecision(currency)} value={r.reward_by_currency?.[currency] ?? r.reward_amount} onChange={(x) => patch(r.task_key, { reward_amount: currency === 'PHP' ? Number(x) : r.reward_amount, reward_by_currency: { ...(r.reward_by_currency ?? {}), [currency]: Number(x) } })} /> },
           { title: '次数', dataIndex: 'reward_spin', width: 80, render: (v: number, r) => <InputNumber min={0} value={v} onChange={(x) => patch(r.task_key, { reward_spin: Number(x) })} /> },
           { title: '打码', dataIndex: 'turnover_x', width: 80, render: (v: number, r) => <InputNumber min={0} value={v} onChange={(x) => patch(r.task_key, { turnover_x: Number(x) })} /> },
           { title: '开关', dataIndex: 'enabled', width: 70, render: (v: number, r) => <Switch checked={!!v} onChange={(x) => patch(r.task_key, { enabled: x ? 1 : 0 })} /> },
@@ -211,7 +212,7 @@ function AppdlConfig() {
         <Segmented value={currency} onChange={(v) => setCurrency(String(v))}
           options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
         <Space><Text>开关</Text><Switch checked={cfg.appdl.enabled} onChange={(x) => patch({ enabled: x })} /></Space>
-        <Space><Text>奖金 {currency}</Text><InputNumber min={1} precision={currency === 'IDR' ? 0 : 2} value={cfg.appdl.amountByCcy[currency] ?? cfg.appdl.amount} onChange={(v) => setCfg((c) => c ? { ...c, appdl: { ...c.appdl, amount: currency === 'PHP' ? Number(v ?? 0) : c.appdl.amount, amountByCcy: { ...c.appdl.amountByCcy, [currency]: Number(v ?? 0) } } } : c)} /></Space>
+        <Space><Text>奖金 {currency}</Text><InputNumber min={1} precision={ccyPrecision(currency)} value={cfg.appdl.amountByCcy[currency] ?? cfg.appdl.amount} onChange={(v) => setCfg((c) => c ? { ...c, appdl: { ...c.appdl, amount: currency === 'PHP' ? Number(v ?? 0) : c.appdl.amount, amountByCcy: { ...c.appdl.amountByCcy, [currency]: Number(v ?? 0) } } } : c)} /></Space>
         <Space><Text>打码倍数</Text><InputNumber min={0} max={100} precision={0} value={cfg.appdl.turnoverX} onChange={(v) => patch({ turnoverX: Number(v ?? 0) })} /></Space>
         <Space><Text>流水有效期(天)</Text><InputNumber min={0} max={365} precision={0} value={cfg.appdl.turnoverDays} onChange={(v) => patch({ turnoverDays: Number(v ?? 0) })} /></Space>
       </Space>

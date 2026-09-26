@@ -2,6 +2,7 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { toIdrHundred } from '../utils/idr.js'
+import { toInrRounded } from '../utils/inr.js'
 
 export interface FirstDepTier {
   depositAmount: number
@@ -13,7 +14,7 @@ export interface RegularRedepTier extends FirstDepTier {
 }
 
 /** 首充嘉年华支持的币种（USDC 暂未开通充值通道，先预留配置） */
-export const FIRSTDEP_CURRENCIES = ['PHP', 'IDR', 'USDT', 'USDC'] as const
+export const FIRSTDEP_CURRENCIES = ['PHP', 'IDR', 'INR', 'USDT', 'USDC'] as const
 export type FirstDepCurrency = (typeof FIRSTDEP_CURRENCIES)[number]
 
 /** 首页弹窗调度：开关/顺序/覆盖人群/弹出频率，客户端按此调度进站弹窗 */
@@ -126,17 +127,24 @@ const DEFAULT_FIRSTDEP_TIERS: Record<string, FirstDepTier[]> = {
     { depositAmount: 1435000, bonusAmount: 258300 }, { depositAmount: 2870000, bonusAmount: 344400 },
     { depositAmount: 14350000, bonusAmount: 574000 },
   ],
+  INR: [
+    { depositAmount: 31, bonusAmount: 15 }, { depositAmount: 77, bonusAmount: 31 },
+    { depositAmount: 150, bonusAmount: 77 }, { depositAmount: 310, bonusAmount: 92 },
+    { depositAmount: 770, bonusAmount: 150 }, { depositAmount: 1500, bonusAmount: 230 },
+    { depositAmount: 7700, bonusAmount: 1400 }, { depositAmount: 15300, bonusAmount: 1800 },
+    { depositAmount: 76500, bonusAmount: 3100 },
+  ],
 }
 
 export const PROMO_DEFAULTS: PromoConfig = {
   // trial 流水 3x：0x 时体验金可直接提现（资损口子），与活动展示口径一致
-  trial:    { amount: 88, amountByCcy: { PHP: 88, IDR: 25300, USDT: 1.52, USDC: 1.52 }, enabled: true, turnoverX: 3, turnoverDays: 0 },
+  trial:    { amount: 88, amountByCcy: { PHP: 88, IDR: 25300, INR: 130, USDT: 1.52, USDC: 1.52 }, enabled: true, turnoverX: 3, turnoverDays: 0 },
   firstdep: { enabled: true, turnoverX: 1, turnoverDays: 30, tiers: DEFAULT_FIRSTDEP_TIERS },
   // App/PWA 下载礼金：默认关闭，后台开启后客户端宣传位才展示
-  appdl:    { amount: 66, amountByCcy: { PHP: 66, IDR: 18900, USDT: 1.14, USDC: 1.14 }, enabled: false, turnoverX: 5, turnoverDays: 30 },
+  appdl:    { amount: 66, amountByCcy: { PHP: 66, IDR: 18900, INR: 100, USDT: 1.14, USDC: 1.14 }, enabled: false, turnoverX: 5, turnoverDays: 30 },
   // 复充限时优惠：默认关闭，后台开启后按人群触发；按币种独立(PHP/IDR/USDT/USDC)
   redep:    { enabled: false, minDeposit: 500, bonusAmount: 75,
-              byCcy: { PHP: { minDeposit: 500, bonusAmount: 75 }, IDR: { minDeposit: 143500, bonusAmount: 21500 }, USDT: { minDeposit: 8.62, bonusAmount: 1.29 }, USDC: { minDeposit: 8.62, bonusAmount: 1.29 } },
+              byCcy: { PHP: { minDeposit: 500, bonusAmount: 75 }, IDR: { minDeposit: 143500, bonusAmount: 21500 }, INR: { minDeposit: 770, bonusAmount: 110 }, USDT: { minDeposit: 8.62, bonusAmount: 1.29 }, USDC: { minDeposit: 8.62, bonusAmount: 1.29 } },
               windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
   regularRedep: {
     enabled: true,
@@ -152,6 +160,12 @@ export const PROMO_DEFAULTS: PromoConfig = {
         { depositAmount: 500000, bonusAmount: 70000, turnoverX: 30 }, { depositAmount: 1000000, bonusAmount: 170000, turnoverX: 33 },
         { depositAmount: 2000000, bonusAmount: 380000, turnoverX: 35 }, { depositAmount: 5000000, bonusAmount: 1000000, turnoverX: 35 },
       ],
+      INR: [
+        { depositAmount: 770, bonusAmount: 77, turnoverX: 25 }, { depositAmount: 1500, bonusAmount: 180, turnoverX: 28 },
+        { depositAmount: 3100, bonusAmount: 430, turnoverX: 30 }, { depositAmount: 4600, bonusAmount: 690, turnoverX: 32 },
+        { depositAmount: 7700, bonusAmount: 1300, turnoverX: 33 }, { depositAmount: 15300, bonusAmount: 2800, turnoverX: 34 },
+        { depositAmount: 30600, bonusAmount: 5800, turnoverX: 35 }, { depositAmount: 76500, bonusAmount: 15300, turnoverX: 35 },
+      ],
       USDT: [
         { depositAmount: 20, bonusAmount: 2, turnoverX: 25 }, { depositAmount: 50, bonusAmount: 6, turnoverX: 28 },
         { depositAmount: 100, bonusAmount: 14, turnoverX: 30 }, { depositAmount: 200, bonusAmount: 34, turnoverX: 33 },
@@ -164,11 +178,11 @@ export const PROMO_DEFAULTS: PromoConfig = {
       ],
     },
     turnoverX: 25, turnoverDays: 30, claimHours: 24, dailyMaxClaims: 3,
-    dailyBonusCaps: { PHP: 10000, IDR: 1000000, USDT: 200, USDC: 200 },
+    dailyBonusCaps: { PHP: 10000, IDR: 1000000, INR: 15300, USDT: 200, USDC: 200 },
     stackWithLimited: false,
   },
   // 负盈利返水：默认关闭，后台开启后每日结算。白名单只含电子类(slots/fishing)，排除真人(live)/体育(sports)防对赌套利
-  lossRebate: { enabled: false, enabledCurrencies: ['PHP', 'USDT', 'USDC'], ratePct: 5, minDeposit: 50, minDepositByCcy: { PHP: 50, IDR: 14400, USDT: 0.86, USDC: 0.86 }, windowDays: 7, capToDeposit: true, eligibleCats: ['slots', 'fishing'], settleHour: 0 },
+  lossRebate: { enabled: false, enabledCurrencies: ['PHP', 'USDT', 'USDC'], ratePct: 5, minDeposit: 50, minDepositByCcy: { PHP: 50, IDR: 14400, INR: 77, USDT: 0.86, USDC: 0.86 }, windowDays: 7, capToDeposit: true, eligibleCats: ['slots', 'fishing'], settleHour: 0 },
   popups:   [
     { id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' },
     // firstdep=首页首充悬浮球，trial=活动页进站弹窗；均为常驻/进站入口，frequency 不生效于常驻，仅用开关/人群
@@ -267,13 +281,15 @@ function bool(v: string | undefined, fallback: boolean): boolean {
 }
 
 /** 金额型 config_key 的币种后缀：PHP 用原 key，稳定币用 key_usdt / key_usdc */
-export const PROMO_CCYS = ['PHP', 'IDR', 'USDT', 'USDC'] as const
+export const PROMO_CCYS = ['PHP', 'IDR', 'INR', 'USDT', 'USDC'] as const
 const ccyKey = (base: string, ccy: string): string => (ccy === 'PHP' ? base : `${base}_${ccy.toLowerCase()}`)
 
 function parseAmountByCcy(r: Record<string, string>, defaults: Record<string, number>): Record<string, number> {
   const out: Record<string, number> = {}
   for (const c of PROMO_CCYS) {
-    const fallback = c === 'IDR' ? toIdrHundred(num(r.amount, defaults.PHP)) : defaults[c] ?? defaults.PHP
+    const fallback = c === 'IDR' ? toIdrHundred(num(r.amount, defaults.PHP))
+      : c === 'INR' ? toInrRounded(num(r.amount, defaults.PHP))
+      : defaults[c] ?? defaults.PHP
     out[c] = num(r[ccyKey('amount', c)], fallback)
   }
   return out
@@ -289,6 +305,8 @@ function parseRedepConfig(r: Record<string, string>): RedepConfig {
   for (const c of PROMO_CCYS) {
     const dc = c === 'IDR'
       ? { minDeposit: toIdrHundred(num(r.min_deposit, D.minDeposit)), bonusAmount: toIdrHundred(num(r.bonus_amount, D.bonusAmount)) }
+      : c === 'INR'
+      ? { minDeposit: toInrRounded(num(r.min_deposit, D.minDeposit)), bonusAmount: toInrRounded(num(r.bonus_amount, D.bonusAmount)) }
       : D.byCcy[c] ?? { minDeposit: D.minDeposit, bonusAmount: D.bonusAmount }
     byCcy[c] = {
       minDeposit: num(r[ccyKey('min_deposit', c)], dc.minDeposit),
@@ -350,7 +368,9 @@ function parseLossRebateConfig(r: Record<string, string>): LossRebateConfig {
   const D = PROMO_DEFAULTS.lossRebate
   const minDepositByCcy: Record<string, number> = {}
   for (const c of PROMO_CCYS) {
-    const fallback = c === 'IDR' ? toIdrHundred(num(r.min_deposit, D.minDeposit)) : D.minDepositByCcy[c] ?? D.minDeposit
+    const fallback = c === 'IDR' ? toIdrHundred(num(r.min_deposit, D.minDeposit))
+      : c === 'INR' ? toInrRounded(num(r.min_deposit, D.minDeposit))
+      : D.minDepositByCcy[c] ?? D.minDeposit
     minDepositByCcy[c] = num(r[ccyKey('min_deposit', c)], fallback)
   }
   return {

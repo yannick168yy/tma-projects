@@ -4,6 +4,10 @@ import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
 import { usdtRateMap } from './marketing-bi.service.js'
 import { getRate } from './exchange-rate.service.js'
+import {
+  displayCurrency, marketChannelFilter, marketCurrency, marketOffsetHours,
+  marketOffsetMinutes, marketTimezoneLabel, tzSuffix, type BiMarket,
+} from '../utils/market.js'
 
 // BI 驾驶舱查询服务（只读）。
 // 实时卡片：OLTP 窄时间窗查询（≤24h，走 created_at 索引），口径=今日累计 vs 昨日同时刻 vs 上周同日同时刻
@@ -22,20 +26,17 @@ function fmtUtc(ms: number): string {
   return new Date(ms).toISOString().slice(0, 19).replace('T', ' ')
 }
 
-export type BiMarket = 'ALL' | 'PH' | 'ID'
-
-export function marketCurrency(market: BiMarket): 'ALL' | 'PHP' | 'IDR' {
-  return market === 'PH' ? 'PHP' : market === 'ID' ? 'IDR' : 'ALL'
-}
-
-export function marketOffsetHours(market: BiMarket): 7 | 8 {
-  return market === 'ID' ? 7 : 8
-}
+// 市场口径工具在 utils/market，这里原样转出，老的 import 路径不用改
+export {
+  marketCurrency, displayCurrency, marketOffsetHours, marketOffsetMinutes,
+  marketTimezoneLabel, tzSuffix, marketChannelFilter,
+} from '../utils/market.js'
+export type { BiMarket } from '../utils/market.js'
 
 function marketDayStartMs(market: BiMarket, offsetDays = 0): number {
   const offset = marketOffsetHours(market)
   const date = new Date(Date.now() + offset * 3600 * 1000).toISOString().slice(0, 10)
-  return Date.parse(`${date}T00:00:00+${String(offset).padStart(2, '0')}:00`) + offsetDays * DAY_MS
+  return Date.parse(`${date}T00:00:00${tzSuffix(offset)}`) + offsetDays * DAY_MS
 }
 
 /** 兼容历史按马尼拉日生成的 BI 日表。 */
@@ -148,8 +149,8 @@ async function windowStats(env: Env, redis: Redis, startMs: number, endMs: numbe
 export interface BiOverview {
   asOf: string
   market: BiMarket
-  currency: 'USDT' | 'PHP' | 'IDR'
-  timezone: 'UTC+7' | 'UTC+8'
+  currency: 'USDT' | 'PHP' | 'IDR' | 'INR'
+  timezone: string
   today: BiWindowStats
   yesterdaySameTime: BiWindowStats
   lastWeekSameTime: BiWindowStats
@@ -168,8 +169,8 @@ export async function getBiOverview(env: Env, redis: Redis, market: BiMarket = '
   ])
   return {
     asOf: new Date(now).toISOString(), market,
-    currency: market === 'PH' ? 'PHP' : market === 'ID' ? 'IDR' : 'USDT',
-    timezone: market === 'ID' ? 'UTC+7' : 'UTC+8',
+    currency: displayCurrency(market),
+    timezone: marketTimezoneLabel(market),
     today, yesterdaySameTime, lastWeekSameTime, yesterdayFull,
   }
 }
@@ -193,7 +194,7 @@ export async function getBiTrends(
   opts: { days: number; granularity: 'day' | 'week' | 'month'; currency?: string },
 ): Promise<{ currency: string; series: BiTrendPoint[] }> {
   const db = pool(env)
-  const trendMarket: BiMarket = opts.currency === 'IDR' ? 'ID' : opts.currency === 'PHP' ? 'PH' : 'ALL'
+  const trendMarket: BiMarket = opts.currency === 'IDR' ? 'ID' : opts.currency === 'INR' ? 'IN' : opts.currency === 'PHP' ? 'PH' : 'ALL'
   const offset = marketOffsetHours(trendMarket)
   const fromDate = new Date(marketDayStartMs(trendMarket, -(opts.days - 1)) + offset * 3600 * 1000).toISOString().slice(0, 10)
 
@@ -514,7 +515,7 @@ export async function setBiAlertStatus(env: Env, id: number, status: 'ack' | 'cl
 // ---- P3 用户分析 ----
 
 // 注册时间按马尼拉日归属
-const regDay = (market: BiMarket) => `DATE(DATE_ADD(u.registered_at, INTERVAL ${marketOffsetHours(market)} HOUR))`
+const regDay = (market: BiMarket) => `DATE(DATE_ADD(u.registered_at, INTERVAL ${marketOffsetMinutes(market)} MINUTE))`
 
 export interface BiFunnel {
   registered: number
@@ -561,7 +562,7 @@ export async function getBiRetention(env: Env, weeks: number, market: BiMarket =
   const startUtc = fmtUtc(marketDayStartMs(market, -(weeks * 7 - 1)))
   const dayExpr = regDay(market)
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT DATE_FORMAT(DATE_ADD(u.registered_at, INTERVAL ${marketOffsetHours(market)} HOUR), '%x-W%v') wk,
+    `SELECT DATE_FORMAT(DATE_ADD(u.registered_at, INTERVAL ${marketOffsetMinutes(market)} MINUTE), '%x-W%v') wk,
             COUNT(DISTINCT u.id) size,
             COUNT(DISTINCT CASE WHEN DATEDIFF(a.stat_date, ${dayExpr})=1  THEN u.id END) d1,
             COUNT(DISTINCT CASE WHEN DATEDIFF(a.stat_date, ${dayExpr})=3  THEN u.id END) d3,
@@ -639,12 +640,12 @@ export async function getBiLtv(env: Env, redis: Redis, weeks: number, market: Bi
   const startUtc = fmtUtc(marketDayStartMs(market, -(weeks * 7 - 1)))
   const dayExpr = regDay(market)
   const [sizeRows] = await db.query<RowDataPacket[]>(
-    `SELECT DATE_FORMAT(DATE_ADD(u.registered_at, INTERVAL ${marketOffsetHours(market)} HOUR), '%x-W%v') wk, COUNT(*) size
+    `SELECT DATE_FORMAT(DATE_ADD(u.registered_at, INTERVAL ${marketOffsetMinutes(market)} MINUTE), '%x-W%v') wk, COUNT(*) size
      FROM bg_user u WHERE u.registered_at>=?${market === 'ALL' ? '' : ' AND u.market=?'} GROUP BY wk`,
     market === 'ALL' ? [startUtc] : [startUtc, market],
   )
   const [valRows] = await db.query<RowDataPacket[]>(
-    `SELECT DATE_FORMAT(DATE_ADD(u.registered_at, INTERVAL ${marketOffsetHours(market)} HOUR), '%x-W%v') wk, d.currency,
+    `SELECT DATE_FORMAT(DATE_ADD(u.registered_at, INTERVAL ${marketOffsetMinutes(market)} MINUTE), '%x-W%v') wk, d.currency,
             SUM(CASE WHEN DATEDIFF(d.stat_date, ${dayExpr})<7  THEN d.bet_amount-d.payout_amount-d.bonus_amount ELSE 0 END) v7,
             SUM(CASE WHEN DATEDIFF(d.stat_date, ${dayExpr})<30 THEN d.bet_amount-d.payout_amount-d.bonus_amount ELSE 0 END) v30,
             SUM(CASE WHEN DATEDIFF(d.stat_date, ${dayExpr})<60 THEN d.bet_amount-d.payout_amount-d.bonus_amount ELSE 0 END) v60,
@@ -732,7 +733,7 @@ export async function getBiChannels(
 ): Promise<{ channels: BiChannelRow[]; trend: { dates: string[]; series: { name: string; data: (number | null)[] }[] } }> {
   const db = pool(env)
   const fromDate = fromDateOf(days)
-  const marketFilter = market === 'ID' ? " AND channel LIKE 'unispay%'" : market === 'PH' ? " AND channel NOT LIKE 'unispay%'" : ''
+  const marketFilter = marketChannelFilter(market)
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT direction, channel, SUM(total) total, SUM(success) success,
             ROUND(SUM(avg_secs*success)/NULLIF(SUM(success),0)) avg_secs
@@ -787,9 +788,8 @@ async function dailyUsdtTotals(
   const out = new Map<string, number>()
   if (metric === 'new_users') {
     if (market !== 'ALL') {
-      const offset = marketOffsetHours(market)
       const [rows] = await db.query<RowDataPacket[]>(
-        `SELECT DATE(DATE_ADD(registered_at, INTERVAL ${offset} HOUR)) stat_date, COUNT(*) v
+        `SELECT DATE(DATE_ADD(registered_at, INTERVAL ${marketOffsetMinutes(market)} MINUTE)) stat_date, COUNT(*) v
          FROM bg_user WHERE market=? AND registered_at>=? GROUP BY stat_date`,
         [market, `${fromDate} 00:00:00`],
       )
@@ -859,7 +859,7 @@ export async function getBiForecast(
     .map(([date, value]) => ({ date, value: Math.round(value * 100) / 100 }))
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-14)
-  return { history, forecast: forecastDays(totals, 7, market), currency: market === 'PH' ? 'PHP' : market === 'ID' ? 'IDR' : 'USDT' }
+  return { history, forecast: forecastDays(totals, 7, market), currency: displayCurrency(market) }
 }
 
 // ---- P4 月度目标 ----
@@ -929,7 +929,7 @@ export async function getBiTargetProgress(env: Env, redis: Redis, market: BiMark
       projectedCompletion: t.targetValue > 0 ? projected / t.targetValue : 0,
     })
   }
-  return { period, items, currency: market === 'PH' ? 'PHP' : market === 'ID' ? 'IDR' : 'USDT' }
+  return { period, items, currency: displayCurrency(market) }
 }
 
 // ---- P4 流失预警 ----
@@ -1099,7 +1099,7 @@ export async function getBiAcquisition(
         `SELECT stat_date, entry_source, dau FROM bi_daily_acquisition
          WHERE stat_date>=? AND entry_source IN (?) ORDER BY stat_date`, [fromDate, topSources])
       : await db.query<RowDataPacket[]>(
-        `SELECT DATE(DATE_ADD(l.created_at, INTERVAL ${marketOffsetHours(market)} HOUR)) stat_date,
+        `SELECT DATE(DATE_ADD(l.created_at, INTERVAL ${marketOffsetMinutes(market)} MINUTE)) stat_date,
                 COALESCE(l.entry_source,'unknown') entry_source, COUNT(DISTINCT l.user_id) dau
          FROM bg_login_log l JOIN bg_user u ON u.id=l.user_id
          WHERE u.market=? AND l.created_at>=? AND COALESCE(l.entry_source,'unknown') IN (?)
@@ -1117,5 +1117,5 @@ export async function getBiAcquisition(
     for (const s of topSources) series.push({ name: s, data: byName.get(s) ?? [] })
   }
 
-  return { sources, dauTrend: { dates, series }, currency: market === 'PH' ? 'PHP' : market === 'ID' ? 'IDR' : 'USDT' }
+  return { sources, dauTrend: { dates, series }, currency: displayCurrency(market) }
 }

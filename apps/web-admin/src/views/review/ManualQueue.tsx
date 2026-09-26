@@ -9,6 +9,7 @@ import { wdStatusLabel } from './shared'
 
 function money(amount: number, currency: string): string {
   if (currency === 'IDR') return `Rp ${amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+  if (currency === 'INR') return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
   if (currency === 'PHP') return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return `${amount.toLocaleString('en-US', { maximumFractionDigits: 6 })} ${currency}`
 }

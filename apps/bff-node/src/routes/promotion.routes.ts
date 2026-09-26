@@ -83,7 +83,7 @@ router.get('/redep-offer', async (ctx) => {
 
 router.get('/regular-redep/claims', async (ctx) => {
   const currency = ctx.query.currency ? String(ctx.query.currency).toUpperCase() : undefined
-  if (currency && !['PHP', 'IDR', 'USDT', 'USDC'].includes(currency)) { fail(ctx, 400, 'invalid currency'); return }
+  if (currency && !['PHP', 'IDR', 'INR', 'USDT', 'USDC'].includes(currency)) { fail(ctx, 400, 'invalid currency'); return }
   ok(ctx, await listRegularRedepClaims(ctx.state.env, ctx.state.userId!, currency))
 })
 

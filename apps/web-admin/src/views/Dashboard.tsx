@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Badge, Card, Col, Row, Space, Spin, Table, Tag, Tooltip } from 'antd'
 import { Link, useNavigate } from 'react-router-dom'
-import { getHomeDashboard, type HomeDashboard } from '../api'
+import { getHomeDashboard, type HomeDashboard , ccySymbol } from '../api'
 import { formatMarketAmount, useMarketScope } from '../components/MarketScope'
 
 const fmtMoney = (v: number) => Math.round(v).toLocaleString()
@@ -54,7 +54,7 @@ export default function Dashboard() {
   const breakdown = (metric: 'ggr' | 'depositAmount' | 'withdrawAmount') =>
     Object.entries(data?.today.moneyByCurrency ?? {})
       .filter(([, values]) => Math.abs(values[metric]) > 0)
-      .map(([currency, values]) => `${currency === 'PHP' ? '₱' : currency === 'IDR' ? 'Rp ' : `${currency} `}${fmtMoney(values[metric])}`)
+      .map(([currency, values]) => `${ccySymbol(currency)}${fmtMoney(values[metric])}`)
       .join(' · ')
 
   const hb = data?.heartbeat

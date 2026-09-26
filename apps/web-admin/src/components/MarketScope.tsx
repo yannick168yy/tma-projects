@@ -1,16 +1,16 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
 import { Segmented } from 'antd'
 
-export type AdminMarketScope = 'ALL' | 'PH' | 'ID'
+export type AdminMarketScope = 'ALL' | 'PH' | 'ID' | 'IN'
 
 const STORAGE_KEY = 'admin_market_scope'
 
 interface MarketScopeValue {
   market: AdminMarketScope
   setMarket: (market: AdminMarketScope) => void
-  currency: 'ALL' | 'PHP' | 'IDR'
-  unit: 'USDT' | 'PHP' | 'IDR'
-  timezone: 'UTC+8' | 'UTC+7'
+  currency: 'ALL' | 'PHP' | 'IDR' | 'INR'
+  unit: 'USDT' | 'PHP' | 'IDR' | 'INR'
+  timezone: 'UTC+8' | 'UTC+7' | 'UTC+5:30'
 }
 
 const MarketScopeContext = createContext<MarketScopeValue | null>(null)
@@ -18,14 +18,14 @@ const MarketScopeContext = createContext<MarketScopeValue | null>(null)
 export function AdminMarketProvider({ children }: { children: ReactNode }) {
   const [market, setMarketState] = useState<AdminMarketScope>(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
-    return saved === 'PH' || saved === 'ID' ? saved : 'ALL'
+    return saved === 'PH' || saved === 'ID' || saved === 'IN' ? saved : 'ALL'
   })
   const value = useMemo<MarketScopeValue>(() => ({
     market,
     setMarket: (next) => { localStorage.setItem(STORAGE_KEY, next); setMarketState(next) },
-    currency: market === 'PH' ? 'PHP' : market === 'ID' ? 'IDR' : 'ALL',
-    unit: market === 'PH' ? 'PHP' : market === 'ID' ? 'IDR' : 'USDT',
-    timezone: market === 'ID' ? 'UTC+7' : 'UTC+8',
+    currency: market === 'PH' ? 'PHP' : market === 'ID' ? 'IDR' : market === 'IN' ? 'INR' : 'ALL',
+    unit: market === 'PH' ? 'PHP' : market === 'ID' ? 'IDR' : market === 'IN' ? 'INR' : 'USDT',
+    timezone: market === 'ID' ? 'UTC+7' : market === 'IN' ? 'UTC+5:30' : 'UTC+8',
   }), [market])
   return <MarketScopeContext.Provider value={value}>{children}</MarketScopeContext.Provider>
 }
@@ -47,6 +47,7 @@ export function MarketScopeSelector() {
         { label: '综合', value: 'ALL' },
         { label: '菲律宾 ₱', value: 'PH' },
         { label: '印尼 Rp', value: 'ID' },
+        { label: '印度 ₹', value: 'IN' },
       ]}
     />
   )
@@ -56,5 +57,6 @@ export function formatMarketAmount(value: number, unit: string): string {
   const amount = Math.round(value).toLocaleString('en-US')
   if (unit === 'PHP') return `₱${amount}`
   if (unit === 'IDR') return `Rp ${amount}`
+  if (unit === 'INR') return `₹${amount}`
   return `USDT ${amount}`
 }

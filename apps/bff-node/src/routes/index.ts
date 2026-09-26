@@ -241,7 +241,7 @@ export function createApiRouter(): Router {
     const cfg = await getPromoConfig(env)
     const userId = ctx.state.userId as string | undefined
     const requestedCurrency = String(ctx.query.currency ?? 'PHP').toUpperCase()
-    const currency = ['PHP', 'IDR', 'USDT', 'USDC'].includes(requestedCurrency) ? requestedCurrency : 'PHP'
+    const currency = ['PHP', 'IDR', 'INR', 'USDT', 'USDC'].includes(requestedCurrency) ? requestedCurrency : 'PHP'
 
     let trialClaimed = false
     let appdlClaimed = false

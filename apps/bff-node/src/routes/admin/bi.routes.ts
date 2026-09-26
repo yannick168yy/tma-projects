@@ -10,6 +10,7 @@ import { getAdSourceReport, getAdSourceTrend, isValidChannel, getChannelQuality,
 import { sendBiReportNow, isBiReportEnabled, setBiReportEnabled } from '../../services/bi-report.service.js'
 import { getRevosurgeStatus } from '../../services/revosurge-status.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
+import { marketOffsetHours } from '../../utils/market.js'
 import { ok, fail } from '../../utils/response.js'
 
 function parseCommon(q: Record<string, unknown>): { days: number; currency: string } | null {
@@ -23,7 +24,7 @@ const router = new Router({ prefix: '/bi' })
 
 function parseMarket(value: unknown): BiMarket | null {
   const market = String(value ?? 'ALL').toUpperCase()
-  return market === 'ALL' || market === 'PH' || market === 'ID' ? market : null
+  return market === 'ALL' || market === 'PH' || market === 'ID' || market === 'IN' ? market : null
 }
 
 // RevoSurge 回传健康度：投放期间用来确认「事件还在发」，沉默故障最贵
@@ -190,7 +191,7 @@ router.get('/channels', async (ctx) => {
 // 买量投放渠道报表：马尼拉日范围，默认最近 7 天；金额口径固定=全币种折 USDT 合并
 function parseAdSourceRange(q: Record<string, unknown>, market: BiMarket): { from: string; to: string } | null {
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
-  const offset = market === 'ID' ? 7 : 8
+  const offset = marketOffsetHours(market)
   const marketToday = new Date(Date.now() + offset * 3600 * 1000).toISOString().slice(0, 10)
   const to = q.to && dateRe.test(String(q.to)) ? String(q.to) : marketToday
   let from: string

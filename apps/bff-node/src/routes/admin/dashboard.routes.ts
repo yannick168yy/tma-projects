@@ -15,7 +15,7 @@ router.get('/', async (ctx) => {
 // 重设计版首页看板：待办+今日快照+资金+心跳+用户结构
 router.get('/v2', async (ctx) => {
   const market = String(ctx.query.market ?? 'ALL').toUpperCase() as BiMarket
-  if (!['ALL', 'PH', 'ID'].includes(market)) { fail(ctx, 400, 'invalid market'); return }
+  if (!['ALL', 'PH', 'ID', 'IN'].includes(market)) { fail(ctx, 400, 'invalid market'); return }
   ok(ctx, await getHomeDashboard(ctx.state.env, ctx.state.redis, market))
 })
 

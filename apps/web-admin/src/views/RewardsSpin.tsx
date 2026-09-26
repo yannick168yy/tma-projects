@@ -8,7 +8,7 @@ import {
   getSpinConfig,
   getSpinRecords,
   saveSpinConfig,
-  CONFIG_CCY_OPTIONS,
+  CONFIG_CCY_OPTIONS, ccyPrecision, toInrRounded,
   type SpinConfig,
   type SpinDepositRule,
   type SpinPrize,
@@ -36,13 +36,14 @@ const IMAGE_OPTIONS = Array.from({ length: PRIZE_COUNT }, (_, i) => {
 function currencyPrefix(currency: string): string {
   if (currency === 'PHP') return '₱'
   if (currency === 'IDR') return 'Rp'
+  if (currency === 'INR') return '₹'
   return currency
 }
 
 function formatAmount(amount: number, currency: string): string {
   return `${currencyPrefix(currency)}${Number(amount).toLocaleString('en-US', {
-    minimumFractionDigits: currency === 'IDR' ? 0 : 2,
-    maximumFractionDigits: currency === 'IDR' ? 0 : 4,
+    minimumFractionDigits: ccyPrecision(currency),
+    maximumFractionDigits: ccyPrecision(currency) === 0 ? 0 : 4,
   })}`
 }
 
@@ -98,7 +99,9 @@ function defaultCheckinRule(tier: CheckinTier, tierIndex: number): SpinDepositRu
 
 function defaultPrize(ruleId: number | null | undefined, i: number, currency: string): SpinPrize {
   const phpAmount = [7.77, 17.77, 77.77, 277.77, 777.77, 1777, 7777, 17777][i] ?? 7.77
-  const amount = currency === 'IDR' ? Math.max(100, Math.round(phpAmount * 287 / 100) * 100) : phpAmount
+  const amount = currency === 'IDR' ? Math.max(100, Math.round(phpAmount * 287 / 100) * 100)
+    : currency === 'INR' ? toInrRounded(phpAmount)
+    : phpAmount
   return {
     ruleId,
     name: formatAmount(amount, currency),
@@ -198,7 +201,7 @@ function PrizeTable({ ruleIndex, currency }: { ruleIndex: number; currency: stri
           width: 130,
           render: (_, __, slot) => (
             <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'amountPhp']} noStyle rules={[{ required: true, type: 'number', min: 0.01 }]}>
-              <InputNumber prefix={currencyPrefix(currency)} min={currency === 'IDR' ? 100 : 0.01} precision={currency === 'IDR' ? 0 : 2} style={{ width: '100%' }} />
+              <InputNumber prefix={currencyPrefix(currency)} min={currency === 'IDR' ? 100 : currency === 'INR' ? 1 : 0.01} precision={ccyPrecision(currency)} style={{ width: '100%' }} />
             </Form.Item>
           ),
         },

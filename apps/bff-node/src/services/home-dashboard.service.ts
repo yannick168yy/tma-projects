@@ -2,7 +2,8 @@ import type { Redis } from 'ioredis'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
-import { getBiOverview, listBiAlerts, marketCurrency, marketOffsetHours, type BiMarket, type BiWindowStats } from './bi.service.js'
+import { getBiOverview, listBiAlerts, type BiWindowStats } from './bi.service.js'
+import { marketChannelFilter, marketCurrency, marketOffsetHours, type BiMarket } from '../utils/market.js'
 import { fetchBadgeCounts } from './sse-badges.js'
 import { usdtRateMap } from './marketing-bi.service.js'
 
@@ -21,8 +22,8 @@ async function toUsdt(redis: Redis, env: Env, currency: string, amount: number):
 export interface HomeDashboard {
   asOf: string
   market: BiMarket
-  currency: 'USDT' | 'PHP' | 'IDR'
-  timezone: 'UTC+7' | 'UTC+8'
+  currency: 'USDT' | 'PHP' | 'IDR' | 'INR'
+  timezone: string
   todos: { manualWithdrawals: number; rejectedKyc: number; csConversations: number; openAlerts: number }
   today: BiWindowStats
   yesterdaySameTime: BiWindowStats
@@ -108,7 +109,7 @@ export async function getHomeDashboard(env: Env, redis: Redis, market: BiMarket 
     [...currencyParams, ...currencyParams, ...(market === 'ALL' ? [] : [market])],
   )
   const localToday = new Date(Date.now() + marketOffsetHours(market) * 3600 * 1000).toISOString().slice(0, 10)
-  const channelFilter = market === 'ID' ? " AND channel LIKE 'unispay%'" : market === 'PH' ? " AND channel NOT LIKE 'unispay%'" : ''
+  const channelFilter = marketChannelFilter(market)
   const [chRows] = await db.query<RowDataPacket[]>(
     `SELECT direction, channel, total, success FROM bi_daily_channel WHERE stat_date=?${channelFilter} ORDER BY total DESC`,
     [localToday],

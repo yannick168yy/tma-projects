@@ -8,7 +8,7 @@ import type { ColumnsType } from 'antd/es/table'
 import {
   getVipBenefits, saveVipBenefits, triggerVipNegativeRebate, getVipRecords,
   triggerVipWeeklySalary, triggerVipMonthlySalary, triggerVipBirthday, triggerVipRetention,
-  CONFIG_CCY_OPTIONS,
+  CONFIG_CCY_OPTIONS, ccySymbol, ccyPrecision,
   type VipBenefitItem, type VipRewardRecord,
 } from '../api'
 import { PAGE_SIZE_OPTIONS } from '../pagination'
@@ -99,7 +99,7 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
     try {
       const res = await triggerVipNegativeRebate(includeCurrentWeek)
       const totals = Object.entries(res.byCurrency)
-        .map(([currency, amount]) => `${currency === 'PHP' ? '₱' : currency === 'IDR' ? 'Rp' : currency}${Number(amount).toLocaleString('en-US', { maximumFractionDigits: currency === 'IDR' ? 0 : 4 })}`)
+        .map(([currency, amount]) => `${ccySymbol(currency)}${Number(amount).toLocaleString('en-US', { maximumFractionDigits: ccyPrecision(currency) === 0 ? 0 : 4 })}`)
         .join(' / ')
       message.success(`负盈利返水 [${res.periodKey}]：${res.users} 个用户币种 / ${totals}`)
       if (recordsType === undefined || recordsType === 'negative_rebate') loadRecords(1)

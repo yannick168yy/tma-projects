@@ -48,7 +48,7 @@ router.get('/', async (ctx) => {
 router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
-  const balanceCurrency = user.market === 'ID' ? 'IDR' : 'PHP'
+  const balanceCurrency = user.market === 'ID' ? 'IDR' : user.market === 'IN' ? 'INR' : 'PHP'
   const [wallet, walletBalances, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, level, growth, identities, attribution, depositTotals, withdrawTotals] = await Promise.all([
     getWallet(ctx.state.redis, ctx.params.id),
     getWalletBalances(ctx.state.redis, ctx.params.id),

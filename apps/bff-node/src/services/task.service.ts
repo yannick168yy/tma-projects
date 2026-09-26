@@ -2,6 +2,7 @@ import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql
 import { createHash } from 'node:crypto'
 import type { Env } from '../config/env.js'
 import { toIdrHundred } from '../utils/idr.js'
+import { toInrRounded } from '../utils/inr.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getRedis } from '../clients/redis.client.js'
 import { creditWallet, listUserIdentities, getUser } from './store/mysql-store.js'
@@ -125,7 +126,7 @@ async function readSetting(env: Env, key: string): Promise<string | null> {
 }
 
 /** 留存类币种：拉新一次性任务固定 PHP，仅这几个币种有独立留存任务配置 */
-export const TASK_CURRENCIES = ['PHP', 'IDR', 'USDT', 'USDC'] as const
+export const TASK_CURRENCIES = ['PHP', 'IDR', 'INR', 'USDT', 'USDC'] as const
 /** USDT/USDC 未配置时的默认起点：PHP 金额型字段 ÷ 此值（仿 VIP/首充，后台可再调） */
 const TASK_FX_SEED = 58
 
@@ -158,15 +159,19 @@ function scaleCfgToCurrency(php: TaskConfig, currency: string): TaskConfig {
   return out
 }
 
-function idrCfgFromPhp(php: TaskConfig): TaskConfig {
+/** 法币（IDR/INR）按各自种子汇率+取整规则从 PHP 派生，不走稳定币的 ÷FX 路径 */
+const FIAT_SEED: Record<string, (php: number) => number> = { IDR: toIdrHundred, INR: toInrRounded }
+
+function fiatCfgFromPhp(php: TaskConfig, currency: string): TaskConfig {
+  const seed = FIAT_SEED[currency]
   const out: TaskConfig = {}
   for (const [id, c] of Object.entries(php)) {
     out[id] = {
       ...c,
-      currency: 'IDR',
-      amount: toIdrHundred(c.amount),
-      minStake: toIdrHundred(c.minStake),
-      threshold: thresholdIsMoney(id) ? toIdrHundred(c.threshold) : c.threshold,
+      currency,
+      amount: seed(c.amount),
+      minStake: seed(c.minStake),
+      threshold: thresholdIsMoney(id) ? seed(c.threshold) : c.threshold,
     }
   }
   return out
@@ -181,11 +186,12 @@ export async function getTaskConfig(env: Env, currency = 'PHP'): Promise<TaskCon
     if (currency === 'PHP') return sanitizeTaskConfig(nested.PHP ?? {})
     if (nested[currency]) {
       const configured = sanitizeTaskConfig(nested[currency])
-      const hasIdrMoney = currency !== 'IDR' || Object.entries(configured).some(([id, c]) =>
+      // 法币档位历史上可能存成全 0（只落了结构没落金额），这种要退回按 PHP 派生
+      const hasFiatMoney = !FIAT_SEED[currency] || Object.entries(configured).some(([id, c]) =>
         c.amount > 0 || c.minStake > 0 || (thresholdIsMoney(id) && c.threshold > 0))
-      if (hasIdrMoney) return configured
+      if (hasFiatMoney) return configured
     }
-    if (currency === 'IDR') return idrCfgFromPhp(sanitizeTaskConfig(nested.PHP ?? {}))
+    if (FIAT_SEED[currency]) return fiatCfgFromPhp(sanitizeTaskConfig(nested.PHP ?? {}), currency)
     // 该稳定币未单独配置 → 从 PHP 配置 ÷FX 派生默认（后台保存后即持久化独立值）
     return scaleCfgToCurrency(sanitizeTaskConfig(nested.PHP ?? {}), currency)
   } catch { return sanitizeTaskConfig(scaleIfStable(DEFAULT_TASK_CONFIG, currency)) }
@@ -193,7 +199,7 @@ export async function getTaskConfig(env: Env, currency = 'PHP'): Promise<TaskCon
 
 function scaleIfStable(php: TaskConfig, currency: string): TaskConfig {
   if (currency === 'PHP') return php
-  if (currency === 'IDR') return idrCfgFromPhp(php)
+  if (FIAT_SEED[currency]) return fiatCfgFromPhp(php, currency)
   return scaleCfgToCurrency(php, currency)
 }
 

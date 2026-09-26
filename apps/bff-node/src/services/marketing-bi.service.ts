@@ -16,7 +16,7 @@ import { getMysqlPool } from '../clients/mysql.client.js'
 import { getRate } from './exchange-rate.service.js'
 import { childLogger } from '../lib/logger.js'
 import type { Env } from '../config/env.js'
-import type { BiMarket } from './bi.service.js'
+import { displayCurrency, marketOffsetHours, tzSuffix, type BiMarket } from '../utils/market.js'
 import { getSiteDomainMappings } from './site-domain.service.js'
 
 const log = childLogger('marketing-bi')
@@ -32,7 +32,7 @@ function fmtUtc(ms: number): string {
 
 /** 马尼拉某天 0 点的 UTC 毫秒（offsetDays 相对今天） */
 function marketOffset(market: BiMarket): number {
-  return market === 'ID' ? 7 : 8
+  return marketOffsetHours(market)
 }
 
 function marketDateOf(d: Date, market: BiMarket): string {
@@ -40,7 +40,7 @@ function marketDateOf(d: Date, market: BiMarket): string {
 }
 
 function marketCurrency(market: BiMarket): string {
-  return market === 'PH' ? 'PHP' : market === 'ID' ? 'IDR' : 'USDT'
+  return displayCurrency(market)
 }
 
 /** DATE 列 → YYYY-MM-DD（mysql2 可能回字符串或 UTC 午夜 Date） */
@@ -126,8 +126,8 @@ export async function getAdSourceReport(
   const db = pool(env)
   const market = opts.market ?? 'ALL'
   const offset = marketOffset(market)
-  const startMs = Date.parse(`${opts.from}T00:00:00+${String(offset).padStart(2, '0')}:00`)
-  const endMs = Date.parse(`${opts.to}T00:00:00+${String(offset).padStart(2, '0')}:00`) + DAY_MS
+  const startMs = Date.parse(`${opts.from}T00:00:00${tzSuffix(offset)}`)
+  const endMs = Date.parse(`${opts.to}T00:00:00${tzSuffix(offset)}`) + DAY_MS
   const start = fmtUtc(startMs)
   const end = fmtUtc(endMs)
   const chanFilter = opts.channel ? ' AND a.channel_code=?' : ''
@@ -271,8 +271,8 @@ export async function getAdSourceTrend(
   const { channel } = opts
   const market = opts.market ?? 'ALL'
   const offset = marketOffset(market)
-  const startMs = Date.parse(`${opts.from}T00:00:00+${String(offset).padStart(2, '0')}:00`)
-  const endMs = Date.parse(`${opts.to}T00:00:00+${String(offset).padStart(2, '0')}:00`) + DAY_MS
+  const startMs = Date.parse(`${opts.from}T00:00:00${tzSuffix(offset)}`)
+  const endMs = Date.parse(`${opts.to}T00:00:00${tzSuffix(offset)}`) + DAY_MS
   const start = fmtUtc(startMs)
   const end = fmtUtc(endMs)
 
@@ -438,8 +438,8 @@ export async function getChannelQuality(
   const db = pool(env)
   const market = opts.market ?? 'ALL'
   const offset = marketOffset(market)
-  const startMs = Date.parse(`${opts.from}T00:00:00+${String(offset).padStart(2, '0')}:00`)
-  const endMs = Date.parse(`${opts.to}T00:00:00+${String(offset).padStart(2, '0')}:00`) + DAY_MS
+  const startMs = Date.parse(`${opts.from}T00:00:00${tzSuffix(offset)}`)
+  const endMs = Date.parse(`${opts.to}T00:00:00${tzSuffix(offset)}`) + DAY_MS
   const start = fmtUtc(startMs)
   const end = fmtUtc(endMs)
 
@@ -511,7 +511,7 @@ export async function getChannelQuality(
     if (!activeDays.has(k)) activeDays.set(k, new Set())
     activeDays.get(k)!.add(dateKey(a.stat_date))
   }
-  const dayShift = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00+${String(offset).padStart(2, '0')}:00`) + n * DAY_MS + offset * 3600 * 1000).toISOString().slice(0, 10)
+  const dayShift = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00${tzSuffix(offset)}`) + n * DAY_MS + offset * 3600 * 1000).toISOString().slice(0, 10)
 
   // 4. 刷量：渠道内同注册IP≥2账号
   const ipCount = new Map<string, Map<string, number>>()
