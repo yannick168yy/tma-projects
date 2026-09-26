@@ -10,14 +10,14 @@ import type { DbGame } from './sg-game.service.js'
 export interface CatalogProvider { id: number; code: string; name: string; aliases: Record<AggregatorId, string[]> }
 export interface CatalogGame { id: number; providerId: number; uuid: string; name: string; enabled: boolean; isActive: boolean; presentation: Partial<Pick<DbGame, 'imageUrl' | 'sortCategory' | 'siteCategory' | 'weight' | 'isFeatured'>> }
 export interface CatalogSource { gameId: number; aggregator: AggregatorId; uuid: string; currencies: string[] }
-export type RouteCurrency = '' | 'PHP' | 'IDR' | 'USDT'
+export type RouteCurrency = '' | 'PHP' | 'IDR' | 'INR' | 'USDT'
 export interface CatalogRule { scope: 'global' | 'provider' | 'game'; targetId: number; currency: RouteCurrency; aggregator: AggregatorId }
 export interface RoutingConfig { providers: CatalogProvider[]; games: CatalogGame[]; sources: CatalogSource[]; rules: CatalogRule[] }
 export interface SourceGame { uuid: string; aggregator: AggregatorId; provider: string; name: string; imageUrl: string | null; available: boolean; currencies: string[] | null; mobile: boolean; desktop: boolean; supportsRtp: boolean; rtp: number | null; category: string; syncedAt: string }
 
 const aggregator = z.enum(['568win', 'wxgame'])
-const routeCurrency = z.enum(['', 'PHP', 'IDR', 'USDT'])
-const sourceSchema = z.object({ aggregator, uuid: z.string().min(1).max(191), currencies: z.array(z.enum(['PHP', 'USDT', 'IDR'])).min(1).max(3) }).strict()
+const routeCurrency = z.enum(['', 'PHP', 'IDR', 'INR', 'USDT'])
+const sourceSchema = z.object({ aggregator, uuid: z.string().min(1).max(191), currencies: z.array(z.enum(['PHP', 'USDT', 'IDR', 'INR'])).min(1).max(4) }).strict()
 const presentationSchema = z.object({
   imageUrl: z.string().max(512).refine((v) => !v || v.startsWith('/api/') || /^https?:\/\//.test(v), '封面须为站内路径或 HTTP 地址').optional(),
   sortCategory: z.enum(['slots', 'live', 'sports', 'fishing', 'table', 'other']).optional(),

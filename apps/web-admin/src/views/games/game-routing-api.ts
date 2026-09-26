@@ -4,7 +4,7 @@ export type Aggregator = '568win' | 'wxgame'
 export interface Provider { id: number; code: string; name: string; aliases: Record<Aggregator, string[]> }
 export interface Game { id: number; providerId: number; uuid: string; name: string; enabled: boolean; isActive: boolean; presentation: { imageUrl?: string; sortCategory?: string; siteCategory?: string; weight?: number; isFeatured?: boolean } }
 export interface Source { gameId: number; aggregator: Aggregator; uuid: string; currencies: string[] }
-export type RouteCurrency = '' | 'PHP' | 'IDR' | 'USDT'
+export type RouteCurrency = '' | 'PHP' | 'IDR' | 'INR' | 'USDT'
 export interface Rule { scope: 'global' | 'provider' | 'game'; targetId: number; currency: RouteCurrency; aggregator: Aggregator }
 export interface Config { providers: Provider[]; games: Game[]; sources: Source[]; rules: Rule[]; revision: string }
 export interface SourceGame { uuid: string; aggregator: Aggregator; provider: string; name: string; imageUrl: string | null; available: boolean; currencies: string[] | null; mobile: boolean; desktop: boolean; supportsRtp: boolean; syncedAt: string }

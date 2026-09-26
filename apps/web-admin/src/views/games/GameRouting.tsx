@@ -4,7 +4,7 @@ import { useAuthStore } from '../../stores/auth'
 import { applyChange, getCandidates, getRouting, getSources, previewChange, syncWxgame, type Aggregator, type Change, type Config, type Game, type Preview, type Provider, type RouteCurrency, type Rule, type SourceGame } from './game-routing-api'
 
 const aggregatorOptions = [{ value: '568win', label: '568Win' }, { value: 'wxgame', label: 'WXGame' }]
-const routeCurrencyOptions = [{ value: 'PHP', label: 'PHP' }, { value: 'IDR', label: 'IDR' }, { value: 'USDT', label: 'USDT' }, { value: '', label: '全部币种（兜底规则）' }]
+const routeCurrencyOptions = [{ value: 'PHP', label: 'PHP' }, { value: 'IDR', label: 'IDR' }, { value: 'INR', label: 'INR' }, { value: 'USDT', label: 'USDT' }, { value: '', label: '全部币种（兜底规则）' }]
 const levels: Record<string, string> = { global: '全局', provider: '厂商', game: '单游戏', original: '展示来源' }
 const errorMessage = (e: unknown) => message.error(e instanceof Error ? e.message : '操作失败')
 
@@ -115,7 +115,7 @@ export default function GameRouting() {
   }
 
   return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-    <Alert showIcon type="info" message="新建映射默认只保存草稿；人工启用后才接管目录和旧入口。未配置游戏保持原行为。" description="路由按币种独立生效，优先级为单游戏 > 厂商 > 全局 > 展示来源。WXGame 开放 PHP/IDR，USDT 继续使用 568Win。切换只影响新的游戏启动。" />
+    <Alert showIcon type="info" message="新建映射默认只保存草稿；人工启用后才接管目录和旧入口。未配置游戏保持原行为。" description="路由按币种独立生效，优先级为单游戏 > 厂商 > 全局 > 展示来源。WXGame 开放 PHP/IDR，USDT/INR 继续使用 568Win。切换只影响新的游戏启动。" />
     {!canEdit && <Alert type="warning" message="当前角色只读；super_admin 和 ops 可编辑。" />}
     <Tabs activeKey={tab} onChange={setTab} items={[{ key: 'games', label: '统一游戏与映射' }, { key: 'providers', label: '统一厂商与路由' }, { key: 'sources', label: '聚合商来源目录' }]} />
     {tab === 'games' && <>
@@ -170,7 +170,7 @@ export default function GameRouting() {
           <Form.Item name="providerId" label="统一厂商" rules={[{ required: true }]}><Select disabled={editor.record?.enabled} options={config?.providers.map((p) => ({ value: p.id, label: p.name }))} /></Form.Item>
           <Form.Item name="name" label="统一显示名称" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="winUuid" label="568Win 来源（按名称搜索候选，再核对版本）"><SourceSelect aggregator="568win" /></Form.Item>
-          <Form.Item name="winCurrencies" label="568Win 已确认币种"><Select mode="multiple" options={['PHP', 'USDT', 'IDR'].map((v) => ({ value: v }))} /></Form.Item>
+          <Form.Item name="winCurrencies" label="568Win 已确认币种"><Select mode="multiple" options={['PHP', 'USDT', 'IDR', 'INR'].map((v) => ({ value: v }))} /></Form.Item>
           <Form.Item name="wxUuid" label="WXGame 来源（按名称搜索候选，再核对版本）"><SourceSelect aggregator="wxgame" /></Form.Item>
           <Form.Item name="wxCurrencies" label="WXGame 已确认币种"><Select mode="multiple" options={['PHP', 'IDR'].map((value) => ({ value }))} /></Form.Item>
           <Form.Item shouldUpdate={(a, b) => a.winUuid !== b.winUuid || a.wxUuid !== b.wxUuid}>{() => <Form.Item name="uuid" label="公开 ID / 展示继承来源（创建后固定）" rules={[{ required: true }]}><Select disabled={!!editor.record} options={[form.getFieldValue('winUuid'), form.getFieldValue('wxUuid')].filter(Boolean).map((v) => ({ value: v, label: v }))} /></Form.Item>}</Form.Item>
