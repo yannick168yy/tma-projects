@@ -81,7 +81,7 @@ function normalizeGameCurrency(currency?: string): string | undefined {
   return code
 }
 
-function supportsCurrency(game: DbGame, currency?: string): boolean {
+export function supportsCurrency(game: DbGame, currency?: string): boolean {
   const normalized = normalizeGameCurrency(currency)
   if (!normalized) return true
   const supported = game.supportedCurrencies

@@ -327,14 +327,14 @@ export function createApp(env: Env): Koa {
         .catch((err) => log.homepage.error({ err }, 'refresh error'))
     }, 3 * 60 * 60 * 1000)
 
-    // Betting activity 定时刷新（真实数据）
-    // latest: 每 60 秒拉最近真实注单，列表随投注持续滚动更新
+    // Betting activity 定时刷新：PHP/INR 为生成数据（服务内按 20 分钟/7 天周期守卫），IDR 为真实数据
+    // latest: 每 60 秒拉 IDR 最近真实注单
     setInterval(() => {
       forEachTenant('betting-latest', () => refreshLatestPool(env))
         .catch((err) => log.betting.error({ err }, 'latest refresh error'))
     }, 60 * 1000)
 
-    // week / month: 每 30 分钟重算滚动 7/30 天 Top10（bi_daily_game 小表聚合，成本可忽略）
+    // week / month: 每 30 分钟重算 IDR 滚动 7/30 天 Top10（bi_daily_game 小表聚合，成本可忽略）
     setInterval(() => {
       forEachTenant('betting-rank', () => refreshRankTops(env))
         .catch((err) => log.betting.error({ err }, 'rank refresh error'))
