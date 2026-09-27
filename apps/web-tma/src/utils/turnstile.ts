@@ -9,6 +9,7 @@ interface TurnstileApi {
     sitekey: string
     theme?: 'light' | 'dark' | 'auto'
     retry?: 'auto' | 'never'
+    appearance?: 'always' | 'execute' | 'interaction-only'
     'retry-interval'?: number
     callback?: (token: string) => void
     'expired-callback'?: () => void
