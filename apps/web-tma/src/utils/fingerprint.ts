@@ -4,19 +4,17 @@
 //   fpVisitor —— FingerprintJS 硬件指纹 hash，deviceId 丢失时兜底，概率稳定（升级/隐私插件会漂）
 //   signals   —— 原始信号，后端做相似度匹配用（hash 漂了但 GPU+屏幕+时区一致仍可判同设备）
 // 三者都与 IP 无关：用户换 WiFi/4G/代理，这三个值都不变。
-import FingerprintJS from '@fingerprintjs/fingerprintjs'
-import { Capacitor, registerPlugin } from '@capacitor/core'
 import { clientPlatform } from '@/utils/pwa'
-
-// Android 壳原生插件：返回 ANDROID_ID（重装不变），补 FingerprintJS 在 WebView 里出不了值的盲区
-const HardwareId = registerPlugin<{ getId(): Promise<{ id: string }> }>('HardwareId')
 
 // 仅在原生 App 里取硬件 ID，作为 fpVisitor；带前缀便于后台区分且不与 FingerprintJS hash 撞值。
 // web/PWA 返回空串，走原有 FingerprintJS 路径。
 async function nativeHardwareFp(): Promise<string> {
-  if (!Capacitor.isNativePlatform()) return ''
+  if (!/\bBetogoApp\//.test(navigator.userAgent)) return ''
   try {
-    const { id } = await HardwareId.getId()
+    const { Capacitor, registerPlugin } = await import('@capacitor/core')
+    if (!Capacitor.isNativePlatform()) return ''
+    const hardwareId = registerPlugin<{ getId(): Promise<{ id: string }> }>('HardwareId')
+    const { id } = await hardwareId.getId()
     return id ? `aid_${id}` : ''
   } catch {
     return ''
@@ -102,6 +100,7 @@ export async function initFingerprint(): Promise<void> {
     let fpVisitor = await nativeHardwareFp()
     if (!fpVisitor) {
       try {
+        const { default: FingerprintJS } = await import('@fingerprintjs/fingerprintjs')
         const fp = await FingerprintJS.load()
         const r = await fp.get()
         fpVisitor = r.visitorId

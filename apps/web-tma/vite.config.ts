@@ -30,6 +30,10 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
+          if (id.includes('@fingerprintjs')) return 'fingerprint'
+          if (id.includes('@capacitor')) return 'capacitor'
+          if (id.includes('lucide-react')) return 'icons'
+          if (id.includes('qrcode.react')) return 'qrcode'
           return 'vendor'
         },
       },

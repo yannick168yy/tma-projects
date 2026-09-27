@@ -2,12 +2,6 @@ import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { getSiteName } from '@/config/brand'
 import { getI18nOverrides } from '@/config/i18n-overrides'
-import en from '@/i18n/locales/en'
-import hi from '@/i18n/locales/hi'
-import id from '@/i18n/locales/id'
-import idComplete from '@/i18n/locales/id-complete'
-import vi from '@/i18n/locales/vi'
-import zhCN from '@/i18n/locales/zh-CN'
 import { isSupportedLocale, LOCALE_STORAGE_KEY, type SupportedLocale } from '@/i18n/types'
 import { defaultMarketLocale } from '@/config/market'
 
@@ -64,6 +58,8 @@ function readStoredLocale(): SupportedLocale {
 }
 
 export const i18n = i18next.createInstance()
+let initPromise: Promise<void> | null = null
+const loadedLocales = new Set<SupportedLocale>()
 
 function mergeTranslations(base: Record<string, unknown>, supplement: Record<string, unknown>): Record<string, unknown> {
   const result = { ...base }
@@ -76,24 +72,48 @@ function mergeTranslations(base: Record<string, unknown>, supplement: Record<str
   return result
 }
 
-void i18n.use(initReactI18next).init({
-  lng: readStoredLocale(),
-  fallbackLng: 'en',
-  resources: {
-    en: { translation: en },
-    id: { translation: mergeTranslations(id, idComplete) },
-    vi: { translation: vi },
-    hi: { translation: hi },
-    'zh-CN': { translation: zhCN },
-  },
-  // brandName 作为全局插值变量下发给所有文案（P1-10/P1-12）：
-  // 品牌名散落在十几条文案里，逐条传参会漏，defaultVariables 一处配置全局生效。
-  //
-  // ⚠️ 顺序依赖：main.tsx 里 `await initSiteMarketConfig()` 必须在 `import('@/i18n')`
-  // 之前，本模块初始化时品牌才已就位。调换顺序会让所有文案回落到默认站名，
-  // 且不报错、只是显示成 BETOGO —— 包网客户站上就是事故。
-  interpolation: { escapeValue: false, defaultVariables: { brandName: getSiteName() } },
-})
+async function loadTranslations(locale: SupportedLocale): Promise<Record<string, unknown>> {
+  if (locale === 'en') return (await import('@/i18n/locales/en')).default
+  if (locale === 'hi') return (await import('@/i18n/locales/hi')).default
+  if (locale === 'vi') return (await import('@/i18n/locales/vi')).default
+  if (locale === 'zh-CN') return (await import('@/i18n/locales/zh-CN')).default
+  const [{ default: id }, { default: complete }] = await Promise.all([
+    import('@/i18n/locales/id'),
+    import('@/i18n/locales/id-complete'),
+  ])
+  return mergeTranslations(id, complete)
+}
+
+export function initI18n(): Promise<void> {
+  if (initPromise) return initPromise
+  initPromise = (async () => {
+    const locale = readStoredLocale()
+    const [english, selected] = await Promise.all([
+      loadTranslations('en'),
+      locale === 'en' ? Promise.resolve(null) : loadTranslations(locale),
+    ])
+    const resources: Record<string, { translation: Record<string, unknown> }> = {
+      en: { translation: english },
+    }
+    loadedLocales.add('en')
+    if (selected) resources[locale] = { translation: selected }
+    loadedLocales.add(locale)
+
+    await i18n.use(initReactI18next).init({
+      lng: locale,
+      fallbackLng: 'en',
+      resources,
+      interpolation: { escapeValue: false, defaultVariables: { brandName: getSiteName() } },
+    })
+
+    for (const [overrideLocale, entries] of Object.entries(getI18nOverrides())) {
+      for (const [keyPath, value] of Object.entries(entries)) {
+        i18n.addResource(overrideLocale, 'translation', keyPath, value)
+      }
+    }
+  })()
+  return initPromise
+}
 
 /**
  * 租户文案覆盖（P1-11）。在资源装好之后逐条盖上去。
@@ -104,18 +124,19 @@ void i18n.use(initReactI18next).init({
  * 覆盖不存在的 key 是无害的 —— 只是多一个没人读的词条。因此这里不校验 key
  * 是否在默认词表里：后台加了新 key、前端还没发版的过渡期不该报错。
  */
-for (const [locale, entries] of Object.entries(getI18nOverrides())) {
-  for (const [keyPath, value] of Object.entries(entries)) {
-    i18n.addResource(locale, 'translation', keyPath, value)
-  }
-}
-
 export function setAppLocale(locale: SupportedLocale) {
-  void i18n.changeLanguage(locale)
   localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+  void (async () => {
+    await initI18n()
+    if (!loadedLocales.has(locale)) {
+      i18n.addResourceBundle(locale, 'translation', await loadTranslations(locale), true, false)
+      loadedLocales.add(locale)
+    }
+    await i18n.changeLanguage(locale)
+  })()
 }
 
 export function getAppLocale(): SupportedLocale {
   const current = i18n.language
-  return isSupportedLocale(current) ? current : 'en'
+  return isSupportedLocale(current) ? current : readStoredLocale()
 }

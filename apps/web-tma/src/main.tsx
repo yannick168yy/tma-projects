@@ -33,9 +33,12 @@ async function bootstrap() {
   initAnalytics()
   // App 切换备用域名后 Web 存储属于新 origin，先从 Android Keystore 恢复会话再初始化页面。
   await initNativeToken()
-  // 必须先解析域名所属市场，再加载 i18n/App；否则新配置域名首次打开会先初始化成错误语言和币种。
-  await initSiteMarketConfig()
-  const [{ default: App }, { i18n }] = await Promise.all([import('./App'), import('@/i18n')])
+  // 配置请求与代码下载并行；i18n 等配置应用后再初始化，避免包网站点拿到错误品牌与语言。
+  const configPromise = initSiteMarketConfig()
+  const modulesPromise = Promise.all([import('./App'), import('@/i18n')])
+  await configPromise
+  const [{ default: App }, { i18n, initI18n }] = await modulesPromise
+  await initI18n()
   // 短链 /t/<code> 落地：先换出归因（含像素 ID）并把地址清回首页，再装像素、再挂路由。
   // 非短链路径 resolve 立即返回，不引入任何延迟。
   // 顺序敏感：短链解析必须在普通参数捕获之前——短链 URL 上往往还挂着 fbclid，
@@ -45,7 +48,6 @@ async function bootstrap() {
   initPixels()
   initRevosurgeTracker()
   initPwa()
-  initFingerprint()
   initVersionAutoReload()
 
   createRoot(document.getElementById('app')!).render(
@@ -55,6 +57,7 @@ async function bootstrap() {
       </I18nextProvider>
     </StrictMode>,
   )
+  window.setTimeout(() => void initFingerprint(), 0)
 }
 
 void bootstrap()
