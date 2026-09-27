@@ -7,7 +7,7 @@
 function mainBundleHref(): string {
   const el = Array.from(document.querySelectorAll('script[type="module"]'))
     .map((s) => (s as HTMLScriptElement).src)
-    .find((src) => /\/assets\/index-[\w-]+\.js/.test(src))
+    .find((src) => /\/assets\/(?:index|main)-[\w-]+\.js/.test(src))
   return el ?? ''
 }
 
@@ -23,7 +23,7 @@ export function initVersionAutoReload(): void {
       const res = await fetch(`/index.html?_=${Date.now()}`, { cache: 'no-store' })
       if (!res.ok) return
       const html = await res.text()
-      const m = html.match(/\/assets\/index-[\w-]+\.js/)
+      const m = html.match(/\/assets\/(?:index|main)-[\w-]+\.js/)
       if (m) {
         const latest = new URL(m[0], location.origin).href
         if (latest !== current) location.reload()

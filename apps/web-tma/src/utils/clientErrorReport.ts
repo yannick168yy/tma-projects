@@ -9,8 +9,8 @@ const reported = new Set<string>()
 function buildId(): string {
   const src = Array.from(document.querySelectorAll('script[type="module"]'))
     .map((s) => (s as HTMLScriptElement).src)
-    .find((s) => /\/assets\/index-[\w-]+\.js/.test(s))
-  return src?.match(/index-([\w-]+)\.js/)?.[1] ?? ''
+    .find((s) => /\/assets\/(index|main)-[\w-]+\.js/.test(s))
+  return src?.match(/(?:index|main)-([\w-]+)\.js/)?.[1] ?? ''
 }
 
 export function reportClientError(kind: string, error: unknown, userId?: string): void {
