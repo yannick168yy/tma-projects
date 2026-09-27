@@ -1286,6 +1286,10 @@ export async function replaceCategorySortGames(
 
 // ── 首页板块手动干预（pin/exclude）配置 ──────────────────────────────────────
 
+// 首页按币种分开配置的币种。漏掉某个币种时，冻结/布局会直接报错，钉选会被当成全币种（''）写入，
+// 进而先删掉全币种的干预项 —— 所以各处统一用这一份。
+const HOMEPAGE_CONFIG_CURRENCIES = ['PHP', 'IDR', 'INR', 'USDT']
+
 export const HOMEPAGE_SECTION_KEYS = [
   'popular', 'recommended', 'newGames', 'slots', 'casino', 'perya', 'fishing', 'lottery', 'baccarat', 'highRtp', 'highRebate', 'sports',
 ] as const
@@ -1318,7 +1322,7 @@ export async function listHomepageSectionGames(env: Env): Promise<HomepageSectio
 // ── 首页板块「冻结名单」(popular/recommended/highRebate) ──────────────────────
 export const FREEZABLE_SECTION_KEYS = ['popular', 'recommended', 'highRebate'] as const
 
-// 按 (板块, 币种) 整体写入冻结名单：先删后插，sort_order 用数组下标。currency 必须 PHP|IDR|USDT。
+// 按 (板块, 币种) 整体写入冻结名单：先删后插，sort_order 用数组下标。currency 必须 PHP|IDR|INR|USDT。
 export async function replaceFrozenBoard(
   env: Env,
   sectionKey: string,
@@ -1328,8 +1332,8 @@ export async function replaceFrozenBoard(
   if (!FREEZABLE_SECTION_KEYS.includes(sectionKey as (typeof FREEZABLE_SECTION_KEYS)[number])) {
     throw new Error(`section not freezable: ${sectionKey}`)
   }
-  const cur = ['PHP', 'IDR', 'USDT'].includes(currency) ? currency : ''
-  if (!cur) throw new Error('frozen board requires currency PHP|IDR|USDT')
+  const cur = HOMEPAGE_CONFIG_CURRENCIES.includes(currency) ? currency : ''
+  if (!cur) throw new Error('frozen board requires currency PHP|IDR|INR|USDT')
   const seen = new Set<string>()
   const conn = await pool(env).getConnection()
   try {
@@ -1355,7 +1359,7 @@ export async function replaceFrozenBoard(
 
 // 解冻：删除该 (板块,币种) 冻结名单，回到算法
 export async function deleteFrozenBoard(env: Env, sectionKey: string, currency: string): Promise<void> {
-  const cur = ['PHP', 'IDR', 'USDT'].includes(currency) ? currency : ''
+  const cur = HOMEPAGE_CONFIG_CURRENCIES.includes(currency) ? currency : ''
   await pool(env).execute(`DELETE FROM bg_homepage_frozen_board WHERE section_key = ? AND currency = ?`, [sectionKey, cur])
 }
 
@@ -1418,7 +1422,7 @@ export async function saveHomeLayout(
   currency: string,
   items: { sectionKey: string; hidden: boolean; params: HomeSectionParams | null }[],
 ): Promise<void> {
-  if (!['PHP', 'IDR', 'USDT'].includes(currency)) throw new Error('currency 必须为 PHP、IDR 或 USDT')
+  if (!HOMEPAGE_CONFIG_CURRENCIES.includes(currency)) throw new Error('currency 必须为 PHP、IDR、INR 或 USDT')
   const seen = new Set<string>()
   for (const it of items) {
     if (!HOME_LAYOUT_KEYS.includes(it.sectionKey)) throw new Error(`unknown section_key: ${it.sectionKey}`)
@@ -1451,7 +1455,7 @@ export async function setSectionVisibility(env: Env, sectionKey: string, currenc
   if (!HOMEPAGE_SECTION_KEYS.includes(sectionKey as (typeof HOMEPAGE_SECTION_KEYS)[number])) {
     throw new Error(`unknown section_key: ${sectionKey}`)
   }
-  if (!['PHP', 'IDR', 'USDT'].includes(currency)) throw new Error('currency 必须为 PHP、IDR 或 USDT')
+  if (!HOMEPAGE_CONFIG_CURRENCIES.includes(currency)) throw new Error('currency 必须为 PHP、IDR、INR 或 USDT')
   await pool(env).execute(
     `INSERT INTO bg_homepage_section_visibility (section_key, currency, hidden) VALUES (?, ?, ?)
      ON DUPLICATE KEY UPDATE hidden = VALUES(hidden)`,
@@ -1469,7 +1473,7 @@ export async function replaceHomepageSectionGames(
   if (!HOMEPAGE_SECTION_KEYS.includes(sectionKey as (typeof HOMEPAGE_SECTION_KEYS)[number])) {
     throw new Error(`unknown section_key: ${sectionKey}`)
   }
-  const cur = ['PHP', 'IDR', 'USDT'].includes(currency) ? currency : ''
+  const cur = HOMEPAGE_CONFIG_CURRENCIES.includes(currency) ? currency : ''
   const seen = new Set<string>()
   const conn = await pool(env).getConnection()
   try {
