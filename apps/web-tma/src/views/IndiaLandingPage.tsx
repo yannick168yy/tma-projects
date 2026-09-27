@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Check, CheckCircle2, ChevronRight, Eye, EyeOff, Gamepad2, Gift,
+  Check, ChevronRight, Download, Eye, EyeOff, Gift,
   Headphones, IndianRupee, Loader2, LockKeyhole, Phone, ShieldCheck,
   Sparkles, WalletCards,
 } from 'lucide-react'
@@ -17,9 +17,9 @@ import { analytics } from '@/utils/analytics'
 import { isFeatureEnabled } from '@/config/features'
 import { useTranslation } from 'react-i18next'
 import coinsGift from '@/assets/home/raw/coins-gift.png'
-import appCharacter from '@/assets/home/promos/char/appdl.webp'
 
 const INR = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 })
+const TRIAL_DEVICE_BLOCKED_KEY = 'betogo_landing_trial_device_blocked'
 
 function money(amount: number) {
   return `₹${INR.format(amount)}`
@@ -163,6 +163,7 @@ function LandingRegisterForm({ bonus }: { bonus: number }) {
 }
 
 export default function IndiaLandingPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const auth = useAuthStore()
   const promo = usePromotionStore()
@@ -170,13 +171,14 @@ export default function IndiaLandingPage() {
   const [summary, setSummary] = useState<NewPlayerSummary | null>(null)
   const [games, setGames] = useState<SlotGame[]>([])
   const [claimedNow, setClaimedNow] = useState(false)
+  const [trialDeviceBlocked, setTrialDeviceBlocked] = useState(() => sessionStorage.getItem(TRIAL_DEVICE_BLOCKED_KEY) === '1')
   const [claimError, setClaimError] = useState<string | null>(null)
 
   useEffect(() => {
     setActiveCurrency('INR')
     void promo.loadPromoConfig()
     void fetchHomepageGames('INR')
-      .then((data) => setGames([...data.popular, ...data.recommended].filter((game, index, all) => game.imageUrl && all.findIndex((item) => item.uuid === game.uuid) === index).slice(0, 8)))
+      .then((data) => setGames([...data.popular, ...data.recommended].filter((game, index, all) => game.imageUrl && all.findIndex((item) => item.uuid === game.uuid) === index).slice(0, 6)))
       .catch(() => setGames([]))
   }, [])
 
@@ -193,24 +195,27 @@ export default function IndiaLandingPage() {
   const firstDepositDone = Boolean(summary?.tasks.firstdep.done)
   const appDownloadEnabled = isFeatureEnabled('app_download')
   const appDownloadReward = promo.promoConfig?.appdl.amountByCcy?.INR ?? summary?.tasks.appdl.amount ?? 0
-  const currentStep = !loggedIn ? 1 : !trialClaimed ? 2 : 3
+  const trialFinished = trialClaimed || trialDeviceBlocked
+  const currentStep = !loggedIn ? 1 : !trialFinished ? 2 : 3
 
   const topOffer = useMemo(() => {
     if (!loggedIn) return { eyebrow: 'India welcome offer', title: `Unlock ${money(trialAmount)} free`, button: `Register & claim ${money(trialAmount)}` }
+    if (trialDeviceBlocked) return { eyebrow: 'Account ready', title: 'Welcome reward already used on this device', button: 'Explore games' }
     if (!trialClaimed) return { eyebrow: 'One tap away', title: `Your ${money(trialAmount)} reward is ready`, button: `Claim ${money(trialAmount)}` }
     if (firstDepositDone) return { eyebrow: 'Account ready', title: 'Your next win is waiting', button: 'Explore games' }
     return { eyebrow: 'Bonus claimed', title: `${money(trialAmount)} added to your rewards`, button: 'Play now' }
-  }, [firstDepositDone, loggedIn, trialAmount, trialClaimed])
-
-  function scrollToRegister() {
-    document.getElementById('landing-register')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
+  }, [firstDepositDone, loggedIn, trialAmount, trialClaimed, trialDeviceBlocked])
 
   async function primaryAction() {
     setClaimError(null)
     if (!loggedIn) {
       analytics.landingAction('primary_cta', 'guest')
-      scrollToRegister()
+      document.getElementById('landing-register')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    if (trialDeviceBlocked) {
+      analytics.landingAction('primary_cta', 'device_already_claimed')
+      navigate('/games')
       return
     }
     if (!trialClaimed) {
@@ -220,7 +225,13 @@ export default function IndiaLandingPage() {
         setClaimedNow(true)
         return
       }
-      setClaimError(result.message ?? 'Unable to claim your reward. Please try again.')
+      if (result.message === 'errors.deviceAlreadyClaimed') {
+        sessionStorage.setItem(TRIAL_DEVICE_BLOCKED_KEY, '1')
+        setTrialDeviceBlocked(true)
+        setClaimError(translateApiError(result.message, t))
+        return
+      }
+      setClaimError(result.message ? translateApiError(result.message, t) : 'Unable to claim your reward. Please try again.')
       return
     }
     analytics.landingAction('primary_cta', 'play')
@@ -233,14 +244,14 @@ export default function IndiaLandingPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#07090f] pb-24 text-white selection:bg-[#f5bd31]/30">
+    <div className="min-h-dvh bg-[#07090f] text-white selection:bg-[#f5bd31]/30">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -left-28 top-16 h-72 w-72 rounded-full bg-[#7c2d12]/20 blur-[90px]" />
-        <div className="absolute -right-32 top-[35rem] h-80 w-80 rounded-full bg-[#d79516]/10 blur-[100px]" />
+        <div className="absolute -right-32 top-[28rem] h-80 w-80 rounded-full bg-[#d79516]/10 blur-[100px]" />
       </div>
 
       <header className="relative z-10 border-b border-white/[.06] bg-[#080a10]/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
           <SiteLogo />
           <div className="flex items-center gap-2 text-[11px] font-bold text-white/55">
             <ShieldCheck size={16} className="text-[#f5bd31]" /> Secure access
@@ -249,26 +260,28 @@ export default function IndiaLandingPage() {
       </header>
 
       <main className="relative z-[1]">
-        <section className="mx-auto grid max-w-6xl gap-7 px-4 pb-10 pt-7 sm:px-6 lg:grid-cols-[1.12fr_.88fr] lg:items-center lg:pb-16 lg:pt-14">
-          <div className="relative overflow-hidden rounded-[28px] border border-white/[.07] bg-[radial-gradient(circle_at_76%_30%,rgba(245,189,49,.19),transparent_34%),linear-gradient(145deg,#171018,#0a0d16_64%)] px-5 pb-6 pt-7 sm:px-8 sm:py-10 lg:min-h-[550px]">
+        <section className={`mx-auto grid max-w-6xl gap-4 px-4 py-4 sm:px-6 sm:py-7 ${loggedIn ? '' : 'lg:grid-cols-[1.08fr_.92fr] lg:items-center'}`}>
+          <div className="relative overflow-hidden rounded-[24px] border border-white/[.07] bg-[radial-gradient(circle_at_76%_30%,rgba(245,189,49,.19),transparent_34%),linear-gradient(145deg,#171018,#0a0d16_64%)] px-5 py-5 sm:px-8 sm:py-8">
             <div className="relative z-10 max-w-[570px]">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#f5bd31]/25 bg-[#f5bd31]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.18em] text-[#ffd76a]">
                 <Sparkles size={13} /> {topOffer.eyebrow}
               </div>
-              <h1 className="mt-5 max-w-lg font-display text-[42px] font-black uppercase leading-[.94] tracking-tight text-white sm:text-6xl lg:text-7xl">
+              <h1 className="mt-4 max-w-lg font-display text-[36px] font-black uppercase leading-[.94] tracking-tight text-white sm:text-5xl lg:text-6xl">
                 Play more.<br /><span className="text-transparent [-webkit-text-stroke:1px_#ffd76a]">Win more.</span>
               </h1>
-              <p className="mt-4 text-lg font-black text-white sm:text-2xl">{topOffer.title}</p>
-              <p className="mt-2 max-w-md text-sm leading-relaxed text-white/55">Create your account in seconds. No deposit is needed to claim the welcome reward.</p>
+              <p className="mt-3 text-lg font-black text-white sm:text-xl">{topOffer.title}</p>
+              {!loggedIn && <p className="mt-1.5 max-w-md text-xs leading-relaxed text-white/55 sm:text-sm">Create your account in seconds. No deposit is needed to claim the welcome reward.</p>}
 
-              <button type="button" onClick={() => void primaryAction()} className="mt-6 flex h-14 w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-[#ffe070] to-[#eaaa17] px-5 text-sm font-black text-[#281800] shadow-[0_12px_36px_rgba(234,170,23,.27)] transition active:scale-[.98]">
-                {promo.trialClaiming ? <Loader2 size={18} className="animate-spin" /> : <Gift size={18} />}
-                {topOffer.button}<ChevronRight size={18} />
-              </button>
-              {claimError && <p className="mt-3 max-w-sm text-xs font-semibold text-red-300">{claimError}</p>}
+              {loggedIn && (
+                <button type="button" onClick={() => void primaryAction()} className="mt-5 flex h-13 w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-[#ffe070] to-[#eaaa17] px-5 text-sm font-black text-[#281800] shadow-[0_12px_36px_rgba(234,170,23,.27)] transition active:scale-[.98]">
+                  {promo.trialClaiming ? <Loader2 size={18} className="animate-spin" /> : <Gift size={18} />}
+                  {topOffer.button}<ChevronRight size={18} />
+                </button>
+              )}
+              {claimError && <p className={`mt-2 max-w-sm text-xs font-semibold ${trialDeviceBlocked ? 'text-amber-300' : 'text-red-300'}`}>{claimError}</p>}
             </div>
 
-            <div className="relative z-10 mt-8 flex items-center gap-2 sm:max-w-md">
+            <div className="relative z-10 mt-5 flex items-center gap-2 sm:max-w-md">
               {[['1', 'Register'], ['2', 'Claim reward'], ['3', 'Start playing']].map(([step, label], index) => {
                 const done = currentStep > Number(step)
                 const active = currentStep === Number(step)
@@ -284,74 +297,57 @@ export default function IndiaLandingPage() {
               })}
             </div>
 
-            <img src={coinsGift} alt="" className="pointer-events-none absolute -right-12 top-10 w-52 opacity-25 blur-[1px] sm:right-0 sm:top-24 sm:w-72 sm:opacity-55" />
+            <img src={coinsGift} alt="" className="pointer-events-none absolute -right-14 top-9 w-48 opacity-20 blur-[1px] sm:right-0 sm:top-10 sm:w-64 sm:opacity-45" />
             <div className="pointer-events-none absolute bottom-0 right-0 h-44 w-44 bg-[radial-gradient(circle,#f5bd3130,transparent_68%)]" />
           </div>
 
-          {!loggedIn ? (
-            <LandingRegisterForm bonus={trialAmount} />
-          ) : (
-            <div className="rounded-[24px] border border-[#f7c94b]/25 bg-[#121522]/95 p-5 shadow-[0_24px_70px_rgba(0,0,0,.45)] sm:p-7">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2fb968]/15 text-[#5ce28e]"><CheckCircle2 size={25} /></div>
-              <p className="mt-4 text-[11px] font-black uppercase tracking-[.18em] text-[#f5bd31]">Welcome to Betogo</p>
-              <h2 className="mt-1 text-2xl font-black">{trialClaimed ? 'Your account is ready' : 'Claim your free reward'}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-white/50">Signed in as {auth.user?.phone ?? auth.user?.displayName}. Continue where you left off.</p>
-              <button type="button" onClick={() => void primaryAction()} className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-[#ffe070] to-[#eaaa17] text-sm font-black text-[#281800]">
-                {promo.trialClaiming ? <Loader2 size={18} className="animate-spin" /> : trialClaimed ? <Gamepad2 size={18} /> : <Gift size={18} />}
-                {topOffer.button}
-              </button>
-              {!firstDepositDone && trialClaimed && (
-                <button type="button" onClick={openDeposit} className="mt-3 h-12 w-full rounded-2xl border border-[#f5bd31]/25 bg-[#f5bd31]/10 text-sm font-black text-[#ffd76a]">Deposit & get extra bonus</button>
+          {!loggedIn && <LandingRegisterForm bonus={trialAmount} />}
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 pb-4 sm:px-6">
+          {!firstDepositDone && maxFirstDepositBonus > 0 && (
+            <div className="rounded-2xl border border-[#f5bd31]/15 bg-gradient-to-r from-[#23150a] via-[#171016] to-[#10131c] p-4 sm:flex sm:items-center sm:justify-between sm:gap-5">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[.2em] text-[#f5bd31]">First deposit boost</p>
+                <h2 className="mt-1 text-lg font-black sm:text-xl">Get up to {money(maxFirstDepositBonus)} extra on your first deposit.</h2>
+                {firstTier && <p className="mt-1 text-xs text-white/50">Start with {money(firstTier.depositAmount)} → receive {money(firstTier.bonusAmount)} bonus.</p>}
+              </div>
+              {loggedIn && (
+                <button type="button" onClick={openDeposit} className="mt-3 inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-white px-4 text-xs font-black text-[#13151c] sm:mt-0">
+                  <WalletCards size={16} /> Deposit now
+                </button>
               )}
             </div>
           )}
-        </section>
 
-        {!firstDepositDone && maxFirstDepositBonus > 0 && (
-          <section className="mx-auto max-w-6xl px-4 py-7 sm:px-6">
-            <div className="relative overflow-hidden rounded-[26px] border border-[#f5bd31]/15 bg-gradient-to-r from-[#23150a] via-[#171016] to-[#10131c] p-5 sm:p-8">
-              <div className="relative z-10 max-w-xl">
-                <p className="text-[11px] font-black uppercase tracking-[.2em] text-[#f5bd31]">First deposit boost</p>
-                <h2 className="mt-2 text-2xl font-black sm:text-3xl">Top up once. Get up to {money(maxFirstDepositBonus)} extra.</h2>
-                {firstTier && <p className="mt-2 text-sm text-white/55">Start with {money(firstTier.depositAmount)} and receive {money(firstTier.bonusAmount)} bonus.</p>}
-                <button type="button" onClick={loggedIn ? openDeposit : scrollToRegister} className="mt-5 inline-flex h-12 items-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-[#13151c]">
-                  <WalletCards size={18} /> {loggedIn ? 'Deposit now' : 'Register to unlock'}
-                </button>
-              </div>
-              <img src={coinsGift} alt="" className="pointer-events-none absolute -bottom-20 -right-14 w-56 opacity-25 sm:-bottom-24 sm:right-2 sm:w-80 sm:opacity-45" />
-            </div>
-          </section>
-        )}
-
-        <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+          <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
             {[
               [ShieldCheck, 'Secure account', 'Protected access'],
               [IndianRupee, 'INR payments', 'Made for India'],
               [Headphones, '24/7 support', 'Help anytime'],
             ].map(([Icon, title, sub]) => (
-              <div key={String(title)} className="rounded-2xl border border-white/[.07] bg-white/[.035] px-2 py-4 text-center sm:px-4">
-                <Icon size={22} className="mx-auto text-[#f5bd31]" />
-                <p className="mt-2 text-[11px] font-black sm:text-sm">{String(title)}</p>
-                <p className="mt-1 text-[9px] text-white/35 sm:text-xs">{String(sub)}</p>
+              <div key={String(title)} className="rounded-xl border border-white/[.07] bg-white/[.035] px-1.5 py-2.5 text-center sm:px-3">
+                <Icon size={18} className="mx-auto text-[#f5bd31]" />
+                <p className="mt-1.5 text-[10px] font-black sm:text-xs">{String(title)}</p>
+                <p className="mt-0.5 hidden text-[9px] text-white/35 sm:block">{String(sub)}</p>
               </div>
             ))}
           </div>
         </section>
 
         {games.length > 0 && (
-          <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+          <section className="mx-auto max-w-6xl px-4 py-3 sm:px-6">
             <div className="flex items-end justify-between gap-3">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[.2em] text-[#f5bd31]">Fan favourites</p>
-                <h2 className="mt-1 text-2xl font-black">Popular games</h2>
+                <h2 className="mt-0.5 text-lg font-black">Popular games</h2>
               </div>
-              <button type="button" onClick={() => loggedIn ? navigate('/games') : scrollToRegister()} className="text-xs font-black text-[#ffd76a]">View all</button>
+              <button type="button" onClick={() => loggedIn ? navigate('/games') : document.getElementById('landing-register')?.scrollIntoView({ behavior: 'smooth' })} className="text-xs font-black text-[#ffd76a]">View all</button>
             </div>
-            <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-8 sm:gap-3">
+            <div className="mt-2.5 flex gap-2 overflow-x-auto pb-1 hide-scrollbar sm:grid sm:grid-cols-6 sm:gap-3">
               {games.map((game) => (
-                <button key={game.uuid} type="button" onClick={() => loggedIn ? navigate('/games') : scrollToRegister()} className="group min-w-0 text-left">
-                  <div className="aspect-square overflow-hidden rounded-xl border border-white/10 bg-[#141824]">
+                <button key={game.uuid} type="button" onClick={() => loggedIn ? navigate('/games') : document.getElementById('landing-register')?.scrollIntoView({ behavior: 'smooth' })} className="group w-[72px] shrink-0 text-left sm:w-auto">
+                  <div className="aspect-square overflow-hidden rounded-lg border border-white/10 bg-[#141824]">
                     <img src={game.imageHqUrl ?? game.imageUrl ?? ''} alt={game.name} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
                   </div>
                   <p className="mt-1.5 truncate text-[10px] font-bold text-white/70">{game.name}</p>
@@ -362,45 +358,22 @@ export default function IndiaLandingPage() {
         )}
 
         {appDownloadEnabled && (
-          <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-            <div className="relative overflow-hidden rounded-[26px] border border-white/[.07] bg-[radial-gradient(circle_at_84%_22%,rgba(245,189,49,.16),transparent_30%),linear-gradient(135deg,#171b28,#0e1018)] p-5 sm:min-h-[260px] sm:p-8">
-              <div className="relative z-10 max-w-[520px]">
-                <p className="text-[11px] font-black uppercase tracking-[.2em] text-[#f5bd31]">Betogo on the go</p>
-                <h2 className="mt-2 text-2xl font-black sm:text-3xl">Faster access. Full-screen play.</h2>
-                <p className="mt-2 max-w-md text-sm leading-relaxed text-white/50">
-                  Install the Betogo app for quicker access and exclusive in-app rewards{appDownloadReward > 0 ? `, including a ${money(appDownloadReward)} install bonus` : ''}.
-                </p>
-                <button type="button" onClick={() => { analytics.landingAction('download_cta', loggedIn ? 'registered' : 'guest'); navigate('/download') }} className="mt-5 inline-flex h-12 items-center gap-2 rounded-xl border border-[#f5bd31]/30 bg-[#f5bd31]/10 px-5 text-sm font-black text-[#ffd76a]">
-                  Get the app <ChevronRight size={18} />
-                </button>
+          <section className="mx-auto max-w-6xl px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/[.07] bg-white/[.035] p-3.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f5bd31]/10 text-[#f5bd31]"><Download size={20} /></span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black">Get the Betogo app</p>
+                <p className="truncate text-[10px] text-white/40">Faster access{appDownloadReward > 0 ? ` · ${money(appDownloadReward)} install bonus` : ' · Full-screen play'}</p>
               </div>
-              <img src={appCharacter} alt="" className="pointer-events-none absolute -bottom-32 -right-16 w-64 opacity-25 sm:-bottom-48 sm:right-0 sm:w-[390px] sm:opacity-65" />
+              <button type="button" onClick={() => { analytics.landingAction('download_cta', loggedIn ? 'registered' : 'guest'); navigate('/download') }} className="shrink-0 rounded-lg border border-[#f5bd31]/25 px-3 py-2 text-xs font-black text-[#ffd76a]">Install</button>
             </div>
           </section>
         )}
 
-        <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-          <div className="rounded-[24px] border border-white/[.07] bg-white/[.035] px-5 py-6 text-center">
-            <h2 className="text-xl font-black">Ready to start?</h2>
-            <p className="mt-2 text-sm text-white/45">Join Betogo and claim your India welcome reward.</p>
-            <button type="button" onClick={() => void primaryAction()} className="mx-auto mt-5 flex h-13 w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-[#ffe070] to-[#eaaa17] text-sm font-black text-[#281800]">
-              {topOffer.button}<ChevronRight size={18} />
-            </button>
-          </div>
-        </section>
-
-        <footer className="mx-auto max-w-6xl px-6 pb-7 pt-4 text-center text-[10px] leading-relaxed text-white/25">
+        <footer className="mx-auto max-w-6xl px-6 pb-5 pt-3 text-center text-[9px] leading-relaxed text-white/25">
           18+ only. Please play responsibly. Bonus eligibility and wagering requirements apply.<br />© {new Date().getFullYear()} Betogo. All rights reserved.
         </footer>
       </main>
-
-      {!loggedIn && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#090b12]/95 px-3 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden">
-          <button type="button" onClick={scrollToRegister} className="mx-auto flex h-13 w-full max-w-md items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-[#ffe070] to-[#eaaa17] text-sm font-black text-[#281800] shadow-[0_10px_30px_rgba(234,170,23,.24)]">
-            Register & claim {money(trialAmount)}<ChevronRight size={18} />
-          </button>
-        </div>
-      )}
     </div>
   )
 }
