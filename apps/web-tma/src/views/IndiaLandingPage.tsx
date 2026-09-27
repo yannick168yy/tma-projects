@@ -310,14 +310,14 @@ export default function IndiaLandingPage() {
         <section className="mx-auto max-w-6xl px-4 py-3 sm:px-6 sm:py-6">
           <div className="relative overflow-hidden rounded-[24px] border border-[#f7c94b]/20 bg-[radial-gradient(circle_at_85%_8%,rgba(245,189,49,.22),transparent_38%),linear-gradient(160deg,#1a1119,#0b0e17_58%)] p-4 shadow-[0_24px_70px_rgba(0,0,0,.45)] sm:p-7 lg:grid lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:gap-8">
             <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#ffd76a] to-transparent" />
+            {/* 通栏主视觉：左侧压暗给文字留底，底部渐隐接四格；桌面端只铺左栏并向表单一侧渐隐 */}
+            <img
+              src={heroArt}
+              alt=""
+              className="pointer-events-none absolute inset-x-0 top-0 w-full select-none [mask-composite:intersect] [mask-image:linear-gradient(to_right,rgba(0,0,0,.5),#000_48%),linear-gradient(to_bottom,#000_62%,transparent)] [-webkit-mask-composite:source-in] [-webkit-mask-image:linear-gradient(to_right,rgba(0,0,0,.5),#000_48%),linear-gradient(to_bottom,#000_62%,transparent)] lg:right-auto lg:w-[57%] lg:[mask-image:linear-gradient(to_right,rgba(0,0,0,.5),#000_42%,#000_78%,transparent),linear-gradient(to_bottom,#000_62%,transparent)] lg:[-webkit-mask-image:linear-gradient(to_right,rgba(0,0,0,.5),#000_42%,#000_78%,transparent),linear-gradient(to_bottom,#000_62%,transparent)]"
+            />
             <div className="relative z-10">
-              <div className="relative min-h-[196px] sm:min-h-[290px]">
-                {/* 素材左侧残留的活动标题字母靠左向渐隐盖住，底部渐隐接到四格上 */}
-                <img
-                  src={heroArt}
-                  alt=""
-                  className="pointer-events-none absolute -right-4 -top-4 w-[66%] max-w-[330px] select-none [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent,#000_42%),linear-gradient(to_bottom,#000_62%,transparent)] [-webkit-mask-composite:source-in] [-webkit-mask-image:linear-gradient(to_right,transparent,#000_42%),linear-gradient(to_bottom,#000_62%,transparent)] sm:-right-7 sm:-top-7 lg:right-0 lg:[mask-image:linear-gradient(to_right,transparent,#000_35%,#000_75%,transparent),linear-gradient(to_bottom,#000_62%,transparent)] lg:[-webkit-mask-image:linear-gradient(to_right,transparent,#000_35%,#000_75%,transparent),linear-gradient(to_bottom,#000_62%,transparent)]"
-                />
+              <div className="relative min-h-[178px] sm:min-h-[260px] lg:min-h-[300px]">
                 <div className="relative inline-flex items-center gap-1.5 rounded-full border border-[#f5bd31]/25 bg-[#f5bd31]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.16em] text-[#ffd76a]">
                   <Sparkles size={12} /> {topOffer.eyebrow}
                 </div>
