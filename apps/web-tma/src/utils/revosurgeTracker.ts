@@ -10,7 +10,7 @@ import { getAttribution } from '@/utils/attribution'
 
 declare global {
   interface Window {
-    WebTracker?: new (opts: { trackerId: string }) => unknown
+    WebTracker?: new (opts: { trackerId: string; geo?: boolean }) => unknown
     __rsTracker?: unknown
   }
 }
@@ -27,7 +27,8 @@ export function initRevosurgeTracker(): void {
   s.async = true
   s.onload = () => {
     try {
-      if (window.WebTracker) window.__rsTracker = new window.WebTracker({ trackerId: TRACKER_ID })
+      // geo 默认开启，会弹浏览器定位授权（iPhone 上尤其显眼、劝退注册）；归因不需要经纬度，关掉
+      if (window.WebTracker) window.__rsTracker = new window.WebTracker({ trackerId: TRACKER_ID, geo: false })
     } catch {
       /* 归因失败不能影响进站 */
     }
