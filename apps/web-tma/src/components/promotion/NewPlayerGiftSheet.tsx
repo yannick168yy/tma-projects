@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import newPlayerImg from '@/assets/home/promos/new-player.webp'
+import newPlayerInrImg from '@/assets/home/promos/new-player-inr.webp'
+import { getSiteMarket } from '@/config/market'
 import { localizedImage } from '@/utils/localizedImage'
 
 interface Props {
@@ -17,7 +19,8 @@ export default function NewPlayerGiftSheet({ onClose, onContinue }: Props) {
   const [loaded, setLoaded] = useState(false)
   const { i18n } = useTranslation()
   const isIndonesian = i18n.language.toLowerCase().startsWith('id')
-  const imageUrl = localizedImage(newPlayerImg, i18n.language, 'new-player.webp')
+  // 印度站金额是卢比，按站点换图优先于按语言换图
+  const imageUrl = getSiteMarket() === 'IN' ? newPlayerInrImg : localizedImage(newPlayerImg, i18n.language, 'new-player.webp')
 
   return createPortal(
     <div

@@ -3,6 +3,7 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
 import { childLogger } from '../lib/logger.js'
+import type { SiteMarket } from './site-domain.service.js'
 import { getStorageProvider } from './storage/index.js'
 
 const log = childLogger('home-content')
@@ -15,8 +16,9 @@ export interface HomeContentItem {
   slot: number
   imageKey: string
   imageUrl: string
-  imageKeys: Record<string, string>
-  imageUrls: Record<string, string>
+  /** 各站点专属图（PH/IN/ID），未配置的站点用 imageKey 默认图 */
+  siteImageKeys: Partial<Record<SiteMarket, string>>
+  siteImageUrls: Partial<Record<SiteMarket, string>>
   actionType: HomeContentActionType
   actionValue: string | null
   enabled: boolean
@@ -37,7 +39,7 @@ interface HomeContentRow extends RowDataPacket {
   action_value: string | null
   enabled: number
   updated_at: Date | string | null
-  localized_images: unknown
+  site_images: unknown
 }
 
 const VALID_MIME = new Set(['image/png', 'image/jpeg', 'image/webp'])
@@ -57,27 +59,29 @@ function imageUrl(env: Env, key: string): string {
   return `/api/v1/home/images/${keyPath}`
 }
 
-export function parseLocalizedImageKeys(defaultImageKey: string, raw: unknown): Record<string, string> {
+export const HOME_CONTENT_SITES: SiteMarket[] = ['PH', 'IN', 'ID']
+
+export function parseSiteImageKeys(raw: unknown): Partial<Record<SiteMarket, string>> {
   let parsed: unknown = raw
   if (typeof raw === 'string') {
     try { parsed = JSON.parse(raw) } catch { parsed = null }
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { en: defaultImageKey }
-  const localized = Object.fromEntries(
-    Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].startsWith('home/')),
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+  return Object.fromEntries(
+    Object.entries(parsed).filter((entry): entry is [SiteMarket, string] =>
+      HOME_CONTENT_SITES.includes(entry[0] as SiteMarket) && typeof entry[1] === 'string' && entry[1].startsWith('home/')),
   )
-  return { en: defaultImageKey, ...localized }
 }
 
 function mapRow(env: Env, row: HomeContentRow): HomeContentItem {
-  const imageKeys = parseLocalizedImageKeys(row.image_key, row.localized_images)
+  const siteImageKeys = parseSiteImageKeys(row.site_images)
   return {
     kind: row.kind,
     slot: Number(row.slot),
     imageKey: row.image_key,
     imageUrl: imageUrl(env, row.image_key),
-    imageKeys,
-    imageUrls: Object.fromEntries(Object.entries(imageKeys).map(([locale, key]) => [locale, imageUrl(env, key)])),
+    siteImageKeys,
+    siteImageUrls: Object.fromEntries(Object.entries(siteImageKeys).map(([market, key]) => [market, imageUrl(env, key)])),
     actionType: row.action_type,
     actionValue: row.action_value ?? null,
     enabled: Boolean(row.enabled),
@@ -85,23 +89,24 @@ function mapRow(env: Env, row: HomeContentRow): HomeContentItem {
   }
 }
 
-export async function getHomeContent(env: Env, includeDisabled = false, locale = 'en'): Promise<HomeContent> {
+/** market 为空 = 后台读取全部配置；传入站点 = 前台读取，图片按站点取专属图，没有则用默认图 */
+export async function getHomeContent(env: Env, market: SiteMarket | null): Promise<HomeContent> {
+  const includeDisabled = market === null
   if (!isMysqlEnabled(env)) return { banners: [], walletBanners: [] }
   const db = getMysqlPool(env)
   const [rows] = await db.query<HomeContentRow[]>(
     `SELECT h.kind, h.slot, h.image_key, h.action_type, h.action_value, h.enabled, h.updated_at,
-            COALESCE((SELECT JSON_OBJECTAGG(i.locale, i.image_key)
-                      FROM bg_home_content_image i WHERE i.kind = h.kind AND i.slot = h.slot), JSON_OBJECT()) AS localized_images
+            COALESCE((SELECT JSON_OBJECTAGG(i.market, i.image_key)
+                      FROM bg_home_content_site_image i WHERE i.kind = h.kind AND i.slot = h.slot), JSON_OBJECT()) AS site_images
      FROM bg_home_content h
      ${includeDisabled ? '' : 'WHERE h.enabled = 1'}
      ORDER BY h.kind, h.slot`,
   )
   let items = rows.map((row) => mapRow(env, row))
-  if (!includeDisabled) {
-    const normalizedLocale = locale.toLowerCase().startsWith('id') ? 'id' : locale.toLowerCase().startsWith('vi') ? 'vi' : locale.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en'
+  if (market) {
     items = items.map((item) => {
-      const key = item.imageKeys[normalizedLocale] ?? item.imageKeys.en ?? item.imageKey
-      return { ...item, imageKey: key, imageUrl: imageUrl(env, key) }
+      const key = item.siteImageKeys[market] ?? item.imageKey
+      return { ...item, imageKey: key, imageUrl: imageUrl(env, key), siteImageKeys: {}, siteImageUrls: {} }
     })
   }
 
@@ -156,8 +161,8 @@ export async function saveHomeContentItem(env: Env, item: {
     slot: item.slot,
     imageKey: item.imageKey,
     imageUrl: imageUrl(env, item.imageKey),
-    imageKeys: { en: item.imageKey },
-    imageUrls: { en: imageUrl(env, item.imageKey) },
+    siteImageKeys: {},
+    siteImageUrls: {},
     actionType: item.actionType,
     actionValue: item.actionValue,
     enabled: item.enabled,
@@ -165,15 +170,15 @@ export async function saveHomeContentItem(env: Env, item: {
   }
 }
 
-export async function saveHomeContentLocalizedImage(env: Env, kind: HomeContentKind, slot: number, locale: string, imageKey: string | null): Promise<void> {
+export async function saveHomeContentSiteImage(env: Env, kind: HomeContentKind, slot: number, market: SiteMarket, imageKey: string | null): Promise<void> {
   if (!imageKey) {
-    await getMysqlPool(env).query('DELETE FROM bg_home_content_image WHERE kind = ? AND slot = ? AND locale = ?', [kind, slot, locale])
+    await getMysqlPool(env).query('DELETE FROM bg_home_content_site_image WHERE kind = ? AND slot = ? AND market = ?', [kind, slot, market])
     return
   }
   await getMysqlPool(env).query(
-    `INSERT INTO bg_home_content_image (kind, slot, locale, image_key) VALUES (?, ?, ?, ?)
+    `INSERT INTO bg_home_content_site_image (kind, slot, market, image_key) VALUES (?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE image_key = VALUES(image_key)`,
-    [kind, slot, locale, imageKey],
+    [kind, slot, market, imageKey],
   )
 }
 
@@ -196,11 +201,11 @@ export function parseImageDataUrl(dataUrl: string): { data: Buffer; mimeType: st
   return { data, mimeType, ext }
 }
 
-export async function storeHomeImage(env: Env, kind: HomeContentKind, dataUrl: string, locale = 'en'): Promise<{ imageKey: string; imageUrl: string }> {
+export async function storeHomeImage(env: Env, kind: HomeContentKind, dataUrl: string, site: SiteMarket | 'default'): Promise<{ imageKey: string; imageUrl: string }> {
   const parsed = parseImageDataUrl(dataUrl)
   if (!parsed) throw new Error('只支持 PNG、JPG、WEBP 图片')
   if (parsed.data.length > 5 * 1024 * 1024) throw new Error('图片不能超过 5MB')
-  const key = `home/${kind}/${locale}/${Date.now()}-${randomUUID()}.${parsed.ext}`
+  const key = `home/${kind}/${site}/${Date.now()}-${randomUUID()}.${parsed.ext}`
   const imageKey = await getStorageProvider(env).put(key, parsed.data, parsed.mimeType)
   return { imageKey, imageUrl: imageUrl(env, imageKey) }
 }

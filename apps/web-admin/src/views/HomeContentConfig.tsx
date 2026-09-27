@@ -9,26 +9,36 @@ import {
   getHomeContent,
   saveAnnouncement,
   saveHomeContentItem,
-  saveHomeContentLocalizedImage,
+  saveHomeContentSiteImage,
   translateCsContent,
   uploadHomeImage,
   type AdminAnnouncement,
   type AnnouncementPlacement,
   type HomeContentItem,
+  type HomeContentSite,
 } from '../api'
 
 const { Title, Text } = Typography
 
 type Kind = HomeContentItem['kind']
 type HomeContentTab = Kind | 'announcements'
+type ImageSite = HomeContentSite | 'default'
+
+const SITES: HomeContentSite[] = ['PH', 'IN', 'ID']
+const siteOptions: { value: ImageSite; label: string }[] = [
+  { value: 'default', label: '默认图片（所有站点）' },
+  { value: 'PH', label: '菲律宾站图片' },
+  { value: 'IN', label: '印度站图片' },
+  { value: 'ID', label: '印尼站图片' },
+]
 
 interface FormItemState {
   kind: Kind
   slot: number
   imageKey: string
   imageUrl: string
-  imageKeys: Record<string, string>
-  imageUrls: Record<string, string>
+  siteImageKeys: Partial<Record<HomeContentSite, string>>
+  siteImageUrls: Partial<Record<HomeContentSite, string>>
   actionType: HomeContentItem['actionType']
   actionValue: string | null
   enabled: boolean
@@ -112,7 +122,7 @@ function destToAction(dest: string, sub?: string): Pick<FormItemState, 'actionTy
 }
 
 function emptyItem(kind: Kind, slot: number): FormItemState {
-  return { kind, slot, imageKey: '', imageUrl: '', imageKeys: {}, imageUrls: {}, actionType: 'none', actionValue: null, enabled: true }
+  return { kind, slot, imageKey: '', imageUrl: '', siteImageKeys: {}, siteImageUrls: {}, actionType: 'none', actionValue: null, enabled: true }
 }
 
 const announcementLabels: Record<AnnouncementPlacement, { title: string; position: string }> = {
@@ -150,7 +160,7 @@ export default function HomeContentConfig() {
   const [activeKind, setActiveKind] = useState<HomeContentTab>('banner')
   const [activeBannerSlot, setActiveBannerSlot] = useState('1')
   const [activeWalletBannerSlot, setActiveWalletBannerSlot] = useState('1')
-  const [imageLocale, setImageLocale] = useState('en')
+  const [imageSite, setImageSite] = useState<ImageSite>('default')
   const [banners, setBanners] = useState<FormItemState[]>([])
   const [walletBanners, setWalletBanners] = useState<FormItemState[]>([])
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>(emptyAnnouncements)
@@ -261,13 +271,14 @@ export default function HomeContentConfig() {
   async function handleUpload(kind: Kind, slot: number, file: File) {
     try {
       const imageData = await readFileDataUrl(file)
-      const uploaded = await uploadHomeImage(kind, imageData, imageLocale)
+      const uploaded = await uploadHomeImage(kind, imageData, imageSite)
       const item = itemsOf(kind).find((entry) => entry.slot === slot)
-      const imageKeys = { ...(item?.imageKeys ?? {}), [imageLocale]: uploaded.imageKey }
-      const imageUrls = { ...(item?.imageUrls ?? {}), [imageLocale]: uploaded.imageUrl }
-      updateItem(kind, slot, imageLocale === 'en'
-        ? { ...uploaded, imageKeys, imageUrls, imageMissing: false }
-        : { imageKeys, imageUrls })
+      updateItem(kind, slot, imageSite === 'default'
+        ? { ...uploaded, imageMissing: false }
+        : {
+          siteImageKeys: { ...(item?.siteImageKeys ?? {}), [imageSite]: uploaded.imageKey },
+          siteImageUrls: { ...(item?.siteImageUrls ?? {}), [imageSite]: uploaded.imageUrl },
+        })
       message.success('图片已上传，请保存设置')
     } catch (e) {
       message.error(e instanceof Error ? e.message : '上传失败')
@@ -275,15 +286,15 @@ export default function HomeContentConfig() {
   }
 
   async function handleSave(item: FormItemState) {
-    const selectedImageKey = item.imageKeys[imageLocale] ?? (imageLocale === 'en' ? item.imageKey : '')
+    const selectedImageKey = imageSite === 'default' ? item.imageKey : item.siteImageKeys[imageSite]
     if (!selectedImageKey) {
-      message.warning(`请先上传 ${imageLocale} 图片`)
+      message.warning(`请先上传${siteOptions.find((o) => o.value === imageSite)?.label}`)
       return
     }
     const key = `${item.kind}-${item.slot}`
     setSavingKey(key)
     try {
-      if (imageLocale === 'en') {
+      if (imageSite === 'default') {
         await saveHomeContentItem({
           kind: item.kind,
           slot: item.slot,
@@ -293,7 +304,7 @@ export default function HomeContentConfig() {
           enabled: item.enabled,
         })
       } else {
-        if (!item.imageKey) throw new Error('请先保存英文默认图片')
+        if (!item.imageKey) throw new Error('请先保存默认图片')
         await saveHomeContentItem({
           kind: item.kind,
           slot: item.slot,
@@ -302,13 +313,25 @@ export default function HomeContentConfig() {
           actionValue: item.actionValue,
           enabled: item.enabled,
         })
-        await saveHomeContentLocalizedImage(item.kind, item.slot, imageLocale, selectedImageKey)
+        await saveHomeContentSiteImage(item.kind, item.slot, imageSite, selectedImageKey)
       }
       message.success('已保存')
     } catch (e) {
       message.error(e instanceof Error ? e.message : '保存失败')
     } finally {
       setSavingKey('')
+    }
+  }
+
+  async function handleClearSiteImage(item: FormItemState, site: HomeContentSite) {
+    try {
+      await saveHomeContentSiteImage(item.kind, item.slot, site, null)
+      const { [site]: _key, ...siteImageKeys } = item.siteImageKeys
+      const { [site]: _url, ...siteImageUrls } = item.siteImageUrls
+      updateItem(item.kind, item.slot, { siteImageKeys, siteImageUrls })
+      message.success('已清除，该站点改用默认图片')
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '清除失败')
     }
   }
 
@@ -327,7 +350,7 @@ export default function HomeContentConfig() {
     }
     const content = (x: FormItemState) => ({
       imageKey: x.imageKey, imageUrl: x.imageUrl,
-      imageKeys: x.imageKeys, imageUrls: x.imageUrls,
+      siteImageKeys: x.siteImageKeys, siteImageUrls: x.siteImageUrls,
       actionType: x.actionType, actionValue: x.actionValue, enabled: x.enabled,
     })
     const aContent = content(a)
@@ -336,9 +359,9 @@ export default function HomeContentConfig() {
     try {
       await saveHomeContentItem({ kind: a.kind, slot: a.slot, ...bContent })
       await saveHomeContentItem({ kind: b.kind, slot: b.slot, ...aContent })
-      for (const locale of ['id', 'vi', 'zh-CN']) {
-        await saveHomeContentLocalizedImage(a.kind, a.slot, locale, bContent.imageKeys[locale] ?? null)
-        await saveHomeContentLocalizedImage(b.kind, b.slot, locale, aContent.imageKeys[locale] ?? null)
+      for (const site of SITES) {
+        await saveHomeContentSiteImage(a.kind, a.slot, site, bContent.siteImageKeys[site] ?? null)
+        await saveHomeContentSiteImage(b.kind, b.slot, site, aContent.siteImageKeys[site] ?? null)
       }
       setItemsOf(item.kind, (prev) => prev.map((x) => {
         if (x.slot === a.slot) return { ...x, ...bContent }
@@ -361,6 +384,7 @@ export default function HomeContentConfig() {
     const isFirst = pos <= 0
     const isLast = pos === siblings.length - 1
     const moving = savingKey === `move-${item.kind}-${item.slot}`
+    const selectedImageUrl = imageSite === 'default' ? item.imageUrl : item.siteImageUrls[imageSite]
     const ratioText =
       item.kind === 'banner'
         ? '推荐尺寸：1280 x 720（16:9，与首页 banner 区块一致），PNG/JPG/WEBP，≤5MB'
@@ -397,17 +421,10 @@ export default function HomeContentConfig() {
       >
         <Space direction="vertical" style={{ width: '100%' }} size={12}>
           <Text type="secondary">{ratioText}</Text>
-          <Select
-            value={imageLocale}
-            style={{ width: 220 }}
-            options={[
-              { value: 'en', label: '英文 / 默认图片' },
-              { value: 'id', label: '印尼语图片' },
-              { value: 'vi', label: '越南语图片' },
-              { value: 'zh-CN', label: '中文图片' },
-            ]}
-            onChange={setImageLocale}
-          />
+          <Space wrap>
+            <Select value={imageSite} style={{ width: 220 }} options={siteOptions} onChange={setImageSite} />
+            <Text type="secondary">站点按「站点域名映射」的所属站点区分；未单独上传的站点显示默认图片</Text>
+          </Space>
           {item.imageMissing && (
             <Alert
               type="error"
@@ -420,15 +437,15 @@ export default function HomeContentConfig() {
             <div style={{ height: item.kind === 'banner' ? 220 : 140, border: '1px dashed #ff4d4f', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff4d4f', background: '#fff1f0' }}>
               图片文件已丢失，请重新上传
             </div>
-          ) : (item.imageUrls[imageLocale] ?? (imageLocale === 'en' ? item.imageUrl : '')) ? (
+          ) : selectedImageUrl ? (
             <Image
-              src={item.imageUrls[imageLocale] ?? item.imageUrl}
+              src={selectedImageUrl}
               height={item.kind === 'banner' ? 220 : 140}
               style={{ width: '100%', objectFit: 'cover', borderRadius: 6, background: '#111827' }}
             />
           ) : (
             <div style={{ height: item.kind === 'banner' ? 220 : 140, border: '1px dashed #d9d9d9', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
-              未上传图片
+              {imageSite === 'default' ? '未上传图片' : '该站点未单独上传，前台显示默认图片'}
             </div>
           )}
           <Upload
@@ -442,6 +459,11 @@ export default function HomeContentConfig() {
           >
             <Button icon={<UploadOutlined />}>上传图片</Button>
           </Upload>
+          {imageSite !== 'default' && item.siteImageKeys[imageSite] && (
+            <Popconfirm title="清除后该站点改为显示默认图片，确定？" onConfirm={() => void handleClearSiteImage(item, imageSite)}>
+              <Button>清除站点图片，改用默认图</Button>
+            </Popconfirm>
+          )}
           <Form layout="vertical" requiredMark={false}>
             {item.kind !== 'wallet_banner' && (() => {
               const dest = itemToDest(item)
@@ -500,7 +522,7 @@ export default function HomeContentConfig() {
               )
             })()}
             <Form.Item label="图片 key" style={{ marginBottom: 8 }}>
-              <Input value={item.imageKeys[imageLocale] ?? (imageLocale === 'en' ? item.imageKey : '')} readOnly placeholder="上传后自动生成" />
+              <Input value={(imageSite === 'default' ? item.imageKey : item.siteImageKeys[imageSite]) ?? ''} readOnly placeholder="上传后自动生成" />
             </Form.Item>
           </Form>
           <Button

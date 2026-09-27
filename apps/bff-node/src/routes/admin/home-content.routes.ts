@@ -2,13 +2,15 @@ import Router from '@koa/router'
 import {
   getHomeContent,
   deleteHomeContentItem,
+  HOME_CONTENT_SITES,
   homeContentImageExists,
   saveHomeContentItem,
-  saveHomeContentLocalizedImage,
+  saveHomeContentSiteImage,
   storeHomeImage,
   type HomeContentActionType,
   type HomeContentKind,
 } from '../../services/home-content.service.js'
+import type { SiteMarket } from '../../services/site-domain.service.js'
 import { fail, ok } from '../../utils/response.js'
 
 const router = new Router({ prefix: '/home-content' })
@@ -24,12 +26,16 @@ function validActionType(value: unknown): value is HomeContentActionType {
   return typeof value === 'string' && actionTypes.has(value as HomeContentActionType)
 }
 
+function validSite(value: unknown): value is SiteMarket {
+  return typeof value === 'string' && HOME_CONTENT_SITES.includes(value as SiteMarket)
+}
+
 router.get('/', async (ctx) => {
-  ok(ctx, await getHomeContent(ctx.state.env, true))
+  ok(ctx, await getHomeContent(ctx.state.env, null))
 })
 
 router.post('/upload', async (ctx) => {
-  const body = (ctx.request.body ?? {}) as { kind?: unknown; imageData?: unknown; locale?: unknown }
+  const body = (ctx.request.body ?? {}) as { kind?: unknown; imageData?: unknown; site?: unknown }
   if (!validKind(body.kind)) {
     fail(ctx, 400, 'kind 必须是 banner 或 wallet_banner')
     return
@@ -39,20 +45,19 @@ router.post('/upload', async (ctx) => {
     return
   }
   try {
-    const locale = typeof body.locale === 'string' ? body.locale : 'en'
-    ok(ctx, await storeHomeImage(ctx.state.env, body.kind, body.imageData, locale))
+    ok(ctx, await storeHomeImage(ctx.state.env, body.kind, body.imageData, validSite(body.site) ? body.site : 'default'))
   } catch (e) {
     fail(ctx, 400, e instanceof Error ? e.message : '上传失败')
   }
 })
 
 router.put('/item/image', async (ctx) => {
-  const body = (ctx.request.body ?? {}) as { kind?: unknown; slot?: unknown; locale?: unknown; imageKey?: unknown }
+  const body = (ctx.request.body ?? {}) as { kind?: unknown; slot?: unknown; site?: unknown; imageKey?: unknown }
   const slot = Number(body.slot)
   if (!validKind(body.kind) || !Number.isInteger(slot) || slot < 1 || slot > 20) return fail(ctx, 400, '参数无效')
-  if (typeof body.locale !== 'string' || !['id', 'vi', 'zh-CN'].includes(body.locale)) return fail(ctx, 400, 'locale 无效')
+  if (!validSite(body.site)) return fail(ctx, 400, 'site 无效')
   if (body.imageKey !== null && (typeof body.imageKey !== 'string' || !(await homeContentImageExists(ctx.state.env, body.imageKey)))) return fail(ctx, 400, '图片文件不存在')
-  await saveHomeContentLocalizedImage(ctx.state.env, body.kind, slot, body.locale, body.imageKey as string | null)
+  await saveHomeContentSiteImage(ctx.state.env, body.kind, slot, body.site, body.imageKey as string | null)
   ok(ctx, { ok: true })
 })
 

@@ -15,4 +15,5 @@ export interface HomeContent {
   walletBanners: HomeContentItem[]
 }
 
-export const fetchHomeContent = (locale = 'en') => apiRequest<HomeContent>(`/home/content?locale=${encodeURIComponent(locale)}`)
+// 图片由服务端按访问域名所属站点选取
+export const fetchHomeContent = () => apiRequest<HomeContent>('/home/content')

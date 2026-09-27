@@ -1,12 +1,14 @@
 import Router from '@koa/router'
 import { getStorageProvider } from '../services/storage/index.js'
 import { getHomeContent } from '../services/home-content.service.js'
+import { resolveRequestMarket } from '../utils/request-market.js'
 import { fail, ok } from '../utils/response.js'
 
 const router = new Router({ prefix: '/home' })
 
+// 图片按访问域名所属站点（后台站点域名映射）选取
 router.get('/content', async (ctx) => {
-  ok(ctx, await getHomeContent(ctx.state.env, false, String(ctx.query.locale ?? 'en')))
+  ok(ctx, await getHomeContent(ctx.state.env, await resolveRequestMarket(ctx)))
 })
 
 // 用通配捕获：key 含斜杠(home/banner/xxx.webp)，nginx 反代会把 %2F 解码成 /，

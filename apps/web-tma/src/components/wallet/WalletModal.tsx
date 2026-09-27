@@ -260,7 +260,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       pendingWithdrawMethodRef.current = null
       setTurnoverProgress(null); setTurnoverLoading(false)
       void walletStore.refresh()
-      void fetchHomeContent(i18n.language).then((content) => setWalletBannerUrl(content.walletBanners[0]?.imageUrl ?? null)).catch(()=>setWalletBannerUrl(null))
+      void fetchHomeContent().then((content) => setWalletBannerUrl(content.walletBanners[0]?.imageUrl ?? null)).catch(()=>setWalletBannerUrl(null))
       setChannelsLoading(true)
       setCryptoChannelsLoaded(false)
       setHiddenPaymentChannels([])

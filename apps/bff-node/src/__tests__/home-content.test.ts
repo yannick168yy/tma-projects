@@ -1,22 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { parseLocalizedImageKeys } from '../services/home-content.service.js'
+import { parseSiteImageKeys } from '../services/home-content.service.js'
 
-describe('首页多语言图片读取', () => {
+describe('首页站点图片读取', () => {
   it('兼容 mysql2 返回的 JSON 对象', () => {
-    expect(parseLocalizedImageKeys('home/banner/en.webp', { id: 'home/banner/id.webp' })).toEqual({
-      en: 'home/banner/en.webp',
-      id: 'home/banner/id.webp',
+    expect(parseSiteImageKeys({ IN: 'home/banner/IN/a.webp' })).toEqual({ IN: 'home/banner/IN/a.webp' })
+  })
+
+  it('兼容 JSON 字符串并过滤未知站点与无效图片键', () => {
+    expect(parseSiteImageKeys('{"ID":"home/banner/ID/a.webp","PH":"bad","id":"home/banner/id/a.webp"}')).toEqual({
+      ID: 'home/banner/ID/a.webp',
     })
   })
 
-  it('兼容 JSON 字符串并过滤无效图片键', () => {
-    expect(parseLocalizedImageKeys('home/banner/en.webp', '{"id":"home/banner/id.webp","vi":"bad"}')).toEqual({
-      en: 'home/banner/en.webp',
-      id: 'home/banner/id.webp',
-    })
-  })
-
-  it('损坏数据回退英文图片', () => {
-    expect(parseLocalizedImageKeys('home/banner/en.webp', '{')).toEqual({ en: 'home/banner/en.webp' })
+  it('损坏数据视为没有站点专属图', () => {
+    expect(parseSiteImageKeys('{')).toEqual({})
   })
 })

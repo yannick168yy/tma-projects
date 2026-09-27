@@ -1413,13 +1413,15 @@ export const getPromoClaims = (params?: { page?: number; pageSize?: number; prom
   get<{ items: PromotionClaimListRecord[]; total: number; page: number; pageSize: number }>('/admin/promotions/claims', params)
 
 // 首页装修
+export type HomeContentSite = 'PH' | 'IN' | 'ID'
 export interface HomeContentItem {
   kind: 'banner' | 'wallet_banner'
   slot: number
   imageKey: string
   imageUrl: string
-  imageKeys: Record<string, string>
-  imageUrls: Record<string, string>
+  /** 站点专属图（站点 = 站点域名映射里的所属站点），未配置的站点用默认图 */
+  siteImageKeys: Partial<Record<HomeContentSite, string>>
+  siteImageUrls: Partial<Record<HomeContentSite, string>>
   actionType: 'promo' | 'cashback' | 'spin' | 'lobby' | 'none' | 'path' | 'url'
   actionValue: string | null
   enabled: boolean
@@ -1431,10 +1433,10 @@ export interface HomeContent {
   walletBanners: HomeContentItem[]
 }
 export const getHomeContent = () => get<HomeContent>('/admin/home-content')
-export const uploadHomeImage = (kind: HomeContentItem['kind'], imageData: string, locale = 'en') =>
-  post<{ imageKey: string; imageUrl: string }>('/admin/home-content/upload', { kind, imageData, locale })
-export const saveHomeContentLocalizedImage = (kind: HomeContentItem['kind'], slot: number, locale: string, imageKey: string | null) =>
-  req<{ ok: boolean }>('PUT', '/admin/home-content/item/image', { kind, slot, locale, imageKey })
+export const uploadHomeImage = (kind: HomeContentItem['kind'], imageData: string, site: HomeContentSite | 'default') =>
+  post<{ imageKey: string; imageUrl: string }>('/admin/home-content/upload', { kind, imageData, site })
+export const saveHomeContentSiteImage = (kind: HomeContentItem['kind'], slot: number, site: HomeContentSite, imageKey: string | null) =>
+  req<{ ok: boolean }>('PUT', '/admin/home-content/item/image', { kind, slot, site, imageKey })
 export const saveHomeContentItem = (item: Pick<HomeContentItem, 'kind' | 'slot' | 'imageKey' | 'actionType' | 'actionValue' | 'enabled'>) =>
   req<HomeContentItem>('PUT', '/admin/home-content/item', item)
 export const deleteHomeContentItem = (kind: HomeContentItem['kind'], slot: number) =>

@@ -280,7 +280,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   }, [providerZoneTab, activeCurrency])
 
   useEffect(() => {
-    fetchHomeContent(i18n.language).then((content) => {
+    fetchHomeContent().then((content) => {
       setHomeBanners(content.banners.map((item) => ({
         id: item.slot,
         image: item.imageUrl,
