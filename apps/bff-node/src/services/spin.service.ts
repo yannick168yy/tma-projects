@@ -6,6 +6,7 @@ import { creditWalletTx } from './store/mysql-store.js'
 
 const TICKER_SIZE = 100
 const TICKER_TTL_SEC = 3600
+const RETIRED_SORT_BASE = 100000
 const NAME_HEADS = 'ABCDEFGHJKLMNPRSTVW'
 const NAME_TAILS = 'abcefghjklmnprstvy'
 
@@ -268,10 +269,12 @@ export async function saveSpinConfig(env: Env, config: SpinConfig, currency = 'P
         keptPrizeIds.push(Number((res as { insertId: number }).insertId))
       }
     }
-    // 只停用【本币种】未保留的奖品，避免误关其它币种奖池
+    // 只停用【本币种】未保留的奖品，避免误关其它币种奖池。
+    // sort_order 同时挪到 8 个格子之后：后台回读含停用奖品、每档按 sort_order 取前 8 个，不挪会和当前奖品混排导致回显错乱
     if (keptPrizeIds.length) {
       await conn.query(
-        `UPDATE bg_spin_prize SET enabled = 0 WHERE currency = ? AND id NOT IN (?)`,
+        `UPDATE bg_spin_prize SET enabled = 0, sort_order = IF(sort_order < ${RETIRED_SORT_BASE}, sort_order + ${RETIRED_SORT_BASE}, sort_order)
+         WHERE currency = ? AND id NOT IN (?)`,
         [currency, keptPrizeIds],
       )
     }
@@ -279,7 +282,10 @@ export async function saveSpinConfig(env: Env, config: SpinConfig, currency = 'P
     // 稳定币共用一套：保存 USDT 时把 USDC 奖池重同步为 USDT 的副本
     // 奖品有独立 id 且被派奖记录外键引用，故用「停用旧 USDC + 插入 USDT 当前启用奖品的副本」，FK 安全
     if (currency === 'USDT') {
-      await conn.query(`UPDATE bg_spin_prize SET enabled = 0 WHERE currency = 'USDC'`)
+      await conn.query(
+        `UPDATE bg_spin_prize SET enabled = 0, sort_order = IF(sort_order < ${RETIRED_SORT_BASE}, sort_order + ${RETIRED_SORT_BASE}, sort_order)
+         WHERE currency = 'USDC'`,
+      )
       await conn.query(
         `INSERT INTO bg_spin_prize (rule_id, currency, name, image_key, amount_php, weight, turnover_x, enabled, sort_order)
          SELECT rule_id, 'USDC', name, image_key, amount_php, weight, turnover_x, enabled, sort_order
