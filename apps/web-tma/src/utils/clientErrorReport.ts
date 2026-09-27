@@ -28,6 +28,40 @@ export function reportClientError(kind: string, error: unknown, userId?: string)
   } catch { /* 上报失败不影响页面 */ }
 }
 
+// 页面加载耗时上报：导航各阶段 + SW 启动 + 关键资源（transferSize=0 即命中缓存）。每页只报一次
+let perfReported = false
+export function reportPagePerf(kind: string): void {
+  if (perfReported) return
+  perfReported = true
+  try {
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+    const r = (v: number | undefined) => (v ? Math.round(v) : 0)
+    const key = /\/assets\/(main|vendor|App|IndiaLandingPage|index)-|\/site\/config|\/promotions\/config|fonts\.googleapis|telegram/
+    const resources = (performance.getEntriesByType('resource') as PerformanceResourceTiming[])
+      .filter((e) => key.test(e.name))
+      .map((e) => `${e.name.replace(location.origin, '').replace(/\?.*/, '').slice(-40)}@${r(e.startTime)}+${r(e.duration)}${e.transferSize === 0 ? '(cache)' : ''}`)
+    const detail = {
+      render: r(performance.now()),
+      type: nav?.type,
+      sw: Boolean(navigator.serviceWorker?.controller),
+      workerStart: r(nav?.workerStart),
+      fetchStart: r(nav?.fetchStart),
+      dns: r((nav?.domainLookupEnd ?? 0) - (nav?.domainLookupStart ?? 0)),
+      connect: r((nav?.connectEnd ?? 0) - (nav?.connectStart ?? 0)),
+      ttfb: r(nav?.responseStart),
+      htmlEnd: r(nav?.responseEnd),
+      dcl: r(nav?.domContentLoadedEventEnd),
+      resources,
+    }
+    void fetch('/api/v1/client-errors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({ kind, message: `render ${detail.render}ms`, url: location.href, build: buildId(), detail: JSON.stringify(detail) }),
+    }).catch(() => {})
+  } catch { /* 上报失败不影响页面 */ }
+}
+
 export function initClientErrorReport(): void {
   window.addEventListener('error', (e) => {
     // 资源加载失败（img/script）也走 error 事件但没有 error 对象，只报脚本错误

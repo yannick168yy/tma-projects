@@ -2,6 +2,7 @@ import Router from '@koa/router'
 import { ok } from '../utils/response.js'
 
 // 前端运行时错误上报（公开，无需登录）：真机上的白屏/黑屏只有这里能看到堆栈。
+// 也承载少量性能上报（kind=perf-*，detail 为耗时明细），真机慢而模拟器不慢时靠它定位。
 // 只写容器日志（grep "[client-error]"），不落库；字段截断防止被灌大包。
 const router = new Router({ prefix: '/client-errors' })
 
@@ -16,6 +17,7 @@ router.post('/', (ctx) => {
     url: cut(b.url, 300),
     build: cut(b.build, 64),
     userId: cut(b.userId, 32),
+    detail: cut(b.detail, 2000),
     ua: ctx.get('user-agent').slice(0, 300),
     ip: ctx.ip,
   }))

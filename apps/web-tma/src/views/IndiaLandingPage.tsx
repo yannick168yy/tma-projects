@@ -14,6 +14,7 @@ import { useWalletStore } from '@/stores/wallet'
 import { TURNSTILE_SITE_KEY, loadTurnstile } from '@/utils/turnstile'
 import { translateApiError } from '@/utils/translateApiError'
 import { analytics } from '@/utils/analytics'
+import { reportPagePerf } from '@/utils/clientErrorReport'
 import { isFeatureEnabled } from '@/config/features'
 import { useTranslation } from 'react-i18next'
 import heroArt from '@/assets/landing/india-hero.webp'
@@ -195,6 +196,11 @@ export default function IndiaLandingPage() {
   const [claimedNow, setClaimedNow] = useState(false)
   const [trialDeviceBlocked, setTrialDeviceBlocked] = useState(() => sessionStorage.getItem(TRIAL_DEVICE_BLOCKED_KEY) === '1')
   const [claimError, setClaimError] = useState<string | null>(null)
+
+  // 真机加载耗时上报（iPhone 刷新慢而模拟器复现不了）：等首帧画出来再量
+  useEffect(() => {
+    requestAnimationFrame(() => requestAnimationFrame(() => reportPagePerf('perf-welcome')))
+  }, [])
 
   useEffect(() => {
     setActiveCurrency('INR')
