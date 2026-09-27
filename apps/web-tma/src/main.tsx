@@ -25,12 +25,12 @@ window.addEventListener('vite:preloadError', () => {
 })
 
 preventDoubleTapZoom()
-captureReferralFromUrl()
-initTelegramWebApp()
 initTheme()
-initAnalytics()
 
 async function bootstrap() {
+  await initTelegramWebApp()
+  captureReferralFromUrl()
+  initAnalytics()
   // App 切换备用域名后 Web 存储属于新 origin，先从 Android Keystore 恢复会话再初始化页面。
   await initNativeToken()
   // 必须先解析域名所属市场，再加载 i18n/App；否则新配置域名首次打开会先初始化成错误语言和币种。

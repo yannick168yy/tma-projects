@@ -3,6 +3,25 @@ type Inset = { top: number; bottom: number; left: number; right: number }
 
 /** Fullscreen TG chrome fallback when content inset not reported yet. */
 const TG_HEADER_FALLBACK_PX = 52
+const TELEGRAM_SDK_URL = 'https://telegram.org/js/telegram-web-app.js'
+
+function hasTelegramLaunchParams(): boolean {
+  const search = new URLSearchParams(window.location.search)
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  return ['tgWebAppData', 'tgWebAppVersion', 'tgWebAppPlatform']
+    .some((key) => search.has(key) || hash.has(key))
+}
+
+function loadTelegramSdk(): Promise<void> {
+  if (window.Telegram?.WebApp || !hasTelegramLaunchParams()) return Promise.resolve()
+  return new Promise((resolve) => {
+    const script = document.createElement('script')
+    script.src = TELEGRAM_SDK_URL
+    script.onload = () => resolve()
+    script.onerror = () => resolve()
+    document.head.appendChild(script)
+  })
+}
 
 function readInset(value: Inset | undefined): Inset {
   return {
@@ -99,7 +118,8 @@ function requestFullscreenIfNeeded(tg: TelegramWebApp): void {
   }
 }
 
-export function initTelegramWebApp(): void {
+export async function initTelegramWebApp(): Promise<void> {
+  await loadTelegramSdk()
   const tg = window.Telegram?.WebApp
   if (!tg) return
 
