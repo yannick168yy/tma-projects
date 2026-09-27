@@ -196,10 +196,10 @@ export default function IndiaLandingPage() {
   const currentStep = !loggedIn ? 1 : !trialClaimed ? 2 : 3
 
   const topOffer = useMemo(() => {
+    if (!loggedIn) return { eyebrow: 'India welcome offer', title: `Unlock ${money(trialAmount)} free`, button: `Register & claim ${money(trialAmount)}` }
+    if (!trialClaimed) return { eyebrow: 'One tap away', title: `Your ${money(trialAmount)} reward is ready`, button: `Claim ${money(trialAmount)}` }
     if (firstDepositDone) return { eyebrow: 'Account ready', title: 'Your next win is waiting', button: 'Explore games' }
-    if (trialClaimed) return { eyebrow: 'Bonus claimed', title: `${money(trialAmount)} added to your rewards`, button: 'Play now' }
-    if (loggedIn) return { eyebrow: 'One tap away', title: `Your ${money(trialAmount)} reward is ready`, button: `Claim ${money(trialAmount)}` }
-    return { eyebrow: 'India welcome offer', title: `Unlock ${money(trialAmount)} free`, button: `Register & claim ${money(trialAmount)}` }
+    return { eyebrow: 'Bonus claimed', title: `${money(trialAmount)} added to your rewards`, button: 'Play now' }
   }, [firstDepositDone, loggedIn, trialAmount, trialClaimed])
 
   function scrollToRegister() {
