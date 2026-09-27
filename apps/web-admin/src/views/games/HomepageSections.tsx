@@ -103,7 +103,7 @@ function VisibilityControl({ sectionKey, currency, hidden, onChanged }: {
 }
 
 // 板块顺序与前端首页渲染顺序一致
-const SECTION_ORDER = ['recommended', 'popular', 'highRebate', 'highRtp', 'slots', 'casino', 'newGames', 'perya', 'fishing', 'lottery', 'baccarat', 'sports']
+const SECTION_ORDER = ['recommended', 'popular', 'highRebate', 'highRtp', 'slots', 'casino', 'newGames', 'perya', 'fishing', 'lottery', 'baccarat', 'sports', 'crash', 'indianCards']
 const SECTION_LABELS: Record<string, string> = {
   popular: '热门推荐',
   recommended: '推荐精选',
@@ -117,6 +117,8 @@ const SECTION_LABELS: Record<string, string> = {
   highRtp: '高RTP 97%+',
   highRebate: '高洗码游戏',
   sports: '体育游戏',
+  crash: 'Crash & 即开（印度站）',
+  indianCards: '印度纸牌（印度站）',
 }
 const CURRENCIES = [{ value: 'PHP', label: 'PHP 首页' }, { value: 'IDR', label: 'IDR 首页' }, { value: 'INR', label: 'INR 首页' }, { value: 'USDT', label: 'USDT 首页' }]
 

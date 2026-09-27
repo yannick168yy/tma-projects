@@ -12,6 +12,8 @@ const CUR = 'INR'
 // 顺序即渲染顺序；hidden 的放最后
 const LAYOUT = [
   ['announcement'], ['banner'], ['recentPlayed'],
+  ['crash'],                         // Crash & 即开：Aviator 等，印度最热门的玩法放首屏
+  ['indianCards'],                   // 印度纸牌：Andar Bahar / Teen Patti / 7 Up 7 Down 等
   ['popular', { limit: 12 }],
   ['sports', { limit: 3 }],          // 板球流量承接，从倒数第二上提
   ['casino'],
@@ -33,14 +35,7 @@ const ex = (gameUuid) => ({ gameUuid, action: 'exclude', pinPosition: null })
 
 const SECTION_GAMES = {
   popular: [
-    pin('568win:1072:1', 1),    // Aviator (Spribe)
-    pin('568win:38:808', 2),    // Andar Bahar (Pragmatic Play)
-    pin('568win:1020:69', 3),   // 7 UP 7 DOWN (JILI)
-    pin('568win:1042:707', 4),  // Teen Patti 20-20 (KA Gaming)
-    pin('568win:1020:164', 5),  // Crash Cricket (JILI)
-    pin('568win:1020:131', 6),  // Color Prediction (JILI)
-    pin('568win:3:187', 7),     // Dragon Tiger (Pragmatic Play)
-    pin('568win:1020:168', 8),  // Jhandi Munda (JILI)
+    // Aviator / Andar Bahar 等印度玩法已由 crash、indianCards 两个专区承接（选品先于热门），这里不再钉
     ex('568win:1020:90'),       // Color Game：菲律宾 perya 玩法
     ex('568win:20:6'),          // CrazyTime：INR 下常置灰
     ex('568win:1044:104'),      // SUPER GEMS (PlayStar)：INR 下置灰
@@ -84,8 +79,8 @@ const SECTION_GAMES = {
 }
 
 // 热门/推荐/高RTP/高洗码从全库选品、维护游戏置灰占位 —— 这是为临时维护设计的。
-// INR 下有一百多款是线路层面长期不可用（整个 PlayStar、部分 Evolution 桌台），会一直占位置灰，
-// 且在一个板块排除后又流到下一个板块，所以按执行时的 INR 实时状态统一排除。
+// 代码侧已按「连续不可用满 24h」自动出池（sg-game.service LONG_UNAVAILABLE_MS），但计时从新代码上线起算，
+// 上线后 24h 内仍靠这里按执行时的 INR 实时状态排除；满 24h 后把这段删掉重跑一次，释放这些排除项。
 // 权重 <4000 是上游兜底权重，进不了这几个板块，不必写入；elite 档不看权重（高洗码按档位选）。
 const ALL_POOL_SECTIONS = ['popular', 'recommended', 'highRtp', 'highRebate']
 

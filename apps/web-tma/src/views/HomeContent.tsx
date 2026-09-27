@@ -1,4 +1,5 @@
 import { getSiteName } from '@/config/brand'
+import { getSiteMarket } from '@/config/market'
 import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -37,7 +38,7 @@ const RECENT_ROW_MAX = 10
 
 // 厂商专区（TOP PROVIDERS）
 // code 须与 bg_568win_game.provider 统一后的显示名一致(迁移134)
-const PROVIDER_ZONE = [
+const PROVIDER_ZONE_DEFAULT = [
   { code: 'JILI', label: 'JILI' },
   { code: 'PG Soft', label: 'PG' },
   { code: 'Pragmatic Play', label: 'Pragmatic' },
@@ -47,6 +48,17 @@ const PROVIDER_ZONE = [
   { code: '5G Games', label: '5G' },
   { code: '568WinGames', label: '568Win' },
 ]
+// 印度站：Aviator 出自 Spribe、本土纸牌（Andar Bahar/Teen Patti/7 Up 7 Down）King Midas 最全、
+// 真人以 Evolution 为主；菲律宾偏好的 FaChai/5G/Playtech 在印度吸引力弱
+const PROVIDER_ZONE_IN = [
+  { code: 'JILI', label: 'JILI' },
+  { code: 'Spribe', label: 'Spribe' },
+  { code: 'Evolution', label: 'Evolution' },
+  { code: 'Pragmatic Play', label: 'Pragmatic' },
+  { code: 'King Midas', label: 'King Midas' },
+  { code: 'PG Soft', label: 'PG' },
+]
+const PROVIDER_ZONE = getSiteMarket() === 'IN' ? PROVIDER_ZONE_IN : PROVIDER_ZONE_DEFAULT
 // 厂商专区每页展示数；多拉一些做「已出现在首页的游戏跳过 + 同名去重」后再截取
 const PROVIDER_ZONE_SHOW = 12
 const PROVIDER_ZONE_FETCH = 48 // 拉多些兜底:过滤掉维护中游戏后仍尽量填满 12
@@ -133,7 +145,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
 
 
   // Game data
-  const emptyHomepage = { popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], highRebate: [], sports: [] }
+  const emptyHomepage = { popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], highRebate: [], sports: [], crash: [], indianCards: [] }
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const [homepageGames, setHomepageGames] = useState<Record<keyof typeof emptyHomepage, SlotGame[]>>(emptyHomepage)
   // 后台「首页板块配置」按币种隐藏的板块：整块不渲染（内容仍会下发，只是不展示）
@@ -184,13 +196,14 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   }, [providerZoneRaw, homepageShownUuids])
   // 高 cashback：首页只放最好比例(2%/elite)的 9 款
 
-  const onGameTapAction = useCallback(async (uuid: string) => {
+  // source：首页板块 key，埋点记成 home:<key>，用来按板块比较启动量、调整板块顺序
+  const onGameTapAction = useCallback(async (uuid: string, source: string) => {
     if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
     if (launchingUuid) return
     setLaunchingUuid(uuid)
     try {
       const { url } = await launchGame(uuid, 'mobile', activeCurrency)
-      analytics.gameLaunch('real', uuid, activeCurrency, 'home')
+      analytics.gameLaunch('real', uuid, activeCurrency, `home:${source}`)
       onOpenGame(url)
     } catch (e) { alert(e instanceof ApiError ? e.message : 'Launch failed') }
     finally { setLaunchingUuid(null) }
@@ -220,7 +233,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
 
 
 
-  function smallRow(games: SlotGame[], loading = gamesLoading) {
+  function smallRow(games: SlotGame[], source: string, loading = gamesLoading) {
     if (loading) {
       return (
         <div className="flex gap-2 px-4 overflow-hidden">
@@ -230,7 +243,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
     }
     return (
       <div className="flex gap-2 px-4 overflow-x-auto hide-scrollbar">
-        {games.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
+        {games.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid, source)} size="sm" />)}
       </div>
     )
   }
@@ -259,6 +272,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
         setHomepageGames({
           popular: data.popular ?? [], recommended: data.recommended ?? [], newGames: data.newGames ?? [], slots: data.slots ?? [], casino: data.casino ?? [],
           perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], baccarat: data.baccarat ?? [], highRtp: data.highRtp ?? [], highRebate: data.highRebate ?? [], sports: data.sports ?? [],
+          crash: data.crash ?? [], indianCards: data.indianCards ?? [],
         })
         setHiddenSections(data.hiddenSections ?? [])
         setServerSections(data.sections ?? [])
@@ -311,7 +325,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
         // 「推荐精选」大卡只在最近在玩占了上方那行时出现，否则 recentPlayed 已经放过推荐小卡
         enabled={spec.key === 'recommended' ? recentGames.length > 0 : true}
         t={t}
-        onTap={(uuid) => void onGameTapAction(uuid)}
+        onTap={(uuid) => void onGameTapAction(uuid, spec.key)}
         onNavigate={onNavigatePath}
       />
     )]))
@@ -331,13 +345,13 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
         <section className="mt-5">
           {sectionHeader(<History size={15} className="text-amber-400" />, t('home.recentPlayed'))}
           <div className="flex items-center gap-2 px-4 overflow-x-auto hide-scrollbar">
-            {recentGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
+            {recentGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid, 'recentPlayed')} size="sm" />)}
             {recentFillGames.length > 0 && (
               <>
                 <div className="flex-shrink-0 h-[64px] flex items-center justify-center px-0.5">
                   <span className="w-0.5 h-full rounded-full bg-gradient-to-b from-transparent via-amber-400/70 to-transparent" />
                 </div>
-                {recentFillGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
+                {recentFillGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid, 'recentPlayed')} size="sm" />)}
               </>
             )}
           </div>
@@ -346,7 +360,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
         shown('recommended') && (gamesLoading || homepageGames.recommended.length > 0) && (
           <section className="mt-5">
             {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
-            {smallRow(recommendedDisplay)}
+            {smallRow(recommendedDisplay, 'recentPlayed')}
           </section>
         )
       ),
@@ -392,11 +406,11 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
             </button>
           ))}
         </div>
-        {smallRow(s.limit ? providerZoneGames.slice(0, s.limit) : providerZoneGames, providerZoneGames.length === 0)}
+        {smallRow(s.limit ? providerZoneGames.slice(0, s.limit) : providerZoneGames, 'providerZone', providerZoneGames.length === 0)}
       </section>
     ),
     bettingTable: () => (
-      <BettingTable currency={activeCurrency} locale={locale} t={t} onTapGame={(uuid) => void onGameTapAction(uuid)} />
+      <BettingTable currency={activeCurrency} locale={locale} t={t} onTapGame={(uuid) => void onGameTapAction(uuid, 'bettingTable')} />
     ),
   }
 

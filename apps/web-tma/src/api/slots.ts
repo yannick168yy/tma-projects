@@ -67,6 +67,8 @@ export interface HomepageGames {
   baccarat: SlotGame[]
   highRtp: SlotGame[]
   highRebate: SlotGame[]
+  crash: SlotGame[]
+  indianCards: SlotGame[]
   sports: SlotGame[]
   // 后台配置为隐藏的板块 key，前台跳过渲染
   hiddenSections?: string[]

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import {
-  Drama, Fish, Gamepad2, Gem, Percent, Rocket, Sparkles, Ticket, TrendingUp, Trophy,
+  Drama, Fish, Gamepad2, Gem, Percent, Plane, Rocket, Spade, Sparkles, Ticket, TrendingUp, Trophy,
 } from 'lucide-react'
 import type { HomeSection, SlotGame } from '@/api/slots'
 import { BigGrid, SectionHeader, SmallRow } from './primitives'
@@ -17,7 +17,7 @@ import { BigGrid, SectionHeader, SmallRow } from './primitives'
  */
 export type GameDataKey =
   | 'popular' | 'highRebate' | 'highRtp' | 'recommendedDisplay' | 'slots' | 'casino'
-  | 'newGames' | 'perya' | 'fishing' | 'lottery' | 'baccarat' | 'sports'
+  | 'newGames' | 'perya' | 'fishing' | 'lottery' | 'baccarat' | 'sports' | 'crash' | 'indianCards'
 
 export interface GameSectionSpec {
   key: string
@@ -43,6 +43,11 @@ export const GAME_SECTIONS: GameSectionSpec[] = [
   { key: 'popular', dataKey: 'popular', icon: <TrendingUp size={15} className="text-primary" />,
     titleKey: 'home.popularGames', navPath: '/games', layout: 'big', skeleton: 12, showHot: true,
     marginTop: 'mt-5' },
+  // 印度站专区（其他币种由迁移 239 默认隐藏）。玩法跨多个 siteCategory，没有对应的游戏页分类，不放「查看全部」
+  { key: 'crash', dataKey: 'crash', icon: <Plane size={15} className="text-rose-400" />,
+    titleKey: 'home.crashZone', layout: 'big', skeleton: 6 },
+  { key: 'indianCards', dataKey: 'indianCards', icon: <Spade size={15} className="text-amber-400" />,
+    titleKey: 'home.indianCardsZone', layout: 'big', skeleton: 9 },
   { key: 'highRebate', dataKey: 'highRebate', icon: <Gem size={15} className="text-amber-400" />,
     titleKey: 'home.highRebate', navPath: '/games?cat=highrebate', layout: 'big', skeleton: 9,
     hideWhileLoading: true },

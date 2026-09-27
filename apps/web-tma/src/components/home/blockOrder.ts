@@ -9,7 +9,7 @@
  * 所以这里靠 HomeContent 里的开发期断言兜住「加了块忘了加顺序」。
  */
 export const DEFAULT_BLOCK_ORDER = [
-  'announcement', 'banner', 'recentPlayed', 'popular', 'cashRebate', 'highRebate', 'highRtp',
+  'announcement', 'banner', 'recentPlayed', 'popular', 'crash', 'indianCards', 'cashRebate', 'highRebate', 'highRtp',
   'lossRebate', 'recommended', 'slots', 'providerZone', 'casino', 'newGames', 'perya',
   'fishing', 'lottery', 'baccarat', 'sports', 'bettingTable',
 ] as const

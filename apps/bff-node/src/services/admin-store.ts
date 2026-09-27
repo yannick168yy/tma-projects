@@ -1292,6 +1292,7 @@ const HOMEPAGE_CONFIG_CURRENCIES = ['PHP', 'IDR', 'INR', 'USDT']
 
 export const HOMEPAGE_SECTION_KEYS = [
   'popular', 'recommended', 'newGames', 'slots', 'casino', 'perya', 'fishing', 'lottery', 'baccarat', 'highRtp', 'highRebate', 'sports',
+  'crash', 'indianCards',
 ] as const
 
 export interface HomepageSectionGameRow {

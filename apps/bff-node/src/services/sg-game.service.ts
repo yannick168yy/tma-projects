@@ -1,12 +1,19 @@
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import type { Redis } from 'ioredis'
 import { getRedis } from '../clients/redis.client.js'
 import { DEFAULT_AGGREGATOR, type AggregatorId } from '../lib/aggregators.js'
 import { projectGameCatalog, gameAliasIndex, readRoutingConfig } from './game-routing.service.js'
 
 const GAMES_CACHE_KEY = 'games:all'
 const GAMES_CACHE_TTL = 30 * 60 // 30 分钟
+// uuid → 首次观察到不可用的时间戳。同步落库的 is_enabled 是「启用且非维护且厂商在线」的合成值，
+// 分不出临时维护和长期停用，只能靠持续时长判断
+const UNAVAILABLE_SINCE_KEY = 'games:unavailable_since'
+// 首页选品：不可用未满 24h 视为临时维护（保留原位、置灰），满了视为长期停用（出池）。
+// INR 下整个 PlayStar 停用后一直置灰占位、排除一个板块又流到下一个板块，就是这类
+export const LONG_UNAVAILABLE_MS = 24 * 60 * 60 * 1000
 export const WIN568_SPORTSBOOK_UUID = '568win:sportsbook'
 const WIN568_SPORTSBOOK_DEFAULT = {
   provider: '568Win Sports',
@@ -45,6 +52,8 @@ export interface DbGame {
   weight: number
   isFeatured: boolean
   isAvailable?: boolean
+  /** 连续不可用的起始时间（ms），可用时为空。区分临时维护与长期停用，见 LONG_UNAVAILABLE_MS */
+  unavailableSince?: number
   /** Cashback Games 精选档位角标：elite=2% / pro=1.5% / basic=1%（bg_rebate_featured_game，真实结算费率） */
   cashbackTier?: 'elite' | 'pro' | 'basic' | null
   createdAt?: string | null
@@ -234,6 +243,24 @@ function rowToWxgameGame(r: RowDataPacket): DbGame {
   }
 }
 
+// 维护「连续不可用起始时间」表并写回每款游戏：新变不可用的记当前时间，恢复或已下架的删掉
+async function stampUnavailableSince(redis: Redis, games: DbGame[]): Promise<void> {
+  const since = await redis.hgetall(UNAVAILABLE_SINCE_KEY)
+  const now = Date.now()
+  const fresh: Record<string, string> = {}
+  const unavailable = new Set<string>()
+  for (const g of games) {
+    if (g.isAvailable !== false) continue
+    unavailable.add(g.uuid)
+    const ts = Number(since[g.uuid]) || now
+    if (!since[g.uuid]) fresh[g.uuid] = String(now)
+    g.unavailableSince = ts
+  }
+  const recovered = Object.keys(since).filter((uuid) => !unavailable.has(uuid))
+  if (Object.keys(fresh).length) await redis.hset(UNAVAILABLE_SINCE_KEY, fresh)
+  if (recovered.length) await redis.hdel(UNAVAILABLE_SINCE_KEY, ...recovered)
+}
+
 export async function loadGamesCache(env: Env): Promise<number> {
   const db = getMysqlPool(env)
   const redis = getRedis(env)
@@ -308,6 +335,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
       if (tier) g.cashbackTier = tier
     }
   }
+  await stampUnavailableSince(redis, games)
   await redis.set(GAMES_CACHE_KEY, JSON.stringify(games), 'EX', GAMES_CACHE_TTL)
   setMemGames(games) // 同步进程内副本，后台改动即时生效
   console.log(`[games-cache] cached ${games.length} games`)
@@ -397,6 +425,8 @@ export interface HomepageSelection {
   highRtp: DbGame[]
   highRebate: DbGame[]
   sports: DbGame[]
+  crash: DbGame[]
+  indianCards: DbGame[]
   // 后台配置为「隐藏」的板块 key：内容照常生成（后台仍可编辑/冻结），仅前台跳过渲染
   hiddenSections: string[]
   // 首页装修：已按后台顺序排好、已剔除隐藏块的区块列表（含每块参数）。
@@ -413,6 +443,8 @@ export const HOME_LAYOUT_SECTIONS = [
   { key: 'banner', kind: 'ops', label: 'Banner 轮播' },
   { key: 'recentPlayed', kind: 'ops', label: '最近在玩（无记录时放推荐）' },
   { key: 'popular', kind: 'game', label: '热门推荐' },
+  { key: 'crash', kind: 'game', label: 'Crash & 即开（印度站）' },
+  { key: 'indianCards', kind: 'game', label: '印度纸牌（印度站）' },
   { key: 'cashRebate', kind: 'ops', label: '洗码返水横条' },
   { key: 'highRebate', kind: 'game', label: '高洗码游戏' },
   { key: 'highRtp', kind: 'game', label: '高RTP 97%+' },
@@ -452,7 +484,7 @@ export interface HomeSectionLayoutRow {
 }
 
 export const EMPTY_HOMEPAGE_SELECTION: HomepageSelection = {
-  popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], highRebate: [], sports: [],
+  popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], highRebate: [], sports: [], crash: [], indianCards: [],
   hiddenSections: [],
   sections: [],
   generatedAt: '',
@@ -624,6 +656,10 @@ export function buildSectionList(rows: HomeSectionLayoutRow[], cur: string): Hom
 // 不跑算法(维护游戏保留在名单里、前端置灰)；其余板块不受影响。
 // hidden: 本币种被后台隐藏的板块 key，只写进 hiddenSections 供前端跳过渲染，不影响选品本身。
 function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOverrides, frozen: Map<string, string[]> = new Map(), hidden: string[] = []): HomepageSelection {
+  // 长期停用的游戏先出池：「维护游戏置灰占位」只为临时维护设计，停用满 24h 还占位，
+  // 板块就会一直挂着点不动的游戏（钉选/冻结名单里的也一并跳过）
+  const now = Date.now()
+  all = all.filter((g) => !(g.isAvailable === false && g.unavailableSince && now - g.unavailableSince >= LONG_UNAVAILABLE_MS))
   const gameByUuid = gameAliasIndex(all)
   if (all.some((g) => g.aliases)) {
     overrides = new Map([...overrides].map(([key, entries]) => [key, entries.map((e) => ({ ...e, gameUuid: gameByUuid.get(e.gameUuid)?.uuid ?? e.gameUuid }))]))
@@ -756,6 +792,31 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     [...exFilter('highRebate', all.filter((g) => g.cashbackTier === 'elite'))].sort((a, b) => score(b) - score(a)).slice(0, 9), 9)
   highRebateList.forEach((g) => seen.add(g.uuid))
 
+  // 印度站专区：按玩法关键词分组、每组轮流取权重最高的一款，避免 Dragon Tiger 这类变体多的玩法屠版。
+  // 放在 popular 之前算，让 Aviator/Andar Bahar 等招牌游戏归专区、热门不再重复；
+  // 被隐藏的币种（PHP/IDR/USDT，迁移 239 默认隐藏）直接跳过，免得白白抢走其他板块的游戏
+  const pickByGroups = (key: string, groups: RegExp[], n: number): DbGame[] => {
+    if (hidden.includes(key)) return []
+    const pool = exFilter(key, available).filter((g) => !seen.has(g.uuid)).sort((a, b) => b.weight - a.weight)
+    const buckets = groups.map((re) => pool.filter((g) => re.test(g.name)))
+    const out: DbGame[] = []
+    const names = new Set<string>()
+    for (let round = 0; out.length < n && buckets.some((b) => b.length); round++) {
+      for (const bucket of buckets) {
+        while (bucket.length && out.length < n) {
+          const g = bucket.shift()!
+          const nameKey = gameSeriesKey(g.name)
+          if (seen.has(g.uuid) || names.has(nameKey)) continue
+          out.push(g); seen.add(g.uuid); names.add(nameKey)
+          break
+        }
+      }
+    }
+    return applyManual(key, out, n, true)
+  }
+  const crashList = pickByGroups('crash', [/aviator/i, /crash/i, /chicken road/i, /\bmines?\b/i, /plinko/i, /limbo/i, /spaceman|jetx|aviatrix/i], 6)
+  const indianCardsList = pickByGroups('indianCards', [/andar\s*bahar/i, /teen\s*patti/i, /7\s*up/i, /dragon\s*tiger/i, /jhandi/i, /rummy/i, /color prediction/i, /32 cards/i], 9)
+
   // popular 混排：纯按热度排会被 slots 屠版。改为①保底 1 个真人娱乐席位(插到第3位保证
   // 露出)②主体从 featured 核心池按热度取、每厂商≤3(JILI 等龙头在 PH 本就多爆款)③featured
   // 池填不满时从全库高热度补足到 POPULAR_N。体育合成条目(isFeatured=true)有专属通栏，从热门剔除。
@@ -814,6 +875,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     baccarat:   sampleSection('baccarat', available.filter((g) => g.category === '101'), score, 12, 6, true),
     // 高洗码专栏：已在 popular 前先算并登记 seen（见 highRebateList 注释）
     highRebate: highRebateList,
+    crash: crashList,
+    indianCards: indianCardsList,
     // 体育：sportsbook 合成条目固定第一席位（前端已移除专属通栏）；Lucky Sports(迁移134统一名) 的 28 个
     // 分项(足球/拳击/…)是同一产品的不同入口，只保留 Basketball，其余席位给独立体育产品(AFB/BTi/Panda/Saba 等)
     sports:     applyManual('sports', [
@@ -864,7 +927,9 @@ export async function computeFrozenSnapshot(env: Env, sectionKey: string, curren
   const allGames = await getGamesFromCache(env, currency)
   const overrides = await loadSectionOverrides(env)
   const pool = allGames.filter((g) => supportsCurrency(g, currency))
-  const selection = buildHomepageSelection(pool, currency, overrides, new Map())
+  // 与线上同一套隐藏名单：印度专区在 popular 之前取游戏，不传隐藏的话 PHP 快照会被它们抢走几款
+  const hidden = (await loadSectionLayout(env)).filter((r) => r.currency === currency && r.hidden).map((r) => r.sectionKey)
+  const selection = buildHomepageSelection(pool, currency, overrides, new Map(), hidden)
   const board = (selection as unknown as Record<string, unknown>)[sectionKey]
   return Array.isArray(board) ? (board as DbGame[]).map((g) => g.uuid) : []
 }
@@ -931,6 +996,8 @@ export function applyHomepageCurrency(selection: HomepageSelection, currency?: s
     highRtp: apply(selection.highRtp ?? []),
     highRebate: apply(selection.highRebate ?? []),
     sports: apply(selection.sports ?? []),
+    crash: apply(selection.crash ?? []),
+    indianCards: apply(selection.indianCards ?? []),
     hiddenSections: selection.hiddenSections ?? [],
     sections: selection.sections ?? [],
     generatedAt: selection.generatedAt,
