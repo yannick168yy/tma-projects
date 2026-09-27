@@ -2,6 +2,7 @@ import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { currencyOffsetHours } from './rebate.service.js'
 import { getMysqlPool } from '../clients/mysql.client.js'
+import { getRedis } from '../clients/redis.client.js'
 import { getGamesFromCache, supportsCurrency, type DbGame } from './sg-game.service.js'
 
 export interface BetRecord {
@@ -53,10 +54,12 @@ function gamesByUuid(games: DbGame[]): Map<string, DbGame> {
 const LATEST_POOL_SIZE = 300
 const LATEST_SHOW = 50
 const RANK_TOP_N = 10
-// latest 池每 20 分钟重生成（每次请求再从池里洗牌取 50）；周/月榜每 7 天重生成一次，榜单不能一刷一个样
-const LATEST_REGEN_MS = 20 * 60 * 1000
-const RANK_REGEN_MS = 7 * 24 * 60 * 60 * 1000
-const generatedAt = { latest: 0, rank: 0 }
+// latest 池每 20 分钟重生成（每次请求再从池里洗牌取 50）；周/月榜每 7 天重生成一次，榜单不能一刷一个样。
+// 生产 bff 是双节点，各自在内存生成会导致榜单随请求落点来回跳，所以生成结果放 Redis 共享，TTL 即重生成周期
+const LATEST_KEY = 'betting:generated:latest'
+const RANK_KEY = 'betting:generated:rank'
+const LATEST_TTL_SECONDS = 20 * 60
+const RANK_TTL_SECONDS = 7 * 24 * 60 * 60
 
 // 单注金额分档：[累计概率, 最小, 最大, 步长]，步长 0 表示任意整数。
 // 小额为主、长尾大额；INR 约为 PHP 的 1.5 倍，档位按印度常见注额取整
@@ -170,28 +173,45 @@ function buildRankTops(games: DbGame[], currency: GeneratedCurrency): { week: Be
   }
 }
 
-async function regenerateLatest(env: Env): Promise<void> {
-  if (Date.now() - generatedAt.latest < LATEST_REGEN_MS) return
-  for (const currency of GENERATED_CURRENCIES) {
-    const games = await marketGames(env, currency)
-    if (games.length === 0) return
-    latestBets[currency] = buildLatestPool(games, currency)
-  }
-  generatedAt.latest = Date.now()
-  console.log(`[betting-activity] latest generated (PHP=${latestBets.PHP.length}, INR=${latestBets.INR.length})`)
+// Redis 有就用；没有才生成，NX 写入（两节点同时生成时以先写入的为准）后读回，保证各节点同一份
+async function sharedGenerated<T>(env: Env, key: string, ttlSeconds: number, build: () => Promise<T | null>): Promise<T | null> {
+  const redis = getRedis(env)
+  const cached = await redis.get(key)
+  if (cached) return JSON.parse(cached) as T
+  const fresh = await build()
+  if (!fresh) return null
+  await redis.set(key, JSON.stringify(fresh), 'EX', ttlSeconds, 'NX')
+  const saved = await redis.get(key)
+  return saved ? JSON.parse(saved) as T : fresh
 }
 
-async function regenerateRankTops(env: Env): Promise<void> {
-  if (Date.now() - generatedAt.rank < RANK_REGEN_MS) return
+// 每 60 秒随 latest 定时任务从 Redis 同步一次，Redis 里重生成后最多 60 秒各节点对齐
+async function syncGenerated(env: Env): Promise<void> {
+  const latest = await sharedGenerated(env, LATEST_KEY, LATEST_TTL_SECONDS, async () => {
+    const out = {} as Record<GeneratedCurrency, BetRecord[]>
+    for (const currency of GENERATED_CURRENCIES) {
+      const games = await marketGames(env, currency)
+      if (games.length === 0) return null
+      out[currency] = buildLatestPool(games, currency)
+    }
+    return out
+  })
+  const rank = await sharedGenerated(env, RANK_KEY, RANK_TTL_SECONDS, async () => {
+    const out = {} as Record<GeneratedCurrency, { week: BetRecord[]; month: BetRecord[] }>
+    for (const currency of GENERATED_CURRENCIES) {
+      const games = await marketGames(env, currency)
+      if (games.length === 0) return null
+      out[currency] = buildRankTops(games, currency)
+    }
+    return out
+  })
   for (const currency of GENERATED_CURRENCIES) {
-    const games = await marketGames(env, currency)
-    if (games.length === 0) return
-    const { week, month } = buildRankTops(games, currency)
-    weekTop[currency] = week
-    monthTop[currency] = month
+    if (latest) latestBets[currency] = latest[currency]
+    if (rank) {
+      weekTop[currency] = rank[currency].week
+      monthTop[currency] = rank[currency].month
+    }
   }
-  generatedAt.rank = Date.now()
-  console.log(`[betting-activity] week/month top generated (PHP=${weekTop.PHP.length}, INR=${weekTop.INR.length})`)
 }
 
 // ── 真实数据（IDR）──────────────────────────────────────────────────────────
@@ -266,14 +286,15 @@ async function refreshRealRankTops(env: Env): Promise<void> {
   console.log(`[betting-activity] week/month top refreshed (IDR=${weekTop.IDR.length}+${monthTop.IDR.length})`)
 }
 
-// ── 刷新入口（app.ts 定时调用：latest 每 60 秒，榜单每 30 分钟；生成数据内部按自己的周期守卫）──
+// ── 刷新入口（app.ts 定时调用：latest 每 60 秒，榜单每 30 分钟）──────────────
 
+// PHP/INR 的 latest 与周/月榜都在这里从 Redis 同步（重生成周期由 Redis TTL 决定）
 export async function refreshLatestPool(env: Env): Promise<void> {
-  await Promise.all([regenerateLatest(env), refreshRealLatest(env)])
+  await Promise.all([syncGenerated(env), refreshRealLatest(env)])
 }
 
 export async function refreshRankTops(env: Env): Promise<void> {
-  await Promise.all([regenerateRankTops(env), refreshRealRankTops(env)])
+  await refreshRealRankTops(env)
 }
 
 // ── 对外查询 ────────────────────────────────────────────────────────────────

@@ -327,8 +327,8 @@ export function createApp(env: Env): Koa {
         .catch((err) => log.homepage.error({ err }, 'refresh error'))
     }, 3 * 60 * 60 * 1000)
 
-    // Betting activity 定时刷新：PHP/INR 为生成数据（服务内按 20 分钟/7 天周期守卫），IDR 为真实数据
-    // latest: 每 60 秒拉 IDR 最近真实注单
+    // Betting activity 定时刷新：PHP/INR 为生成数据（存 Redis 供双节点共享，TTL 20 分钟/7 天），IDR 为真实数据
+    // latest: 每 60 秒拉 IDR 最近真实注单，并从 Redis 同步 PHP/INR 的 latest 与周/月榜
     setInterval(() => {
       forEachTenant('betting-latest', () => refreshLatestPool(env))
         .catch((err) => log.betting.error({ err }, 'latest refresh error'))
