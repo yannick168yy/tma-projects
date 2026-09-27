@@ -1,6 +1,6 @@
 # 交接：印度站（INR）首页板块整改
 
-更新：2026-09-27 15:10
+更新：2026-09-27 17:15
 
 ## 背景
 印度站首页一直用菲律宾那套板块（slot / perya 为主），不符合印度玩家偏好。调研结论：
@@ -12,28 +12,30 @@
 
 注意：生产上 INR 近 60 天只有 1 个用户、6 局投注，还没有真实数据，下面的配置依据是调研加 INR 游戏库存。
 
-## 已完成
+## 已完成（生产已上线，2026-09-27 17:10）
 - **`fa157de7`**：后台首页装修支持 INR。
   - 原来 `admin-store.ts` 的 5 处白名单漏了 INR：布局、显隐、冻结一保存就报错；钉选会被当成全币种 `''` 写入。
   - 现在统一成常量 `HOMEPAGE_CONFIG_CURRENCIES`。
-  - 已 push，已部署测试环境。**生产未发布。**
-- **`f0540635`**：新增 `scripts/inr-home-config.mjs`，INR 首页一次性配置脚本，手动执行，可重复跑，只改 INR。
-  - 布局：体育上提；隐藏 Perya、捕鱼、百家乐；高 RTP、高洗码、彩票改成小卡横滑。
-  - 热门：前 8 款钉印度玩法，排除 INR 下置灰或偏菲律宾的游戏。
-  - 真人、老虎机、体育：各有钉选和排除。
-  - 已在测试环境执行，结果正确，PHP 首页不受影响。
-- 生产只读核查：没有 INR 钉选误写的记录，旧 bug 没有造成过实际损失。
+  - 已发布生产 bff（两个节点）。生产只读核查过，旧 bug 没有造成过实际损失。
+- **`scripts/inr-home-config.mjs`**：INR 首页配置脚本，手动执行，可重复跑，只改 INR。**已在生产和测试执行。**
+  - 布局：公告 → Banner → 最近在玩 → 热门 → 体育（上提）→ 真人 → 洗码横条 → 老虎机 → 厂商专区 → 高 RTP（小卡）→ 负盈利横条 → 推荐精选 → 高洗码（小卡）→ 最新上线 → 彩票（小卡）→ 投注榜。
+  - 隐藏：Perya、捕鱼、百家乐。
+  - 热门：前 8 款钉 Aviator、Andar Bahar、7 Up 7 Down、Teen Patti 20-20、Crash Cricket、Color Prediction、Dragon Tiger、Jhandi Munda。
+  - 真人：钉 Super Andar Bahar、Roulette Indian、Emperor Dragon Tiger、Pool Rummy。
+  - 老虎机：钉 Golden Taj Mahal、Indian Cash Catcher，排除中国题材。
+  - 体育：只留 BTi、Saba、Panda。
+  - Color Game、百家乐在热门、推荐精选、高 RTP 中都做了排除。
+  - **自动排除**：INR 下有一百多款游戏长期不可用（整个 PlayStar、部分 Evolution 桌台）。热门、推荐精选、高 RTP、高洗码四个板块从全库选品，维护中的游戏会置灰占位。所以脚本在执行时，按 INR 实时状态把"不可用且权重 ≥4000 或 elite 档"的游戏并入这四个板块的排除项。生产这次排除了 166 款，**各板块置灰为 0**。可用状态变了就重跑一次脚本。
+- 在生产重跑脚本的命令（发布生产必须先得到用户授权；在 auto 模式下会被分类器拦截，accept edits 模式下可以执行）：
+  ```bash
+  K="/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem"
+  scp -i "$K" scripts/inr-home-config.mjs ubuntu@13.213.107.231:/tmp/ && \
+  ssh -i "$K" ubuntu@13.213.107.231 'sudo podman cp /tmp/inr-home-config.mjs tma-bff-node:/app/ && sudo podman exec -w /app tma-bff-node node inr-home-config.mjs; sudo podman exec tma-bff-node rm -f /app/inr-home-config.mjs'
+  ```
+- main 上另有两个别的会话的 web-tma 提交（`2e465339`、`e6394d98`）仍未上生产。
 
 ## 待办
-1. **生产发布与配置（需要用户在自己的终端执行）**。auto 模式分类器会拦截生产发布，连 curl 生产域名也会拦。
-   ```bash
-   FORCE=1 bash deploy/single-node/deploy-prod.sh bff
-   K="/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem"
-   scp -i "$K" scripts/inr-home-config.mjs ubuntu@13.213.107.231:/tmp/ && \
-   ssh -i "$K" ubuntu@13.213.107.231 'sudo podman cp /tmp/inr-home-config.mjs tma-bff-node:/app/ && sudo podman exec -w /app tma-bff-node node inr-home-config.mjs; sudo podman exec tma-bff-node rm -f /app/inr-home-config.mjs'
-   ```
-   - 必须先发 bff 再跑脚本，否则会报"currency 必须为 PHP、IDR 或 USDT"。
-   - 发布前生产停在 `85917af1`（迁移 238）。main 上另有两个别的会话的 web-tma 提交（`2e465339`、`e6394d98`）没有上生产，发 bff 不会带上它们。
+1. **根治置灰（代码）**：自动排除是配置层面的兜底。更合理的做法是在 `buildHomepageSelection` 里区分"临时维护"和"该币种线路长期不可用"，后者像"不支持该币种"一样直接出池。
 2. **P1：新增两个板块**（需先和用户确认板块名和选品规则）。
    - `crash`（Crash & Instant Win）：Aviator、Crash Cricket、Chicken Road、Mines、Plinko、Limbo 等。
    - `indianCards`（Indian Card Games）：Andar Bahar、Teen Patti、7 Up 7 Down、Jhandi Munda、Dragon Tiger、Rummy、Color Prediction。
