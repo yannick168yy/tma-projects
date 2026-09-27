@@ -30,6 +30,7 @@ import spinRoutes from './spin.routes.js'
 import homeContentRoutes from './home-content.routes.js'
 import announcementRoutes from './announcement.routes.js'
 import attributionRoutes from './attribution.routes.js'
+import clientErrorRoutes from './client-error.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
 import { requireFeature } from '../middleware/require-feature.js'
 import { getDepositChannels, YfPayError } from '../services/yfpay.service.js'
@@ -87,6 +88,7 @@ export function createApiRouter(): Router {
   api.use(announcementRoutes.routes(), announcementRoutes.allowedMethods())
   // 公开：APK 安装归因配对（点下载在登录前，App 首启也在登录前）
   api.use(attributionRoutes.routes(), attributionRoutes.allowedMethods())
+  api.use(clientErrorRoutes.routes(), clientErrorRoutes.allowedMethods())
 
   // 公开：前台初始化语言、币种和登录市场时读取当前域名配置。
   // P1-8 起同时下发功能开关：前台靠它决定路由与底部导航显示哪些模块。

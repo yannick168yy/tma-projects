@@ -10,16 +10,28 @@ interface Props {
 // max-height:600px 限定为手机横屏，PC/大平板宽屏不会误触发
 const MQ = '(orientation: landscape) and (max-height: 600px)'
 
+// CSS 的 orientation 比的是视口宽高：安卓弹出键盘把视口压矮后也会判成横屏，
+// 充值金额、登录框一聚焦输入就被遮罩盖住。屏幕方向不受键盘影响，有就以它为准
+function isPhoneLandscape(mq: MediaQueryList): boolean {
+  const type = window.screen.orientation?.type
+  if (!type) return mq.matches
+  return type.startsWith('landscape') && Math.min(window.screen.width, window.screen.height) <= 600
+}
+
 export default function OrientationGuard({ allowLandscape = false }: Props) {
   const { t } = useTranslation()
   const [landscape, setLandscape] = useState(false)
 
   useEffect(() => {
     const mq = window.matchMedia(MQ)
-    const update = () => setLandscape(mq.matches)
+    const update = () => setLandscape(isPhoneLandscape(mq))
     update()
     mq.addEventListener('change', update)
-    return () => mq.removeEventListener('change', update)
+    window.screen.orientation?.addEventListener('change', update)
+    return () => {
+      mq.removeEventListener('change', update)
+      window.screen.orientation?.removeEventListener('change', update)
+    }
   }, [])
 
   if (allowLandscape || !landscape) return null

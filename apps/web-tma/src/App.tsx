@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef } from 'react'
+import { Suspense, useEffect } from 'react'
 import { lazyWithReload } from '@/utils/lazyWithReload'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import SplashPage from '@/views/SplashPage'
@@ -16,12 +16,14 @@ import { pairInstallAttribution } from '@/api/attribution'
 const AppShell = lazyWithReload(() => import('@/views/AppShell'))
 const IndiaLandingPage = lazyWithReload(() => import('@/views/IndiaLandingPage'))
 
-function useAppBootstrap() {
-  const bootstrapped = useRef(false)
+// 模块级：落地页（IndiaLandingApp）跳进主站（MainApp）是换路由元素、不是整页刷新，
+// 组件级 ref 会让主站再跑一遍 bootstrap —— phase 回到 splash、会话/余额/活动全部重拉
+let bootstrapped = false
 
+function useAppBootstrap() {
   useEffect(() => {
-    if (bootstrapped.current) return
-    bootstrapped.current = true
+    if (bootstrapped) return
+    bootstrapped = true
     void useAuthStore.getState().bootstrap()
     // APK 壳 / iOS 主屏 PWA 首启：向服务端认领点安装时暂存的归因快照（浏览器与 App 存储隔离）
     void pairInstallAttribution()

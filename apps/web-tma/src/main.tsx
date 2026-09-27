@@ -15,6 +15,8 @@ import { initFingerprint } from '@/utils/fingerprint'
 import { initVersionAutoReload } from '@/utils/versionReload'
 import { initSiteMarketConfig } from '@/config/market'
 import { initNativeToken } from '@/utils/tokenStore'
+import { initClientErrorReport, reportClientError } from '@/utils/clientErrorReport'
+import AppErrorBoundary from '@/components/AppErrorBoundary'
 
 // Vite modulepreload 失败（部署后旧客户端引用的 chunk 已被覆盖删除）→ 自动整页刷新一次自愈，避免黑屏
 window.addEventListener('vite:preloadError', () => {
@@ -24,6 +26,7 @@ window.addEventListener('vite:preloadError', () => {
   }
 })
 
+initClientErrorReport()
 preventDoubleTapZoom()
 initTheme()
 
@@ -52,12 +55,14 @@ async function bootstrap() {
 
   createRoot(document.getElementById('app')!).render(
     <StrictMode>
-      <I18nextProvider i18n={i18n}>
-        <App />
-      </I18nextProvider>
+      <AppErrorBoundary>
+        <I18nextProvider i18n={i18n}>
+          <App />
+        </I18nextProvider>
+      </AppErrorBoundary>
     </StrictMode>,
   )
   window.setTimeout(() => void initFingerprint(), 0)
 }
 
-void bootstrap()
+bootstrap().catch((e) => reportClientError('bootstrap', e))
