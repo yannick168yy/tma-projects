@@ -317,7 +317,7 @@ export default function IndiaLandingPage() {
                 <Sparkles size={12} /> {topOffer.eyebrow}
               </div>
               <p className="mt-3 text-[11px] font-black uppercase tracking-[.18em] text-white/60">New player package</p>
-              <h1 className="font-display text-[46px] font-black leading-[1.02] tracking-tight text-transparent [background:linear-gradient(180deg,#fff6c9,#ffd76a_45%,#e9a914)] [-webkit-background-clip:text] [background-clip:text] sm:text-6xl">
+              <h1 className="font-display text-[46px] font-black leading-[1.02] tracking-tight bg-gradient-to-b from-[#fff6c9] via-[#ffd76a] to-[#e9a914] bg-clip-text text-transparent sm:text-6xl">
                 {money(shownTotal)}
               </h1>
               <p className="mt-1 text-xs font-semibold text-white/65 sm:text-sm">
