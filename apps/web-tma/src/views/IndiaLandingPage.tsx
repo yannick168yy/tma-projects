@@ -16,7 +16,7 @@ import { translateApiError } from '@/utils/translateApiError'
 import { analytics } from '@/utils/analytics'
 import { isFeatureEnabled } from '@/config/features'
 import { useTranslation } from 'react-i18next'
-import coinsGift from '@/assets/home/raw/coins-gift.png'
+import heroArt from '@/assets/landing/india-hero.webp'
 
 const INR = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 })
 const TRIAL_DEVICE_BLOCKED_KEY = 'betogo_landing_trial_device_blocked'
@@ -310,25 +310,31 @@ export default function IndiaLandingPage() {
         <section className="mx-auto max-w-6xl px-4 py-3 sm:px-6 sm:py-6">
           <div className="relative overflow-hidden rounded-[24px] border border-[#f7c94b]/20 bg-[radial-gradient(circle_at_85%_8%,rgba(245,189,49,.22),transparent_38%),linear-gradient(160deg,#1a1119,#0b0e17_58%)] p-4 shadow-[0_24px_70px_rgba(0,0,0,.45)] sm:p-7 lg:grid lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:gap-8">
             <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#ffd76a] to-transparent" />
-            <img src={coinsGift} alt="" className="pointer-events-none absolute -right-8 -top-2 w-36 opacity-35 sm:w-52 sm:opacity-50" />
-
             <div className="relative z-10">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-[#f5bd31]/25 bg-[#f5bd31]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.16em] text-[#ffd76a]">
-                <Sparkles size={12} /> {topOffer.eyebrow}
+              <div className="relative min-h-[196px] sm:min-h-[290px]">
+                {/* 素材左侧残留的活动标题字母靠左向渐隐盖住，底部渐隐接到四格上 */}
+                <img
+                  src={heroArt}
+                  alt=""
+                  className="pointer-events-none absolute -right-4 -top-4 w-[66%] max-w-[330px] select-none [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent,#000_42%),linear-gradient(to_bottom,#000_62%,transparent)] [-webkit-mask-composite:source-in] [-webkit-mask-image:linear-gradient(to_right,transparent,#000_42%),linear-gradient(to_bottom,#000_62%,transparent)] sm:-right-7 sm:-top-7 lg:right-0 lg:[mask-image:linear-gradient(to_right,transparent,#000_35%,#000_75%,transparent),linear-gradient(to_bottom,#000_62%,transparent)] lg:[-webkit-mask-image:linear-gradient(to_right,transparent,#000_35%,#000_75%,transparent),linear-gradient(to_bottom,#000_62%,transparent)]"
+                />
+                <div className="relative inline-flex items-center gap-1.5 rounded-full border border-[#f5bd31]/25 bg-[#f5bd31]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.16em] text-[#ffd76a]">
+                  <Sparkles size={12} /> {topOffer.eyebrow}
+                </div>
+                <p className="relative mt-3 text-[11px] font-black uppercase tracking-[.18em] text-white/70 [text-shadow:0_1px_6px_#000]">New player<br />package</p>
+                <h1 className="relative font-display text-[46px] font-black drop-shadow-[0_2px_10px_rgba(0,0,0,.85)] leading-[1.02] tracking-tight bg-gradient-to-b from-[#fff6c9] via-[#ffd76a] to-[#e9a914] bg-clip-text text-transparent sm:text-6xl">
+                  {money(shownTotal)}
+                </h1>
+                <p className="relative mt-1 max-w-[52%] text-xs font-semibold leading-snug text-white/80 [text-shadow:0_1px_6px_#000] sm:text-sm">
+                  {instantTotal > 0
+                    ? <>Includes <span className="font-black text-[#ffd76a]">{money(instantTotal)} free instantly</span> — no deposit needed.</>
+                    : 'Start your welcome journey today.'}
+                </p>
               </div>
-              <p className="mt-3 text-[11px] font-black uppercase tracking-[.18em] text-white/60">New player package</p>
-              <h1 className="font-display text-[46px] font-black leading-[1.02] tracking-tight bg-gradient-to-b from-[#fff6c9] via-[#ffd76a] to-[#e9a914] bg-clip-text text-transparent sm:text-6xl">
-                {money(shownTotal)}
-              </h1>
-              <p className="mt-1 text-xs font-semibold text-white/65 sm:text-sm">
-                {instantTotal > 0
-                  ? <>Includes <span className="font-black text-[#ffd76a]">{money(instantTotal)} free instantly</span> — no deposit needed.</>
-                  : 'Start your welcome journey today.'}
-              </p>
 
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {packageItems.map(({ key, icon: Icon, label, amount, note, done }) => (
-                  <div key={key} className={`relative rounded-xl border px-2.5 py-2 ${done ? 'border-[#2fb968]/30 bg-[#2fb968]/[.07]' : 'border-white/[.08] bg-white/[.04]'}`}>
+                  <div key={key} className={`relative rounded-xl border px-2.5 py-2 ${done ? 'border-[#2fb968]/30 bg-[#2fb968]/[.07]' : 'border-white/[.08] bg-[#141722]/85 backdrop-blur-sm'}`}>
                     <p className="flex items-center gap-1 text-[10px] font-bold text-white/55">
                       <Icon size={12} className="shrink-0 text-[#f5bd31]" />{label}
                     </p>
