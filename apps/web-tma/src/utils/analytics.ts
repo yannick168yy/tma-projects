@@ -136,6 +136,9 @@ export const analytics = {
   agentActivated() {
     track('circle_rewards_activated')
   },
+  landingAction(action: string, state: string) {
+    track('landing_action', { landing_page: 'india_welcome', action, state })
+  },
   promoClaimSuccess(id: PromoId, amountPhp: number) {
     track('promo_claim_success', { promo_id: id, value: amountPhp, currency: 'PHP' })
   },

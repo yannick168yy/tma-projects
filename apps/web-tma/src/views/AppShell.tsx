@@ -1,6 +1,7 @@
 import { Suspense, useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { lazyWithReload } from '@/utils/lazyWithReload'
 import { useTranslation } from 'react-i18next'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Gamepad2, Check, Search, Headset,
   Users, Crown, Percent, Trophy, Sparkles, Ticket, Star,
@@ -94,6 +95,8 @@ function navIcon(name: string) {
 
 export default function AppShell() {
   const { t, i18n } = useTranslation()
+  const location = useLocation()
+  const navigate = useNavigate()
   const auth = useAuthStore()
   const wallet = useWalletStore()
   const isLoggedIn = Boolean(auth.token && auth.user)
@@ -440,6 +443,15 @@ export default function AppShell() {
     setWalletInitialTab(tab); setWalletFullscreen(true)
     setWalletOpen(false); setWalletModalOpen(true)
   }
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const walletTab = params.get('wallet')
+    if (walletTab !== 'deposit' && walletTab !== 'withdraw' && walletTab !== 'history') return
+    params.delete('wallet')
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true })
+    void openWalletFull(walletTab)
+  }, [location.pathname, location.search])
 
   async function onBalanceTap() {
     if (!isLoggedIn) { await auth.ensureLoggedIn(t('auth.signInBalance')); return }

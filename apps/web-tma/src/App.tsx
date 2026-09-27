@@ -14,14 +14,9 @@ import { usePromotionStore } from '@/stores/promotion'
 import { pairInstallAttribution } from '@/api/attribution'
 
 const AppShell = lazyWithReload(() => import('@/views/AppShell'))
+const IndiaLandingPage = lazyWithReload(() => import('@/views/IndiaLandingPage'))
 
-function MainApp() {
-  const phase = useAuthStore((s) => s.phase)
-  const bootError = useAuthStore((s) => s.bootError)
-  const loginSheetOpen = useAuthStore((s) => s.loginSheetOpen)
-  const closeLoginSheet = useAuthStore((s) => s.closeLoginSheet)
-  const { redPacketSheet, closeRedPacket } = usePromotionStore()
-
+function useAppBootstrap() {
   const bootstrapped = useRef(false)
 
   useEffect(() => {
@@ -30,10 +25,18 @@ function MainApp() {
     void useAuthStore.getState().bootstrap()
     // APK 壳 / iOS 主屏 PWA 首启：向服务端认领点安装时暂存的归因快照（浏览器与 App 存储隔离）
     void pairInstallAttribution()
-    // 【勿再加 Turnstile 预热】曾在 iOS PWA 冷启动预热 api.js 规避登录崩溃,但 api.js 一加载
-    // 就注入跨域 challenges.cloudflare.com iframe,直接压垮 WKWebView 渲染进程→白屏闪退回首页,
-    // 反而每次冷启动必崩。改回只在用户聚焦登录框时才 lazy 加载(见 LoginSheet)。
+    // 不在这里预热 Turnstile：跨域 iframe 会导致部分 iOS PWA 冷启动白屏，登录组件按需加载。
   }, [])
+}
+
+function MainApp() {
+  const phase = useAuthStore((s) => s.phase)
+  const bootError = useAuthStore((s) => s.bootError)
+  const loginSheetOpen = useAuthStore((s) => s.loginSheetOpen)
+  const closeLoginSheet = useAuthStore((s) => s.closeLoginSheet)
+  const { redPacketSheet, closeRedPacket } = usePromotionStore()
+
+  useAppBootstrap()
 
   if (phase === 'splash') {
     return (
@@ -63,6 +66,34 @@ function MainApp() {
   )
 }
 
+function IndiaLandingApp() {
+  const phase = useAuthStore((s) => s.phase)
+  const bootError = useAuthStore((s) => s.bootError)
+  const loginSheetOpen = useAuthStore((s) => s.loginSheetOpen)
+  const closeLoginSheet = useAuthStore((s) => s.closeLoginSheet)
+
+  useAppBootstrap()
+
+  if (phase === 'splash') {
+    return (
+      <>
+        <BootSplash />
+        <SplashPage error={bootError} />
+      </>
+    )
+  }
+
+  return (
+    <>
+      <BootSplash />
+      <Suspense fallback={null}>
+        <IndiaLandingPage />
+      </Suspense>
+      <LoginSheet open={loginSheetOpen} onClose={closeLoginSheet} />
+    </>
+  )
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -71,6 +102,8 @@ export default function App() {
       <Routes>
         <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
         <Route path="/auth/telegram/callback" element={<TelegramAuthCallback />} />
+        <Route path="/welcome" element={<IndiaLandingApp />} />
+        <Route path="/in/welcome" element={<IndiaLandingApp />} />
         <Route path="*" element={<MainApp />} />
       </Routes>
     </BrowserRouter>
