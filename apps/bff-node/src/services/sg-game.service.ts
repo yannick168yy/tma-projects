@@ -81,6 +81,18 @@ function normalizeGameCurrency(currency?: string): string | undefined {
   return code
 }
 
+const INR_HIDDEN_PROVIDERS = new Set([
+  'Pragmatic Play',
+  'PragmaticPlay',
+  'Pragmatic Play Casino',
+  'PragmaticPlayCasino',
+])
+
+export function filterMarketRestrictedGames(games: DbGame[], currency?: string): DbGame[] {
+  if (normalizeGameCurrency(currency) !== 'INR') return games
+  return games.filter((game) => !INR_HIDDEN_PROVIDERS.has(game.provider))
+}
+
 export function supportsCurrency(game: DbGame, currency?: string): boolean {
   const normalized = normalizeGameCurrency(currency)
   if (!normalized) return true
@@ -354,7 +366,8 @@ function setMemGames(games: DbGame[]) {
 }
 
 export async function getGamesFromCache(env: Env, currency?: string): Promise<DbGame[]> {
-  return projectGameCatalog(env, await getRawGamesFromCache(env), currency)
+  const projected = await projectGameCatalog(env, await getRawGamesFromCache(env), currency)
+  return filterMarketRestrictedGames(projected, currency)
 }
 
 export async function getRawGamesFromCache(env: Env): Promise<DbGame[]> {
@@ -670,6 +683,9 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     const f = frozen.get(key)
     if (!f || !f.length) return null
     const list = f.map((u) => gameByUuid.get(u)).filter((g): g is DbGame => !!g)
+    // INR 禁用厂商从目录剔除后，旧冻结名单可能留下空位；此时整块回退算法重选，
+    // 才能按当前板块的品类、玩法和权重规则补满，而不是缩短首页行数。
+    if (cur === 'INR' && list.length < f.length) return null
     list.forEach((g) => seen.add(g.uuid))
     return list
   }

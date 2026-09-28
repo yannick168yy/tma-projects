@@ -54,7 +54,6 @@ const PROVIDER_ZONE_IN = [
   { code: 'JILI', label: 'JILI' },
   { code: 'Spribe', label: 'Spribe' },
   { code: 'Evolution', label: 'Evolution' },
-  { code: 'Pragmatic Play', label: 'Pragmatic' },
   { code: 'King Midas', label: 'King Midas' },
   { code: 'PG Soft', label: 'PG' },
 ]
