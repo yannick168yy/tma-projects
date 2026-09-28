@@ -121,6 +121,13 @@ const schema = z.object({
   TELESMS_CPPWD: z.string().default(''),
   // 自定义发送者号码（可选，不清楚含义就留空）
   TELESMS_SENDER: z.string().default(''),
+  // ── Laaffic 印度短信通道 ────────────────────────────────────────────────────
+  LAAFFIC_BASE_URL: z.string().default('https://api.laaffic.com/v3'),
+  LAAFFIC_API_KEY: z.string().default(''),
+  LAAFFIC_API_SECRET: z.string().default(''),
+  LAAFFIC_APP_ID: z.string().default(''),
+  // 必须填写 Laaffic 已报备的 Sender ID；未报备前留空，由平台分配默认 Sender ID
+  LAAFFIC_SENDER_ID: z.string().default(''),
   // ── KYC ────────────────────────────────────────────────────────────────────
   // Gemini 证件/人脸自动放行的最低置信度（0~1）
   KYC_GEMINI_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.85),

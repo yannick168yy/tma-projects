@@ -128,6 +128,11 @@ run run -d --name tma-bff-node --network "$NET" --ip "$PEER_IP_BFF_NODE" --resta
   -e TELESMS_CPID="${TELESMS_CPID:-}" \
   -e TELESMS_CPPWD="${TELESMS_CPPWD:-}" \
   -e TELESMS_SENDER="${TELESMS_SENDER:-}" \
+  -e LAAFFIC_BASE_URL="${LAAFFIC_BASE_URL:-https://api.laaffic.com/v3}" \
+  -e LAAFFIC_API_KEY="${LAAFFIC_API_KEY:-}" \
+  -e LAAFFIC_API_SECRET="${LAAFFIC_API_SECRET:-}" \
+  -e LAAFFIC_APP_ID="${LAAFFIC_APP_ID:-}" \
+  -e LAAFFIC_SENDER_ID="${LAAFFIC_SENDER_ID:-}" \
   -e KYC_GEMINI_MIN_CONFIDENCE="${KYC_GEMINI_MIN_CONFIDENCE:-0.85}" \
   -e KYC_STORAGE_DIR="${KYC_STORAGE_DIR:-/app/data/kyc}" \
   -e DB_BACKUP_DIR="${DB_BACKUP_DIR:-/app/data/backups}" \

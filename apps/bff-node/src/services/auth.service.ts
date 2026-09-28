@@ -448,9 +448,9 @@ export async function sendForgotPasswordOtp(
   await redis.set(forgotOtpKey(phone), JSON.stringify(state), 'EX', OTP_TTL_SEC)
   await redis.set(forgotResendKey(phone), '1', 'EX', RESEND_INTERVAL_SEC)
 
-  const text = `Your BetoGo password reset code is ${code}. Valid for 5 minutes. Do not share it.`
+  const text = `Your BetoGo verification code is ${code}. Valid for 5 minutes. Do not share it.`
   const mocked = await isSmsTestModeEnabled(redis, env)
-  const res = await (await getSmsProvider(env, redis)).sendSms(phone, text)
+  const res = await (await getSmsProvider(env, redis, market)).sendSms(phone, text)
   if (!res.ok) {
     await redis.del(forgotOtpKey(phone), forgotResendKey(phone))
     throw new AuthError(
@@ -467,6 +467,8 @@ export async function sendForgotPasswordOtp(
     code,
     text,
     mocked,
+    provider: mocked ? 'mock' : market === 'IN' ? 'laaffic' : 'telesms',
+    providerMsgId: res.providerMsgId,
   })
   return { phone, resendInSec: RESEND_INTERVAL_SEC }
 }

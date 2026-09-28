@@ -13,6 +13,8 @@ export interface SmsSendLogEntry {
   code: string
   text: string
   mocked: boolean
+  provider?: 'mock' | 'telesms' | 'laaffic'
+  providerMsgId?: string
   createdAt: string
 }
 
