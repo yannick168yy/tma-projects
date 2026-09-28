@@ -795,6 +795,11 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   }
   const sampleSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 2, availableOnly = false) =>
     applyManual(key, pick(exFilter(key, pool), sc, n, mpp), n, availableOnly)
+  const sampleSectionWithFallback = (key: string, primary: DbGame[], fallback: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 2) => {
+    const preferred = pick(exFilter(key, primary), sc, n, mpp)
+    const backfill = preferred.length < n ? pick(exFilter(key, fallback), sc, n - preferred.length, mpp) : []
+    return applyManual(key, [...preferred, ...backfill], n, true)
+  }
   const weightSection = (key: string, pool: DbGame[], n: number, priority?: (g: DbGame) => number, availableOnly = false) =>
     applyManual(key, pickWeightTop(exFilter(key, pool), n, priority), n, availableOnly)
   // 返水档位优先级：elite(2%)>pro(1.5%)>basic(1%)>无。用于 slots 首推 cashback 游戏
@@ -871,7 +876,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     // 取 24 款做候选池：前端展示前 12，后 12 专供「最近在玩」补位，保证补位游戏不与推荐板块重复。
     // sportsbook 合成条目(权重10000)排除——体育板块固定给它第一席位，进推荐必重复
     recommended: frozenList('recommended') ?? topSection('recommended', all.filter(notSports), score, 24, 3),
-    newGames:   sampleSection('newGames', newPool, score, 12, 4, true),
+    // 近期新游不足时从全量可用池按权重补位，避免印度屏蔽整厂后留下空卡位。
+    newGames:   sampleSectionWithFallback('newGames', newPool, available, score, 12, 4),
     // slots/perya/fishing/highRtp 改为确定性按权重降序推荐（含模块内同名去重）。
     // highRtp 在页面上位于 slots 之前，先计算以按展示顺序优先分配高权重游戏
     // 高 RTP 专栏：上游标称 rtp≥0.97，对标竞品「98%」栏；默认放 12 款
@@ -887,8 +893,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     // 彩票 & 其他：彩票(ntype207)低权重会被 other 淹没，先保底 4 彩票再用 other 补 8
     lottery:    applyManual('lottery', [...pick(bySiteA('lottery'), score, 4), ...pick(bySiteA('other'), score, 8)], 12, true),
     // 百家乐专栏：casinoplus 有独立返水专栏验证的品类需求（new_game_type=101）
-    // 可用百家乐仅 2 家厂商(Pragmatic/Playtech)，默认每厂商≤2 只能凑出 4 款；放宽到 6 以填满 12
-    baccarat:   sampleSection('baccarat', available.filter((g) => g.category === '101'), score, 12, 6, true),
+    // 严格百家乐不足时，以同属 casino 的近似桌面/真人玩法按权重补足。
+    baccarat:   sampleSectionWithFallback('baccarat', available.filter((g) => g.category === '101'), bySiteA('casino'), score, 12, 6),
     // 高洗码专栏：已在 popular 前先算并登记 seen（见 highRebateList 注释）
     highRebate: highRebateList,
     crash: crashList,
