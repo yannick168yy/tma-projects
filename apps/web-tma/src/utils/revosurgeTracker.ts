@@ -1,4 +1,4 @@
-// RevoSurge Web Tracker。与 FB/TikTok 像素同策略：只有带 click_id 进站的买量流量
+// RevoSurge Web Tracker。与 FB/TikTok 像素同策略：只有带 clickid 进站的买量流量
 // 才加载，自然流量不装三方脚本。例外是投放落地页：对方审核 campaign 时直接打开裸链接
 // 查 tracker，落地页本身也只承接投放流量，所以不看参数一律加载。
 //
@@ -20,7 +20,7 @@ const TRACKER_ID = (import.meta.env.VITE_REVOSURGE_TRACKER_ID ?? '').trim()
 
 export function initRevosurgeTracker(): void {
   if (!TRACKER_ID || window.__rsTracker) return
-  // 归因快照里没有 click_id 即非 RevoSurge 流量
+  // 归因快照里没有 clickid 即非 RevoSurge 流量
   if (!/^\/(in\/)?welcome\/?$/.test(window.location.pathname) && !getAttribution()?.rsc) return
 
   const s = document.createElement('script')

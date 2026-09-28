@@ -31,7 +31,7 @@ export function useAppNavigation() {
 
   useEffect(() => {
     if (location.pathname === '/') {
-      // 必须带上 search：广告落地参数（click_id/utm 等）要留给异步加载的三方脚本读取。
+      // 必须带上 search：广告落地参数（clickid/utm 等）要留给异步加载的三方脚本读取。
       // 我方归因在 main.tsx 里渲染前就已落盘不受影响，但 RevoSurge 的 Web Tracker 是
       // async 脚本，onload 时若参数已被这次跳转抹掉，它就拿不到归因上下文。
       navigate({ pathname: '/home', search: location.search }, { replace: true })

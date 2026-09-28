@@ -9,7 +9,7 @@
 //   - 只有失败才落 bg_capi_event，排障时不用在千万行成功记录里捞
 // FB/TikTok 仍走 bg_capi_event：只有 register/purchase 两个事件，量与结算对账直接相关。
 //
-// 归因凭据是 revosurge_click_id：落地页 ?click_id= 带入，注册时随 X-Attr 落快照。
+// 归因凭据是 revosurge_click_id：落地页 ?clickid= 带入，注册时随 X-Attr 落快照。
 // 查不到即非 RevoSurge 流量，直接跳过。
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { env } from '../config/env.js'
