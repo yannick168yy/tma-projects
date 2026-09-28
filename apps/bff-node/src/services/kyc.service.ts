@@ -429,8 +429,9 @@ export async function sendKycOtp(
   await redis.set(resendKey(userId), '1', 'EX', RESEND_INTERVAL_SEC)
 
   const text = `Your BetoGo verification code is ${code}. Valid for 5 minutes. Do not share it.`
+  const sentText = market === 'IN' ? code : text
   const mocked = await isSmsTestModeEnabled(redis, env)
-  const res = await (await getSmsProvider(env, redis, market)).sendSms(phone, text)
+  const res = await (await getSmsProvider(env, redis, market)).sendSms(phone, sentText)
   if (!res.ok) {
     await redis.del(otpKey(userId), resendKey(userId))
     throw new KycError(
@@ -445,7 +446,7 @@ export async function sendKycOtp(
     userId,
     phone,
     code,
-    text,
+    text: sentText,
     mocked,
     provider: mocked ? 'mock' : market === 'IN' ? 'laaffic' : 'telesms',
     providerMsgId: res.providerMsgId,
