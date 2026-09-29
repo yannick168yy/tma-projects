@@ -9,11 +9,11 @@ if (keystorePropsFile.exists()) {
     keystorePropsFile.withReader('UTF-8') { keystoreProps.load(it) }
 }
 
-// 印尼独立包使用单独签名；文件结构与 keystore.properties 相同，且均已 gitignore。
-def idKeystorePropsFile = rootProject.file("keystore-id.properties")
-def idKeystoreProps = new Properties()
-if (idKeystorePropsFile.exists()) {
-    idKeystorePropsFile.withReader('UTF-8') { idKeystoreProps.load(it) }
+// 印度独立包使用单独签名；文件结构与 keystore.properties 相同，且均已 gitignore。
+def inKeystorePropsFile = rootProject.file("keystore-in.properties")
+def inKeystoreProps = new Properties()
+if (inKeystorePropsFile.exists()) {
+    inKeystorePropsFile.withReader('UTF-8') { inKeystoreProps.load(it) }
 }
 
 // 包网租户包（P1-15）：密钥按 -PtenantKeystore=<ref> 找 keystore-<ref>.properties。
@@ -34,7 +34,7 @@ android {
     defaultConfig {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // 版本号可被出包脚本按租户覆盖；不传时仍是自营包当前的版本，ph/id 产物不变。
+        // 版本号可被出包脚本按租户覆盖；不传时仍是自营包当前的版本，ph/india 产物不变。
         // 先算成局部变量再赋值：写成 versionCode (...).toInteger() 会被 Groovy 解析成
         // 「先用 String 调 versionCode，再对返回值取 toInteger」，配置阶段直接报 Value is null
         def appVersionCode = (project.findProperty('appVersionCode') ?: '11').toString().toInteger()
@@ -47,7 +47,7 @@ android {
         def appLabel = (project.findProperty('appLabel') ?: 'BETOGO')
         resValue "string", "app_name", appLabel
         resValue "string", "title_activity_main", appLabel
-        // 原生启动屏底色。默认值与改造前 styles.xml 里写死的一致，ph/id 产物不变；
+        // 原生启动屏底色。默认值与改造前 styles.xml 里写死的一致，ph/india 产物不变；
         // 租户包用 -PsplashBackground=#RRGGBB 换成自己的品牌底色
         resValue "color", "splashBackground", (project.findProperty('splashBackground') ?: '#080b14')
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -66,12 +66,12 @@ android {
                 keyPassword keystoreProps['keyPassword']
             }
         }
-        idRelease {
-            if (idKeystorePropsFile.exists()) {
-                storeFile file(idKeystoreProps['storeFile'])
-                storePassword idKeystoreProps['storePassword']
-                keyAlias idKeystoreProps['keyAlias']
-                keyPassword idKeystoreProps['keyPassword']
+        inRelease {
+            if (inKeystorePropsFile.exists()) {
+                storeFile file(inKeystoreProps['storeFile'])
+                storePassword inKeystoreProps['storePassword']
+                keyAlias inKeystoreProps['keyAlias']
+                keyPassword inKeystoreProps['keyPassword']
             }
         }
         tenantRelease {
@@ -133,16 +133,17 @@ android {
             buildConfigField "String", "TG_RECOVERY_CHANNEL", "\"${tgRecoveryChannel}\""
             if (tenantKeystorePropsFile?.exists()) signingConfig signingConfigs.tenantRelease
         }
-        id {
+        // flavor 不能叫 in（Groovy 关键字），包名也避开 .in（Java 关键字不能做包名段）
+        india {
             dimension "market"
-            applicationId "games.betogo.id"
-            resValue "string", "package_name", "games.betogo.id"
-            resValue "string", "custom_url_scheme", "games.betogo.id"
-            buildConfigField "String", "APP_MARKET", '"ID"'
-            buildConfigField "String", "APP_DOMAINS", '"betogo.app,betogo.xyz,betogo.vip"'
+            applicationId "games.betogo.india"
+            resValue "string", "package_name", "games.betogo.india"
+            resValue "string", "custom_url_scheme", "games.betogo.india"
+            buildConfigField "String", "APP_MARKET", '"IN"'
+            buildConfigField "String", "APP_DOMAINS", '"betogo.app,betogo.xyz,betogo.vip,betogo.cc,betogo888.com"'
             buildConfigField "String", "APP_ROUTE_PUBLIC_KEY", "\"${appRoutePublicKey}\""
             buildConfigField "String", "TG_RECOVERY_CHANNEL", "\"${tgRecoveryChannel}\""
-            if (idKeystorePropsFile.exists()) signingConfig signingConfigs.idRelease
+            if (inKeystorePropsFile.exists()) signingConfig signingConfigs.inRelease
         }
     }
     // 租户图标：脚本把生成好的 mipmap-* 放到一个临时目录再传进来，

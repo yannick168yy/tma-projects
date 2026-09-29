@@ -7,7 +7,7 @@ import { canNativeInstall, isIos, isInstalledApp, promptNativeInstall } from '@/
 import { reportInstallClick } from '@/api/attribution'
 
 const APK_DOWNLOAD_URLS = {
-  id: '/app/id/betogo.apk',
+  in: '/app/in/betogo.apk',
   ph: '/app/ph/betogo.apk',
 } as const
 
@@ -30,13 +30,13 @@ Daily Check-in = FREE Lucky Wheel spins 🎡 higher tiers, bigger pots
 Task Center: Newbie Bonus ₱18 + First Bet ₱5 + Invite Friends ₱10
 JILI · PG · FaChai · CQ9 · Pragmatic Play — 2,000+ games in one app`
 
-const ABOUT_TEXT_ID = `🔥 🌟🌟🌟🌟🌟 4,9, tanpa iklan, permainan lancar, penarikan cepat 🔥
-🎁 Bonus Deposit Pertama hingga 120% 🎁 Deposit dan penarikan IDR yang mudah 🎁
-Program VIP dengan hadiah mingguan, bulanan, dan ulang tahun
-Loss Rebate hingga 7% dan Cash Rebate hingga 2%
-Check-in harian untuk spin Lucky Wheel gratis
-Pusat Tugas: hadiah pemain baru, taruhan pertama, dan undang teman
-JILI · PG · FaChai · CQ9 · Pragmatic Play — 2.000+ game dalam satu aplikasi`
+const ABOUT_TEXT_IN = `🔥 🌟🌟🌟🌟🌟 4.9, no ads, smooth game, fast withdrawals 🔥
+🎁 First Deposit Bonus up to 120% 🎁 Easy INR deposits and withdrawals 🎁
+VIP Club with weekly, monthly and birthday rewards
+Loss Rebate up to 7% and Cash Rebate up to 2%
+Daily check-in for FREE Lucky Wheel spins 🎡
+Task Center: newbie bonus, first bet reward and invite friends
+JILI · PG · FaChai · CQ9 — 2,000+ games in one app`
 
 const TAGS = ['Casino', 'Slots', 'Bingo', 'Live Casino', 'Multiplayer']
 
@@ -114,9 +114,9 @@ function Stars({ n, size = 12 }: { n: number; size?: number }) {
 }
 
 export default function DownloadPage({ onClose }: { onClose: () => void }) {
-  const apkMarket = getSiteMarket() === 'ID' ? 'id' : 'ph'
+  const apkMarket = getSiteMarket() === 'IN' ? 'in' : 'ph'
   const apkDownloadUrl = APK_DOWNLOAD_URLS[apkMarket]
-  const aboutText = apkMarket === 'id' ? ABOUT_TEXT_ID : ABOUT_TEXT
+  const aboutText = apkMarket === 'in' ? ABOUT_TEXT_IN : ABOUT_TEXT
   const [phase, setPhase] = useState<'idle' | 'installing' | 'done'>('idle')
   const [progress, setProgress] = useState(0)
   const [guideOpen, setGuideOpen] = useState(false)

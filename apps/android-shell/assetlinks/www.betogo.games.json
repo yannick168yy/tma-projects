@@ -15,9 +15,9 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "games.betogo.id",
+      "package_name": "games.betogo.india",
       "sha256_cert_fingerprints": [
-        "8F:D8:E5:6F:D4:AF:BB:A4:11:FE:E2:8F:2B:33:69:51:01:42:54:0F:12:44:D3:D6:16:E5:CD:C1:99:04:54:D7"
+        "D3:8C:A0:93:01:2A:78:40:FB:7A:6F:37:CA:24:63:E8:46:D4:5D:4A:97:EB:3A:50:34:DF:27:54:A3:71:0D:E7"
       ]
     }
   }

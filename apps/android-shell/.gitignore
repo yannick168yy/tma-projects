@@ -8,6 +8,5 @@ android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json
 *.keystore
 *.jks
-android/keystore.properties
-android/keystore-id.properties
+android/keystore*.properties
 release-artifacts/

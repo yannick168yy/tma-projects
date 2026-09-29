@@ -6,14 +6,14 @@
   "scripts": {
     "sync": "cap sync android",
     "sync:ph": "CAP_APP_ID=games.betogo.app cap sync android",
-    "sync:id": "CAP_APP_ID=games.betogo.id cap sync android",
+    "sync:in": "CAP_APP_ID=games.betogo.india cap sync android",
     "open": "cap open android",
     "apk:debug": "npm run apk:ph:debug",
     "apk:release": "npm run apk:ph:release",
     "apk:ph:debug": "npm run sync:ph && cd android && ANDROID_HOME=${ANDROID_HOME:-/usr/local/share/android-commandlinetools} ./gradlew assemblePhDebug",
     "apk:ph:release": "npm run sync:ph && cd android && ANDROID_HOME=${ANDROID_HOME:-/usr/local/share/android-commandlinetools} ./gradlew assemblePhRelease",
-    "apk:id:debug": "npm run sync:id && cd android && ANDROID_HOME=${ANDROID_HOME:-/usr/local/share/android-commandlinetools} ./gradlew assembleIdDebug",
-    "apk:id:release": "npm run sync:id && cd android && ANDROID_HOME=${ANDROID_HOME:-/usr/local/share/android-commandlinetools} ./gradlew assembleIdRelease"
+    "apk:in:debug": "npm run sync:in && cd android && ANDROID_HOME=${ANDROID_HOME:-/usr/local/share/android-commandlinetools} ./gradlew assembleIndiaDebug",
+    "apk:in:release": "npm run sync:in && cd android && ANDROID_HOME=${ANDROID_HOME:-/usr/local/share/android-commandlinetools} ./gradlew assembleIndiaRelease"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.0.0",

@@ -37,7 +37,7 @@ APK 3.9 MB，首次构建 2 分 30 秒。全站在 Android WebView 里**完整�
 
 ### 包网租户出包（P1-15，2026-09-05）
 
-自营的 `ph` / `id` 两个 flavor 原样保留（已发布，不能动）。新增一个 `tenant` flavor，
+自营的 `ph` / `india` 两个 flavor 原样保留（已发布，不能动）。新增一个 `tenant` flavor，
 包名、桌面名、线路组、TG 旁路频道、启动屏底色、版本号、图标、签名全部走 `-P` 参数，
 **接一个客户不需要再改 build.gradle**。
 
@@ -141,20 +141,27 @@ cd apps/android-shell && npx cap sync android
 cd android && ./gradlew assembleDebug   # 产物：app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### 菲律宾与印尼独立包
+### 菲律宾与印度独立包
 
 - 菲律宾：包名 `games.betogo.app`，内置 `betogo.games / betogo666.com / betogo777.com`，构建命令 `npm run apk:ph:release`。
-- 印尼：包名 `games.betogo.id`，内置 `betogo.app / betogo.xyz / betogo.vip`，构建命令 `npm run apk:id:release`。
+- 印度：包名 `games.betogo.india`，内置 `betogo.app / betogo.xyz / betogo.vip / betogo.cc / betogo888.com`，
+  构建命令 `npm run apk:in:release`。flavor 叫 `india` 而非 `in`：后者是 Groovy 关键字，`.in` 也不能做包名段。
+- 印尼包 `games.betogo.id`（2026-09-29 下线）：印尼站已停，原域名划给印度，服务端 `/app/bootstrap`
+  只接受 `IN` / `PH`，该包内置 `APP_MARKET=ID` 永远连不上线路。
+- release 构建必须传 `-PappRoutePublicKey=<线路验签公钥>`（与已发布包相同，见 `BuildConfig.APP_ROUTE_PUBLIC_KEY`）。
 - App 不再写死 `server.url`：启动时并行请求 `/api/v1/app/bootstrap`，上次线路健康则继续使用，失败时切到响应最快的备用域名。
-- 后台“系统设置 → 站点域名映射”可调整每个市场的 App 域名组、启停和优先级；APK 只接受构建时白名单内的域名。
+- 后台“系统设置 → 站点域名映射”可调整每个市场的 App 域名组、启停和优先级。
 - 登录 token 会同步保存到 Android Keystore；切换域名后新 origin 可恢复会话，不通过 URL 传递 token。
-- 两个产品变体可同时安装；印尼签名读取 `android/keystore-id.properties`，不会复用或覆盖菲律宾签名。
-- 两个域名组里的每个域名都必须部署同时包含 `games.betogo.app` 与 `games.betogo.id` 指纹的
+- 两个产品变体可同时安装；印度签名读取 `android/keystore-in.properties`，不会复用或覆盖菲律宾签名。
+  密钥与密码在 `TMA_FILES/android/betogo-in-release.*`。
+- 两个域名组里的每个域名都必须部署同时包含 `games.betogo.app` 与 `games.betogo.india` 指纹的
   `/.well-known/assetlinks.json`，并在 Manifest 注册 `/auth/*` App Link。
-- `assetlinks/www.betogo.games.json` 是已合并旧包与印尼新包的生产候选文件；部署时不能只保留
-  新包 statement，否则会让现有 `games.betogo.app` 的 App Link 失效。
-- 首次生成印尼独立签名：`bash scripts/generate-id-signing.sh <站外安全备份目录>`。脚本拒绝覆盖
-  已存在的签名，并在本地生成 gitignore 的 `android/keystore-id.properties`。
+- `assetlinks/www.betogo.games.json` 是合并两个包的生产候选文件；部署时不能只保留
+  其中一个 statement，否则另一个包的 App Link 失效。
+- 生成印度独立签名：`bash scripts/generate-in-signing.sh <站外安全备份目录>`。脚本拒绝覆盖
+  已存在的签名，并在本地生成 gitignore 的 `android/keystore-in.properties`。
+- 下载地址：`/app/ph/betogo.apk`、`/app/in/betogo.apk`，文件放在 `apps/web-tma/public/app/<市场>/`，
+  下载页按站点市场（IN 发印度包，其余发菲律宾包）选择。
 
 ## 更新机制
 
