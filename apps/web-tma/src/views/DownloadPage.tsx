@@ -3,7 +3,8 @@ import { getSiteMarket } from '@/config/market'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Star, Loader2, CheckCircle2, ShieldCheck, Share2, Trash2, Flag } from 'lucide-react'
 import InstallGuideSheet from '@/components/pwa/InstallGuideSheet'
-import { canNativeInstall, isIos, isInstalledApp, promptNativeInstall } from '@/utils/pwa'
+import ApkInstallGuideSheet from '@/components/pwa/ApkInstallGuideSheet'
+import { canNativeInstall, isIos, isInstalledApp, isInAppWebView, promptNativeInstall } from '@/utils/pwa'
 import { reportInstallClick } from '@/api/attribution'
 
 const APK_DOWNLOAD_URLS = {
@@ -143,33 +144,31 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
   const [phase, setPhase] = useState<'idle' | 'installing' | 'done'>('idle')
   const [progress, setProgress] = useState(0)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [apkGuideOpen, setApkGuideOpen] = useState(false)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => () => { if (timerRef.current) window.clearInterval(timerRef.current) }, [])
 
-  function finishInstall() {
-    setPhase('done')
-    window.setTimeout(() => {
-      // iOS 装不了 APK，只能引导 PWA 添加到主屏。主屏 PWA 容器与 Safari 存储隔离，
-      // 归因快照同样要走服务端配对桥（PWA 首启认领）
-      if (isIos()) {
-        reportInstallClick()
-        setGuideOpen(true)
-        return
-      }
-      if (canNativeInstall()) {
-        void promptNativeInstall()
-        return
-      }
-      setGuideOpen(true)
-    }, 350)
+  // APK 装不上时的退路：能原生装 PWA 就直接弹，否则给 PWA 图文引导（内置浏览器 PWA 也装不了，不显示入口）
+  function goPwaFallback() {
+    setApkGuideOpen(false)
+    if (canNativeInstall()) {
+      void promptNativeInstall()
+      return
+    }
+    setGuideOpen(true)
   }
 
   function startInstall() {
     if (phase === 'installing') return
     if (isInstalledApp()) return
+    // 网页无法直接拉起 APK 安装，已下载过就只教用户去打开下载好的文件，不再重复下载
+    if (phase === 'done' && !isIos()) {
+      setApkGuideOpen(true)
+      return
+    }
+    // 下载必须在点击手势内同步触发，动画只是视觉效果
     if (!isIos()) {
-      setPhase('done')
       const a = document.createElement('a')
       a.href = apkDownloadUrl
       a.download = 'betogo.apk'
@@ -178,20 +177,25 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
       a.remove()
       // 归因快照暂存服务端，装好的 App 首启认领（浏览器与 App 存储隔离，直传不过去）
       reportInstallClick()
-      return
     }
     setPhase('installing')
     setProgress(0)
+    let p = 0
     timerRef.current = window.setInterval(() => {
-      setProgress((p) => {
-        const next = Math.min(100, p + 2 + Math.floor(Math.random() * 6))
-        if (next >= 100 && timerRef.current) {
-          window.clearInterval(timerRef.current)
-          timerRef.current = null
-          finishInstall()
-        }
-        return next
-      })
+      p = Math.min(100, p + 2 + Math.floor(Math.random() * 6))
+      setProgress(p)
+      if (p < 100) return
+      window.clearInterval(timerRef.current!)
+      timerRef.current = null
+      setPhase('done')
+      // iOS 装不了 APK，只能引导 PWA 添加到主屏。主屏 PWA 容器与 Safari 存储隔离，
+      // 归因快照同样要走服务端配对桥（PWA 首启认领）
+      if (isIos()) {
+        window.setTimeout(() => {
+          reportInstallClick()
+          setGuideOpen(true)
+        }, 350)
+      }
     }, 90)
   }
 
@@ -427,6 +431,13 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
         />
       )}
 
+      {apkGuideOpen && (
+        <ApkInstallGuideSheet
+          showPwaFallback={!isInAppWebView()}
+          onPwaFallback={goPwaFallback}
+          onClose={() => setApkGuideOpen(false)}
+        />
+      )}
     </div>
   )
 }
