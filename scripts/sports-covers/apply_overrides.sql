@@ -18,3 +18,16 @@ ON DUPLICATE KEY UPDATE
   image_override = VALUES(image_override),
   image_override_source = VALUES(image_override_source),
   image_anim = VALUES(image_anim);
+
+INSERT INTO bg_568win_game_cover_candidate
+  (game_provider_id, game_id, source, url, anim_url)
+VALUES
+  (0, 0, 'sports-original', '/api/v1/home/images/covers/sports/ph-568win-tennis-v1.webp', NULL),
+  (1080, 7, 'sports-original', '/api/v1/home/images/covers/sports/ph-lucky-basketball-v1.webp', NULL),
+  (1015, 0, 'sports-original', '/api/v1/home/images/covers/sports/ph-afb-football-v1.webp', NULL),
+  (1053, 1, 'sports-original', '/api/v1/home/images/covers/sports/in-panda-cricket-v1.webp', NULL),
+  (1022, 0, 'sports-original', '/api/v1/home/images/covers/sports/in-bti-basketball-v1.webp', NULL),
+  (44, 0, 'sports-original', '/api/v1/home/images/covers/sports/in-saba-football-v1.webp', NULL)
+ON DUPLICATE KEY UPDATE
+  url = VALUES(url),
+  anim_url = VALUES(anim_url);

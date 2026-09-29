@@ -1013,15 +1013,22 @@ export async function listWin568CoverCandidates(
 }> {
   if (gameProviderId === 0 && gameId === 0) {
     const row = await getVirtualSportsbookRow(env)
-    const [rows] = await pool(env).query<RowDataPacket[]>(
+    const [customRows] = await pool(env).query<RowDataPacket[]>(
+      `SELECT source, url, anim_url FROM bg_568win_game_cover_candidate
+       WHERE game_provider_id = 0 AND game_id = 0
+       ORDER BY source`,
+    )
+    const [upstreamRows] = await pool(env).query<RowDataPacket[]>(
       `SELECT provider, icon_url FROM bg_568win_game
        WHERE new_game_type = 300 AND icon_url IS NOT NULL AND icon_url <> ''
        GROUP BY provider, icon_url
        ORDER BY provider, icon_url`,
     )
     const seen = new Set<string>()
-    const candidates = rows
-      .map((r) => ({ source: String(r.provider || DEFAULT_AGGREGATOR), url: String(r.icon_url), animUrl: null }))
+    const candidates = [
+      ...customRows.map((r) => ({ source: String(r.source), url: String(r.url), animUrl: r.anim_url ? String(r.anim_url) : null })),
+      ...upstreamRows.map((r) => ({ source: String(r.provider || DEFAULT_AGGREGATOR), url: String(r.icon_url), animUrl: null })),
+    ]
       .filter((c) => {
         if (seen.has(c.url)) return false
         seen.add(c.url)
