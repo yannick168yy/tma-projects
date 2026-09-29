@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" content="#07090f" />
+    <meta name="description" content="Create your BETOGO account and claim the India new player package." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="../src/assets/landing/india-hero.webp" as="image" type="image/webp" />
+    <title>India Welcome Offer | BETOGO</title>
+    <script type="module" src="../src/static/indiaWelcome.ts"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/home" aria-label="BETOGO home">
+        <strong>BETO<span>GO</span></strong>
+        <small>Bet. <b>Go.</b> Win</small>
+      </a>
+      <div class="secure-label">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.7 2.9 8.5 7 10 4.1-1.5 7-5.3 7-10V6l-7-3Zm0 3 4 1.7V11c0 3-1.6 5.6-4 6.9C9.6 16.6 8 14 8 11V7.7L12 6Zm-1 8.2-2-2 1.4-1.4 1 1 2.5-2.5 1.4 1.4-3.9 3.9-.4-.4Z" /></svg>
+        Secure access
+      </div>
+    </header>
+
+    <main>
+      <section class="hero-wrap">
+        <div class="hero-card">
+          <img class="hero-art" src="../src/assets/landing/india-hero.webp" alt="" width="900" height="900" fetchpriority="high" />
+
+          <div class="offer-copy">
+            <span class="eyebrow">India welcome offer</span>
+            <p class="package-label">New player<br />package</p>
+            <h1 id="package-total">₹2,058</h1>
+            <p id="offer-note" class="offer-note">Includes <strong>₹58 free instantly</strong> — no deposit needed.</p>
+
+            <div class="benefit-grid">
+              <article id="benefit-trial"><span>Sign-up bonus</span><strong>₹28</strong><small>Instant · no deposit</small></article>
+              <article id="benefit-appdl"><span>App install</span><strong>₹30</strong><small>Instant after install</small></article>
+              <article id="benefit-firstdep"><span>1st deposit bonus</span><strong>Up to ₹2,000</strong><small>From ₹100 deposit</small></article>
+              <article id="benefit-cashback"><span>Cashback</span><strong>Unlimited</strong><small>Up to 1% back daily</small></article>
+            </div>
+          </div>
+
+          <div class="auth-panel">
+            <div class="form-title">Create your account</div>
+            <form id="welcome-auth-form" novalidate>
+              <label class="field phone-field">
+                <span class="country"><span aria-hidden="true">🇮🇳</span> +91</span>
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 2h3l1.5 5-2 1.5a15 15 0 0 0 6 6l1.5-2L22 14v3c0 2.8-2.2 5-5 5C8.7 22 2 15.3 2 7c0-2.8 2.2-5 5-5Z" /></svg>
+                <input id="phone" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="10-digit mobile number" aria-label="Indian mobile number" aria-describedby="phone-hint" />
+              </label>
+              <p id="phone-hint" class="field-hint">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v9h14v-9a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4V7Zm3 8.7V18h-2v-2.3a2 2 0 1 1 2 0Z" /></svg>
+                <span>Use your own active number — we'll send a code here to verify your <strong>withdrawals</strong>.</span>
+              </p>
+
+              <label class="field">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v9h14v-9a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4V7Zm3 8.7V18h-2v-2.3a2 2 0 1 1 2 0Z" /></svg>
+                <input id="password" type="password" autocomplete="new-password" minlength="8" placeholder="Create a password (8+ characters)" aria-label="Password" />
+                <button id="password-toggle" class="icon-button" type="button" aria-label="Show password">Show</button>
+              </label>
+
+              <div id="turnstile-slot" class="turnstile-slot"></div>
+              <p id="form-error" class="form-message error" role="alert" hidden></p>
+              <p id="form-success" class="form-message success" role="status" hidden></p>
+
+              <button id="submit-button" class="primary-button" type="submit">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7h-2.2A3 3 0 0 0 12 5.9 3 3 0 0 0 6.2 7H4a2 2 0 0 0-2 2v3h9V9h2v3h9V9a2 2 0 0 0-2-2Zm-11 0a1 1 0 1 1 2 0H9Zm4 0a1 1 0 1 1 2 0h-2ZM2 14h9v8H4a2 2 0 0 1-2-2v-6Zm11 0h9v6a2 2 0 0 1-2 2h-7v-8Z" /></svg>
+                <span>Register &amp; Claim ₹28 Free</span>
+              </button>
+            </form>
+
+            <div class="form-meta">
+              <span id="security-label">Protected by Cloudflare</span>
+              <a id="login-link" href="/home?login=1">Have an account? <strong>Log in</strong></a>
+            </div>
+            <p class="terms">By registering, you confirm you are 18+ and accept the Terms &amp; Conditions.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="trust-grid" aria-label="Service benefits">
+        <article><strong>Secure account</strong><small>Protected access</small></article>
+        <article><strong>INR payments</strong><small>Made for India</small></article>
+        <article><strong>24/7 support</strong><small>Help anytime</small></article>
+      </section>
+
+      <section class="games-section">
+        <div class="section-heading"><div><span>Fan favourites</span><h2>Popular games</h2></div><a href="/games">View all</a></div>
+        <div class="games-row">
+          <a href="/games"><img src="/api/v1/home/images/covers/bingoplus/161__197__Color_game_540.webp" alt="Color Game" loading="lazy" /><strong>Color Game</strong></a>
+          <a href="/games"><img src="/api/v1/home/images/covers/ptgaming/PragmaticPlay__Dragon_Tiger__23041.webp" alt="Dragon Tiger" loading="lazy" /><strong>Dragon Tiger</strong></a>
+          <a href="/games"><img src="/api/v1/home/images/covers/gzone/JILI__Drop_Ball__14167.webp" alt="Drop Ball" loading="lazy" /><strong>Drop Ball</strong></a>
+          <a href="/games"><img src="/api/v1/home/images/covers/ptgaming/PGSoft__Wild_Bounty_Showdown__333.webp" alt="Wild Bounty Showdown" loading="lazy" /><strong>Wild Bounty</strong></a>
+        </div>
+      </section>
+
+      <section class="download-card">
+        <div class="download-icon" aria-hidden="true">↓</div>
+        <div><strong>Get the Betogo app</strong><small>Faster access · ₹30 install bonus</small></div>
+        <a href="/download">Install</a>
+      </section>
+    </main>
+
+    <footer>18+ only. Please play responsibly. Bonus eligibility and wagering requirements apply.<br />© 2026 Betogo. All rights reserved.</footer>
+  </body>
+</html>

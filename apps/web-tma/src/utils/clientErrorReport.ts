@@ -36,7 +36,7 @@ export function reportPagePerf(kind: string): void {
   try {
     const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
     const r = (v: number | undefined) => (v ? Math.round(v) : 0)
-    const key = /\/assets\/(main|vendor|App|IndiaLandingPage|index)-|\/site\/config|\/promotions\/config|fonts\.googleapis|telegram/
+    const key = /\/assets\/(main|vendor|App|IndiaLandingPage|indiaWelcome|index)-|\/site\/config|\/promotions\/config|fonts\.googleapis|telegram/
     const resources = (performance.getEntriesByType('resource') as PerformanceResourceTiming[])
       .filter((e) => key.test(e.name))
       .map((e) => `${e.name.replace(location.origin, '').replace(/\?.*/, '').slice(-40)}@${r(e.startTime)}+${r(e.duration)}${e.transferSize === 0 ? '(cache)' : ''}`)

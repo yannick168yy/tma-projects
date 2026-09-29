@@ -27,6 +27,12 @@ export default defineConfig({
   build: {
     outDir: tenant ? `dist-tenants/${tenant}` : 'dist',
     rollupOptions: {
+      input: tenant
+        ? fileURLToPath(new URL('./index.html', import.meta.url))
+        : {
+            main: fileURLToPath(new URL('./index.html', import.meta.url)),
+            indiaWelcome: fileURLToPath(new URL('./in/welcome.html', import.meta.url)),
+          },
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined

@@ -446,6 +446,13 @@ export default function AppShell() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
+    // 印度静态落地页（in/welcome.html）不内置登录，"Log in" 跳 /home?login=1 打开主站登录弹窗
+    if (params.get('login') === '1') {
+      params.delete('login')
+      navigate({ pathname: location.pathname, search: params.toString() }, { replace: true })
+      void auth.ensureLoggedIn(t('auth.signInSubtitle'))
+      return
+    }
     const walletTab = params.get('wallet')
     if (walletTab !== 'deposit' && walletTab !== 'withdraw' && walletTab !== 'history') return
     params.delete('wallet')
