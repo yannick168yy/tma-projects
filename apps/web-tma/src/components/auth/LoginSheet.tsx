@@ -13,8 +13,8 @@ import { isTelegramOidcLoginAvailable } from '@/constants/telegram'
 import { getSiteMarket, type SiteMarket } from '@/config/market'
 
 const PHONE_COUNTRIES: { market: SiteMarket; flag: string; name: string; cc: string }[] = [
-  { market: 'PH', flag: '🇵🇭', name: 'Philippines', cc: '63' },
   { market: 'IN', flag: '🇮🇳', name: 'India', cc: '91' },
+  { market: 'PH', flag: '🇵🇭', name: 'Philippines', cc: '63' },
   { market: 'ID', flag: '🇮🇩', name: 'Indonesia', cc: '62' },
 ]
 
