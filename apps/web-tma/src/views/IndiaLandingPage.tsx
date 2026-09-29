@@ -140,7 +140,7 @@ function LandingRegisterForm({ bonus }: { bonus: number }) {
       </label>
       <p id="landing-phone-hint" className="-mt-1 flex items-start gap-1.5 px-0.5 text-[11px] font-semibold leading-snug text-white/50">
         <LockKeyhole size={12} className="mt-px shrink-0 text-[#f5bd31]" />
-        <span>Use your own active number — we'll send a code here to verify your <strong className="text-[#ffd76a]">withdrawals</strong>.</span>
+        <span>Use your own active number — you'll need it to receive a code <strong className="text-[#ffd76a]">when you withdraw</strong>.</span>
       </p>
 
       <label className="flex h-12 items-center rounded-xl border border-white/10 bg-[#090c14] focus-within:border-[#f5bd31]/70">
