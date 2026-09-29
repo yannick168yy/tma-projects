@@ -1,16 +1,14 @@
 import { getBrand, getSiteName } from '@/config/brand'
+import { getSiteMarket } from '@/config/market'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Star, Loader2, CheckCircle2, ShieldCheck, Share2, Trash2, Flag } from 'lucide-react'
 import InstallGuideSheet from '@/components/pwa/InstallGuideSheet'
-import ApkInstallGuideSheet from '@/components/pwa/ApkInstallGuideSheet'
-import { canNativeInstall, isIos, isInstalledApp, isInAppWebView, promptNativeInstall } from '@/utils/pwa'
+import { canNativeInstall, isIos, isInstalledApp, promptNativeInstall } from '@/utils/pwa'
 import { reportInstallClick } from '@/api/attribution'
-import { useTranslation } from 'react-i18next'
 
-const APK_DOWNLOAD_ORIGIN = (import.meta.env.VITE_APK_DOWNLOAD_ORIGIN?.trim() || 'https://betogo.app').replace(/\/$/, '')
 const APK_DOWNLOAD_URLS = {
-  id: `${APK_DOWNLOAD_ORIGIN}/app/id/betogo.apk`,
-  ph: `${APK_DOWNLOAD_ORIGIN}/app/ph/betogo.apk`,
+  id: '/app/id/betogo.apk',
+  ph: '/app/ph/betogo.apk',
 } as const
 
 // 仿应用商店页，文案固定英文（面向 PH 用户，模拟 Play Store 不随站点语言切换）
@@ -116,27 +114,15 @@ function Stars({ n, size = 12 }: { n: number; size?: number }) {
 }
 
 export default function DownloadPage({ onClose }: { onClose: () => void }) {
-  const { i18n } = useTranslation()
-  const apkMarket = i18n.resolvedLanguage?.toLowerCase().startsWith('id') ? 'id' : 'ph'
+  const apkMarket = getSiteMarket() === 'ID' ? 'id' : 'ph'
   const apkDownloadUrl = APK_DOWNLOAD_URLS[apkMarket]
   const aboutText = apkMarket === 'id' ? ABOUT_TEXT_ID : ABOUT_TEXT
   const [phase, setPhase] = useState<'idle' | 'installing' | 'done'>('idle')
   const [progress, setProgress] = useState(0)
   const [guideOpen, setGuideOpen] = useState(false)
-  const [apkGuideOpen, setApkGuideOpen] = useState(false)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => () => { if (timerRef.current) window.clearInterval(timerRef.current) }, [])
-
-  // APK 装不上时的退路：能原生装 PWA 就直接弹，否则给 PWA 图文引导。仅系统浏览器可达（内置浏览器 PWA 也装不了）
-  function goPwaFallback() {
-    setApkGuideOpen(false)
-    if (canNativeInstall()) {
-      void promptNativeInstall()
-      return
-    }
-    setGuideOpen(true)
-  }
 
   function finishInstall() {
     setPhase('done')
@@ -146,20 +132,6 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
       if (isIos()) {
         reportInstallClick()
         setGuideOpen(true)
-        return
-      }
-      // Android 主路径：触发 APK 下载，同时弹安装引导教用户过 Play Protect 拦截。
-      // 用 <a download> 而非 location.href —— 后者会发起页面导航把当前页(和引导弹窗)冲掉
-      if (apkDownloadUrl) {
-        const a = document.createElement('a')
-        a.href = apkDownloadUrl
-        a.download = `betogo-${apkMarket}.apk`
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        // 归因快照暂存服务端，装好的 App 首启认领（浏览器与 App 存储隔离，直传不过去）
-        reportInstallClick()
-        setApkGuideOpen(true)
         return
       }
       if (canNativeInstall()) {
@@ -173,6 +145,18 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
   function startInstall() {
     if (phase === 'installing') return
     if (isInstalledApp()) return
+    if (!isIos()) {
+      setPhase('done')
+      const a = document.createElement('a')
+      a.href = apkDownloadUrl
+      a.download = 'betogo.apk'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      // 归因快照暂存服务端，装好的 App 首启认领（浏览器与 App 存储隔离，直传不过去）
+      reportInstallClick()
+      return
+    }
     setPhase('installing')
     setProgress(0)
     timerRef.current = window.setInterval(() => {
@@ -420,13 +404,6 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
         />
       )}
 
-      {apkGuideOpen && (
-        <ApkInstallGuideSheet
-          showPwaFallback={!isInAppWebView()}
-          onPwaFallback={goPwaFallback}
-          onClose={() => setApkGuideOpen(false)}
-        />
-      )}
     </div>
   )
 }
