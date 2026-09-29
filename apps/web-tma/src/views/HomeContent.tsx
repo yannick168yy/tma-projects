@@ -34,6 +34,7 @@ import { localizedImage } from '@/utils/localizedImage'
 
 // 最近在玩区最大展示数，不足时用推荐游戏补齐
 const RECENT_ROW_MAX = 10
+const HOME_EXCLUDED_PROVIDERS = new Set(['568Win', '568Win Sports'])
 
 
 // 厂商专区（TOP PROVIDERS）
@@ -46,7 +47,7 @@ const PROVIDER_ZONE_DEFAULT = [
   { code: 'FaChai', label: 'FaChai' },
   { code: 'Playtech', label: 'Playtech' },
   { code: '5G Games', label: '5G' },
-  { code: '568WinGames', label: '568Win' },
+  { code: 'Habanero', label: 'Habanero' },
 ]
 // 印度站：Aviator 出自 Spribe、本土纸牌（Andar Bahar/Teen Patti/7 Up 7 Down）King Midas 最全、
 // 真人以 Evolution 为主；菲律宾偏好的 FaChai/5G/Playtech 在印度吸引力弱
@@ -282,7 +283,9 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
 
   useEffect(() => {
     if (!auth.token) { setRecentGames([]); return }
-    fetchGameHistory(10).then((items) => setRecentGames(items.map(historyToGame))).catch(() => {})
+    fetchGameHistory(10)
+      .then((items) => setRecentGames(items.filter((item) => !HOME_EXCLUDED_PROVIDERS.has(item.provider)).map(historyToGame)))
+      .catch(() => {})
   }, [auth.token])
 
   useEffect(() => {

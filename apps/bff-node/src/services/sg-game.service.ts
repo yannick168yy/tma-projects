@@ -543,6 +543,7 @@ function serverWeightedSample(
 // 仍进选品池、按原选品结果占位返回，由客户端置灰(能看见、点不动)。避免 568Win 同步状态临时改变
 // 首页板块(整块塌缩/消失)。仅按币种拆池：切币种后不支持该币种的游戏排到末尾并标 unavailable。
 const HOMEPAGE_CURRENCIES = ['PHP', 'IDR', 'INR', 'USDT'] as const
+const HOMEPAGE_EXCLUDED_PROVIDERS = new Set(['568Win', '568Win Sports'])
 
 function homepageBucket(currency?: string): string {
   const normalized = normalizeGameCurrency(currency)
@@ -669,6 +670,7 @@ export function buildSectionList(rows: HomeSectionLayoutRow[], cur: string): Hom
 // 不跑算法(维护游戏保留在名单里、前端置灰)；其余板块不受影响。
 // hidden: 本币种被后台隐藏的板块 key，只写进 hiddenSections 供前端跳过渲染，不影响选品本身。
 function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOverrides, frozen: Map<string, string[]> = new Map(), hidden: string[] = []): HomepageSelection {
+  all = all.filter((g) => !HOMEPAGE_EXCLUDED_PROVIDERS.has(g.provider))
   // 长期停用的游戏先出池：「维护游戏置灰占位」只为临时维护设计，停用满 24h 还占位，
   // 板块就会一直挂着点不动的游戏（钉选/冻结名单里的也一并跳过）
   const now = Date.now()
@@ -683,9 +685,9 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     const f = frozen.get(key)
     if (!f || !f.length) return null
     const list = f.map((u) => gameByUuid.get(u)).filter((g): g is DbGame => !!g)
-    // INR 禁用厂商从目录剔除后，旧冻结名单可能留下空位；此时整块回退算法重选，
+    // 禁用厂商从目录剔除后，旧冻结名单可能留下空位；此时整块回退算法重选，
     // 才能按当前板块的品类、玩法和权重规则补满，而不是缩短首页行数。
-    if (cur === 'INR' && list.length < f.length) return null
+    if (list.length < f.length) return null
     list.forEach((g) => seen.add(g.uuid))
     return list
   }
