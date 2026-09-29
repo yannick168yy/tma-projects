@@ -105,7 +105,7 @@ export default function App() {
         <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
         <Route path="/auth/telegram/callback" element={<TelegramAuthCallback />} />
         <Route path="/welcome" element={<IndiaLandingApp />} />
-        <Route path="/in/welcome" element={<IndiaLandingApp />} />
+        <Route path="/in/join" element={<IndiaLandingApp />} />
         <Route path="*" element={<MainApp />} />
       </Routes>
     </BrowserRouter>

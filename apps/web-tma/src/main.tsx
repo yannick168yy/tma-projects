@@ -32,7 +32,7 @@ initTheme()
 
 // 落地页的代码块原本要等站点配置 → i18n → App 渲染后才开始下载，中间约 0.5s 空白；
 // 路径已知时提前并行拉取（与 App.tsx 的 lazy import 同一模块，不会重复下载）
-if (/^\/(in\/)?welcome\/?$/.test(window.location.pathname)) void import('@/views/IndiaLandingPage')
+if (/^\/(welcome|in\/join)\/?$/.test(window.location.pathname)) void import('@/views/IndiaLandingPage')
 
 async function bootstrap() {
   await initTelegramWebApp()
