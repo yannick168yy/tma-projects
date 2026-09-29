@@ -19,6 +19,8 @@ const APP_LINK_HOSTS = new Set([
   'betogo.app', 'www.betogo.games', 'betogo666.com', 'betogo777.com',
   'betogo.xyz', 'betogo.vip', 'www.188facai.com',
 ])
+// 印度包从第一版起就注册了这两个域名；已装的菲律宾旧包没有，不能对 PH 放开
+const IN_APP_LINK_HOSTS = new Set(['betogo.cc', 'betogo888.com'])
 
 const APP_LINK_ORIGIN: Record<'PH' | 'ID' | 'IN', string> = {
   PH: 'https://www.betogo.games',
@@ -34,7 +36,9 @@ const APP_LINK_ORIGIN: Record<'PH' | 'ID' | 'IN', string> = {
  */
 export function getGoogleAuthOrigin(): string {
   const origin = window.location.origin
-  if (!isNativeApp() || APP_LINK_HOSTS.has(window.location.hostname)) return origin
+  const host = window.location.hostname
+  if (!isNativeApp() || APP_LINK_HOSTS.has(host)) return origin
+  if (getSiteMarket() === 'IN' && IN_APP_LINK_HOSTS.has(host)) return origin
   return APP_LINK_ORIGIN[getSiteMarket()]
 }
 
