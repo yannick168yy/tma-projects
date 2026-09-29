@@ -88,7 +88,7 @@ function LandingRegisterForm({ bonus }: { bonus: number }) {
   async function onSubmit() {
     const digits = phone.replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '')
     if (digits.length !== 10) {
-      setError('Enter a valid 10-digit Indian mobile number.')
+      setError("Please enter a valid 10-digit mobile number — you'll need it to verify withdrawals.")
       return
     }
     if (password.length < 8) {
@@ -135,8 +135,13 @@ function LandingRegisterForm({ bonus }: { bonus: number }) {
           className="min-w-0 flex-1 bg-transparent px-3 text-sm font-bold text-white outline-none placeholder:text-white/28"
           onFocus={() => setCaptchaArmed(true)}
           onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+          aria-describedby="landing-phone-hint"
         />
       </label>
+      <p id="landing-phone-hint" className="-mt-1 flex items-start gap-1.5 px-0.5 text-[11px] font-semibold leading-snug text-white/50">
+        <LockKeyhole size={12} className="mt-px shrink-0 text-[#f5bd31]" />
+        <span>Use your own active number — we'll send a code here to verify your <strong className="text-[#ffd76a]">withdrawals</strong>.</span>
+      </p>
 
       <label className="flex h-12 items-center rounded-xl border border-white/10 bg-[#090c14] focus-within:border-[#f5bd31]/70">
         <LockKeyhole size={16} className="ml-3.5 shrink-0 text-white/35" />
