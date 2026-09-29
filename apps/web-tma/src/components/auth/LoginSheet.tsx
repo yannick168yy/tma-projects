@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, Phone, Lock, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react'
+import { X, Phone, Lock, Eye, EyeOff, Check, ArrowLeft, ChevronDown } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import SiteLogo from '@/components/SiteLogo'
 import { resetForgotPassword, sendForgotPasswordOtp } from '@/api/auth'
@@ -10,7 +10,21 @@ import { getStoredReferral } from '@/utils/referral'
 import { translateApiError } from '@/utils/translateApiError'
 import { TURNSTILE_SITE_KEY, loadTurnstile } from '@/utils/turnstile'
 import { isTelegramOidcLoginAvailable } from '@/constants/telegram'
-import { getSiteMarket } from '@/config/market'
+import { getSiteMarket, type SiteMarket } from '@/config/market'
+
+const PHONE_COUNTRIES: { market: SiteMarket; flag: string; name: string; cc: string }[] = [
+  { market: 'PH', flag: '🇵🇭', name: 'Philippines', cc: '63' },
+  { market: 'IN', flag: '🇮🇳', name: 'India', cc: '91' },
+  { market: 'ID', flag: '🇮🇩', name: 'Indonesia', cc: '62' },
+]
+
+// 本地号码长度都不超过 10 位（印尼除外但其本地号 8 开头不会撞 62），
+// 超过 10 位且以国家码开头才剥掉，避免把 91 开头的印度本地号误剥
+function toE164(cc: string, local: string): string {
+  let digits = local.replace(/\D/g, '')
+  if (digits.length > 10 && digits.startsWith(cc)) digits = digits.slice(cc.length)
+  return `+${cc}${digits.replace(/^0+/, '')}`
+}
 
 interface Props {
   open: boolean
@@ -38,7 +52,10 @@ function GoogleIcon() {
 
 export default function LoginSheet({ open, onClose }: Props) {
   const { t } = useTranslation()
-  const isIndia = getSiteMarket() === 'IN'
+  const market = getSiteMarket()
+  // 印尼站才露出 +62，其余站只在菲/印之间切换
+  const phoneCountries = PHONE_COUNTRIES.filter((c) => c.market !== 'ID' || market === 'ID')
+  const [phoneCountry, setPhoneCountry] = useState(() => phoneCountries.find((c) => c.market === market) ?? phoneCountries[0])
   const isTelegram = useAuthStore((s) => s.isTelegram)
   const loginReason = useAuthStore((s) => s.loginReason)
   const loginWithTelegram = useAuthStore((s) => s.loginWithTelegram)
@@ -66,7 +83,7 @@ export default function LoginSheet({ open, onClose }: Props) {
     setTurnstileArmed(false)
     const last = getLastLogin()
     setLastLogin(last)
-    if (last?.provider === 'phone' && last.identifier) setIdentifier(last.identifier)
+    if (last?.provider === 'phone' && last.identifier) onPhoneInput(last.identifier, setIdentifier)
   }, [open])
   const showTelegramLogin = isTelegram || isTelegramOidcLoginAvailable()
   const quickLogin = lastLogin
@@ -135,15 +152,49 @@ export default function LoginSheet({ open, onClose }: Props) {
     }
   }, [])
 
-  function normalizePhoneInput(value: string): string {
-    const cleaned = value.replace(/[^\d+]/g, '')
-    // 印度号码直接输 10 位或带 91，补 0 会把 91xxxxxxxxxx 变成无效号
-    if (!cleaned || cleaned.startsWith('0') || cleaned.startsWith('+') || cleaned.startsWith('63') || isIndia) return cleaned
-    return `0${cleaned}`
+  // 粘贴/自动填充/上次登录记忆带 + 的完整号码时，按国家码切换区号，框里只留本地号
+  function onPhoneInput(value: string, set: (v: string) => void) {
+    const digits = value.replace(/\D/g, '')
+    if (value.trim().startsWith('+')) {
+      const hit = phoneCountries.find((c) => digits.startsWith(c.cc))
+      if (hit) {
+        setPhoneCountry(hit)
+        set(digits.slice(hit.cc.length))
+        return
+      }
+    }
+    set(digits)
   }
 
-  function onIdentifierChange(value: string) {
-    setIdentifier(normalizePhoneInput(value))
+  function renderPhoneField(value: string, set: (v: string) => void, onFocus?: () => void) {
+    return (
+      <div className="flex items-center rounded-[14px] border border-white/12 bg-[#121824] transition-colors focus-within:border-primary">
+        <label className="relative flex shrink-0 cursor-pointer items-center gap-1 self-stretch border-r border-white/10 pl-3.5 pr-2.5 text-sm font-black text-foreground">
+          <span aria-hidden>{phoneCountry.flag}</span>+{phoneCountry.cc}
+          <ChevronDown size={14} className="text-[#9aa1c7]" />
+          <select
+            value={phoneCountry.market}
+            aria-label="Country code"
+            className="absolute inset-0 cursor-pointer opacity-0"
+            onChange={(e) => setPhoneCountry(phoneCountries.find((c) => c.market === e.target.value) ?? phoneCountry)}
+          >
+            {phoneCountries.map((c) => (
+              <option key={c.market} value={c.market}>{c.flag} {c.name} +{c.cc}</option>
+            ))}
+          </select>
+        </label>
+        <Phone size={16} className="ml-3 shrink-0 text-[#9aa1c7]" />
+        <input
+          value={value}
+          type="tel"
+          autoComplete="tel"
+          placeholder={t(phoneCountry.market === 'IN' ? 'auth.phonePlaceholderIn' : 'auth.phonePlaceholder')}
+          className="min-w-0 flex-1 bg-transparent py-3.5 pl-2.5 pr-4 text-sm font-bold text-foreground placeholder:text-[#798098] focus:outline-none"
+          onChange={(e) => onPhoneInput(e.target.value, set)}
+          onFocus={onFocus}
+        />
+      </div>
+    )
   }
 
   function onQuickLogin() {
@@ -204,7 +255,7 @@ export default function LoginSheet({ open, onClose }: Props) {
     setError(null)
     setNotice(null)
     try {
-      await loginOrRegisterWithPassword('phone', identifier.trim(), password, undefined, turnstileToken)
+      await loginOrRegisterWithPassword('phone', toE164(phoneCountry.cc, identifier), password, undefined, turnstileToken)
     } catch (e) {
       setError(e instanceof Error ? translateApiError(e.message, t) : t('auth.loginFailed'))
       // 验证码校验失败或已消费，重置 widget 换新 token
@@ -226,7 +277,7 @@ export default function LoginSheet({ open, onClose }: Props) {
     setError(null)
     setNotice(null)
     try {
-      await sendForgotPasswordOtp(resetPhone.trim())
+      await sendForgotPasswordOtp(toE164(phoneCountry.cc, resetPhone))
       setResetSent(true)
     } catch (e) {
       setError(e instanceof Error ? translateApiError(e.message, t) : t('auth.loginFailed'))
@@ -244,7 +295,7 @@ export default function LoginSheet({ open, onClose }: Props) {
     setError(null)
     setNotice(null)
     try {
-      await resetForgotPassword(resetPhone.trim(), resetCode.trim(), resetPassword)
+      await resetForgotPassword(toE164(phoneCountry.cc, resetPhone), resetCode.trim(), resetPassword)
       setPassword(resetPassword)
       setIdentifier(resetPhone)
       setView('auth')
@@ -343,20 +394,7 @@ export default function LoginSheet({ open, onClose }: Props) {
           {view === 'auth' ? (
             <>
               <div className="mt-4 space-y-3">
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa1c7]">
-                    <Phone size={18} />
-                  </span>
-                  <input
-                    value={identifier}
-                    type="tel"
-                    autoComplete="tel"
-                    placeholder={t(isIndia ? 'auth.phonePlaceholderIn' : 'auth.phonePlaceholder')}
-                    className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-4 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
-                    onChange={(e) => onIdentifierChange(e.target.value)}
-                    onFocus={() => setTurnstileArmed(true)}
-                  />
-                </div>
+                {renderPhoneField(identifier, setIdentifier, () => setTurnstileArmed(true))}
                 {identifier.length > 0 && (
                   <p className="px-1 text-[10px] font-semibold leading-relaxed text-amber-300/80">
                     {t('auth.phoneWithdrawalHint')}
@@ -443,19 +481,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                 <ArrowLeft size={16} />
                 {t('auth.backToLogin')}
               </button>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa1c7]">
-                  <Phone size={18} />
-                </span>
-                <input
-                  value={resetPhone}
-                  type="tel"
-                  autoComplete="tel"
-                  placeholder={t(isIndia ? 'auth.phonePlaceholderIn' : 'auth.phonePlaceholder')}
-                  className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-4 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
-                  onChange={(e) => setResetPhone(normalizePhoneInput(e.target.value))}
-                />
-              </div>
+              {renderPhoneField(resetPhone, setResetPhone)}
               {resetSent && (
                 <>
                   <input

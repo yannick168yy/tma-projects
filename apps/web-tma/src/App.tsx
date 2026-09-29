@@ -106,6 +106,8 @@ export default function App() {
         <Route path="/auth/telegram/callback" element={<TelegramAuthCallback />} />
         <Route path="/welcome" element={<IndiaLandingApp />} />
         <Route path="/in/join" element={<IndiaLandingApp />} />
+        {/* 正常由容器 nginx 直接返回静态版；只改 dist 没重建镜像时会落到 SPA，兜底给 React 版而不是回首页 */}
+        <Route path="/in/welcome" element={<IndiaLandingApp />} />
         <Route path="*" element={<MainApp />} />
       </Routes>
     </BrowserRouter>
