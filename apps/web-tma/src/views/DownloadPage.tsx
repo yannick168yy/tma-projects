@@ -36,7 +36,8 @@ VIP Club with weekly, monthly and birthday rewards
 Loss Rebate up to 7% and Cash Rebate up to 2%
 Daily check-in for FREE Lucky Wheel spins 🎡
 Task Center: newbie bonus, first bet reward and invite friends
-JILI · PG · FaChai · CQ9 — 2,000+ games in one app`
+Teen Patti · Andar Bahar · Rummy · Aviator · Color Prediction · Live Casino
+Evolution · Spribe · JILI · King Midas — 2,000+ games in one app`
 
 const TAGS = ['Casino', 'Slots', 'Bingo', 'Live Casino', 'Multiplayer']
 
@@ -113,6 +114,16 @@ const SIMILAR_GAMES = [
   { name: 'Zeus', dev: 'CQ9', rating: '4.6', img: '/api/v1/home/images/covers/ptgaming/CQ9__Zeus__190002.webp' },
 ]
 
+// 印度站：取自印度站首页 crash / indianCards 专区上架的游戏
+const SIMILAR_GAMES_IN = [
+  { name: 'Aviator', dev: 'Spribe', rating: '4.9', img: '/api/v1/home/images/covers/bingoplus/202__aviator__spribe_aviator_gameIDaviator_us_540.webp' },
+  { name: 'Teen Patti 20-20', dev: 'JILI', rating: '4.8', img: '/api/v1/home/images/covers/ptgaming/JILI__TeenPatti_20-20__553.webp' },
+  { name: 'Speedy Andar Bahar', dev: 'King Midas', rating: '4.8', img: '/api/v1/home/images/covers/ptgaming/KM__Speedy_Andar_Bahar__246006.webp' },
+  { name: 'Crash Cricket', dev: 'JILI', rating: '4.7', img: '/api/v1/home/images/covers/ptgaming/JILI__Crash_Cricket__45012.webp' },
+  { name: 'Rummy', dev: 'JILI', rating: '4.7', img: '/api/v1/home/images/covers/ptgaming/JILI__Rummy__549.webp' },
+  { name: 'Color Prediction', dev: 'JILI', rating: '4.6', img: '/api/v1/home/images/covers/ptgaming/JILI__Color_Prediction__534.webp' },
+]
+
 function Stars({ n, size = 12 }: { n: number; size?: number }) {
   return (
     <span className="flex items-center gap-0.5">
@@ -127,6 +138,7 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
   const apkMarket = getSiteMarket() === 'IN' ? 'in' : 'ph'
   const apkDownloadUrl = APK_DOWNLOAD_URLS[apkMarket]
   const aboutText = apkMarket === 'in' ? ABOUT_TEXT_IN : ABOUT_TEXT
+  const similarGames = apkMarket === 'in' ? SIMILAR_GAMES_IN : SIMILAR_GAMES
   const reviews = apkMarket === 'in' ? REVIEWS.map((r) => ({ ...r, text: REVIEW_TEXT_IN[r.name] })) : REVIEWS
   const [phase, setPhase] = useState<'idle' | 'installing' | 'done'>('idle')
   const [progress, setProgress] = useState(0)
@@ -385,7 +397,7 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
           <ChevronRight size={20} className="text-[#5f6368]" />
         </div>
         <div className="hide-scrollbar mt-3 flex gap-4 overflow-x-auto">
-          {SIMILAR_GAMES.map((g) => (
+          {similarGames.map((g) => (
             <div key={g.name} className="w-[88px] flex-shrink-0">
               <img src={g.img} alt={g.name} loading="lazy" className="h-[88px] w-[88px] rounded-xl object-cover" />
               <p className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-[#202124]">{g.name}</p>
