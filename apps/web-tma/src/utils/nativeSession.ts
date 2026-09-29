@@ -4,20 +4,22 @@ interface SessionVaultPlugin {
   clearToken(): Promise<void>
 }
 
-async function getVault(): Promise<SessionVaultPlugin | null> {
+// 插件必须包一层再 resolve：Capacitor 插件是 Proxy，读 then 也会拿到原生方法包装，
+// Promise 把它当 thenable 调用后永不 resolve —— App 启动会卡死在加载页
+async function getVault(): Promise<{ vault: SessionVaultPlugin } | null> {
   if (!/\bBetogoApp\//.test(navigator.userAgent)) return null
   const { Capacitor, registerPlugin } = await import('@capacitor/core')
-  return Capacitor.isNativePlatform() ? registerPlugin<SessionVaultPlugin>('SessionVault') : null
+  return Capacitor.isNativePlatform() ? { vault: registerPlugin<SessionVaultPlugin>('SessionVault') } : null
 }
 
 export async function restoreNativeToken(): Promise<string> {
-  try { return (await (await getVault())?.getToken())?.token || '' } catch { return '' }
+  try { return (await (await getVault())?.vault.getToken())?.token || '' } catch { return '' }
 }
 
 export function persistNativeToken(token: string): void {
-  void getVault().then((vault) => vault?.setToken({ token })).catch(() => {})
+  void getVault().then((v) => v?.vault.setToken({ token })).catch(() => {})
 }
 
 export function clearNativeToken(): void {
-  void getVault().then((vault) => vault?.clearToken()).catch(() => {})
+  void getVault().then((v) => v?.vault.clearToken()).catch(() => {})
 }
