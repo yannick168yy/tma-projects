@@ -93,6 +93,16 @@ const REVIEWS = [
   },
 ]
 
+// 印度站：上面同一批真实评论的译文（英语/印地语），删掉 GCash、₱ 金额等菲律宾专属细节
+const REVIEW_TEXT_IN: Record<string, string> = {
+  'maricel dizon': "It's legit, I cashed out yesterday and the money arrived in just 30 mins. The VIP rewards are worth it, there's a bonus every day.",
+  'john rey santos': 'गज़ब, Super Ace पर बड़ी जीत लगी हाहा, एकदम बढ़िया! लोडिंग भी तेज़ है, कोई लैग नहीं।',
+  'kristine mae': "It's okay, withdrawals are fast and there are lots of games. Hope they add more bingo events.",
+  'shiela hernandez': 'यहाँ के VIP फ़ायदे कमाल के हैं, बाकी जगह सिर्फ़ वीकली मिलता है। यहाँ डेली चेक-इन, वीकली और मंथली भी है।',
+  'julia padilla': 'Turns out there is cash rebate even when you lose, it comes in automatically every midnight. Plus the lucky wheel is free every day.',
+  'andrea madrid': 'मुझे लगा था मेरी जीत की रकम निकल ही नहीं पाएगी, अच्छा हुआ कस्टमर सर्विस ने तुरंत जवाब दिया, सिर्फ़ 5 मिनट में सब ठीक हो गया।',
+}
+
 // Similar games 取自我方首页高权重游戏，封面走 bff 本地图（测试/生产同源可用）
 const SIMILAR_GAMES = [
   { name: 'Super Ace', dev: 'JILI', rating: '4.8', img: '/api/v1/home/images/covers/ptgaming/JILI__Super_Ace__460.webp' },
@@ -117,6 +127,7 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
   const apkMarket = getSiteMarket() === 'IN' ? 'in' : 'ph'
   const apkDownloadUrl = APK_DOWNLOAD_URLS[apkMarket]
   const aboutText = apkMarket === 'in' ? ABOUT_TEXT_IN : ABOUT_TEXT
+  const reviews = apkMarket === 'in' ? REVIEWS.map((r) => ({ ...r, text: REVIEW_TEXT_IN[r.name] })) : REVIEWS
   const [phase, setPhase] = useState<'idle' | 'installing' | 'done'>('idle')
   const [progress, setProgress] = useState(0)
   const [guideOpen, setGuideOpen] = useState(false)
@@ -332,7 +343,7 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="mt-5 space-y-5">
-          {REVIEWS.map((r) => (
+          {reviews.map((r) => (
             <div key={r.name}>
               <div className="flex items-center gap-2.5">
                 <img src={r.avatar} alt="" loading="lazy" className="h-8 w-8 rounded-full object-cover" />
