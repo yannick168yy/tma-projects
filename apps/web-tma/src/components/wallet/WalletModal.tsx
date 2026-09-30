@@ -138,6 +138,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [withdrawAccount, setWithdrawAccount] = useState('')
   const [withdrawOwner, setWithdrawOwner] = useState('')
   const [withdrawIfsc, setWithdrawIfsc] = useState('')
+  const [ifscTouched, setIfscTouched] = useState(false)
   const [withdrawLoading, setWithdrawLoading] = useState(false)
   const [withdrawMessage, setWithdrawMessage] = useState('')
   const [withdrawSuccess, setWithdrawSuccess] = useState(false)
@@ -200,7 +201,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     } else {
       setWithdrawAccount('')
       setWithdrawOwner('')
-      setWithdrawIfsc('')
+      setWithdrawIfsc(''); setIfscTouched(false)
     }
   }
 
@@ -256,7 +257,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       setTab(initialTab); setDepositView('select'); setSelectedMethod(null); setAmount(''); setHistoryFilter('all'); setHistoryStatus('all'); setDepositCategory(defaultDepositCat)
       void loadPromoConfig()
       setDepositLoading(false); setDepositMessage(''); setDepositSuccess(false); setPaymentCheckout(null); setCopiedPaymentLink(false)
-      setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawIfsc(''); setWithdrawMessage(''); setWithdrawSuccess(false)
+      setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawIfsc(''); setIfscTouched(false); setWithdrawMessage(''); setWithdrawSuccess(false)
       pendingWithdrawMethodRef.current = null
       setTurnoverProgress(null); setTurnoverLoading(false)
       void walletStore.refresh()
@@ -644,7 +645,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
 
   async function copyOrderId(id: string) { try{await navigator.clipboard.writeText(id);setCopiedId(id);setTimeout(()=>setCopiedId(null),2000)}catch{/***/} }
 
-  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawIfsc(''); stopPolling(); setDepositLoading(false); setDepositSuccess(false); setPaymentCheckout(null); setCopiedPaymentLink(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false); setCopiedDepositAmount(false) }
+  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawIfsc(''); setIfscTouched(false); stopPolling(); setDepositLoading(false); setDepositSuccess(false); setPaymentCheckout(null); setCopiedPaymentLink(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false); setCopiedDepositAmount(false) }
 
   function switchTab(next: 'deposit'|'withdraw'|'history') {
     if (next === tab) return
@@ -1226,11 +1227,18 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                   </div>}
                   {tab==='withdraw'&&isFiatWithdraw&&(fiatWithdrawMin!=null||fiatWithdrawMax!=null)&&<p className={`text-[11px] font-bold ${amount&&!fiatWithdrawAmountValid?'text-amber-400':'text-muted-foreground'}`}>{amount&&!fiatWithdrawAmountValid?t('wallet.yfpayAmountOutOfRange',{min:fiatWithdrawMin??0,max:fiatWithdrawMax??'—'}):t('wallet.withdrawAmountRange',{min:fiatWithdrawMin??0,max:fiatWithdrawMax??'—'})}</p>}
                   {tab==='withdraw'&&isFiatWithdraw&&<>
-                    <input value={withdrawAccount} type="tel" readOnly={withdrawAccountLocked} placeholder={t('wallet.yfpayAccountNumber')} className={`w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary${withdrawAccountLocked ? ' opacity-60' : ''}`} onChange={withdrawAccountLocked ? undefined : (e)=>setWithdrawAccount(e.target.value)} />
+                    {isHuitoneWithdraw&&<p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">{t('wallet.inrAccountLabel')}</p>}
+                    <input value={withdrawAccount} type="tel" readOnly={withdrawAccountLocked} placeholder={isHuitoneWithdraw?t('wallet.inrAccountPlaceholder'):t('wallet.yfpayAccountNumber')} className={`w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary${withdrawAccountLocked ? ' opacity-60' : ''}`} onChange={withdrawAccountLocked ? undefined : (e)=>setWithdrawAccount(e.target.value)} />
                     {withdrawAccountLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}
-                    <input value={withdrawOwner} type="text" placeholder={t('wallet.yfpayFullName')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setWithdrawOwner(e.target.value)} />
-                    {isHuitoneWithdraw&&<input value={withdrawIfsc} type="text" autoCapitalize="characters" placeholder={t('wallet.ifscCode')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary uppercase" onChange={(e)=>setWithdrawIfsc(e.target.value.toUpperCase())} />}
-                    {isHuitoneWithdraw&&withdrawIfsc.trim().length>=11&&!IFSC_RE.test(withdrawIfsc.trim())&&<p className="text-xs text-red-400">{t('errors.invalidIfsc')}</p>}
+                    {isHuitoneWithdraw&&<p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">{t('wallet.inrHolderLabel')}</p>}
+                    <input value={withdrawOwner} type="text" placeholder={isHuitoneWithdraw?t('wallet.inrHolderPlaceholder'):t('wallet.yfpayFullName')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setWithdrawOwner(e.target.value)} />
+                    {isHuitoneWithdraw&&<>
+                      <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">{t('wallet.ifscCode')}</p>
+                      <input value={withdrawIfsc} type="text" autoCapitalize="characters" maxLength={11} placeholder={t('wallet.ifscPlaceholder')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary uppercase" onBlur={()=>setIfscTouched(true)} onChange={(e)=>setWithdrawIfsc(e.target.value.toUpperCase())} />
+                      {withdrawIfsc.trim()&&(ifscTouched||withdrawIfsc.trim().length>=11)&&!IFSC_RE.test(withdrawIfsc.trim())
+                        ?<p className="text-xs text-red-400">{t('errors.invalidIfsc')}</p>
+                        :<p className="text-[10px] text-muted-foreground">{t('wallet.ifscHint')}</p>}
+                    </>}
                   </>}
                   {withdrawMessage&&!isMatrixWithdraw&&<p className={`text-xs font-bold text-center ${withdrawSuccess?'text-emerald-400':'text-amber-400'}`}>{withdrawMessage}</p>}
                   {tab==='withdraw'&&isMatrixWithdraw&&<>
