@@ -521,6 +521,40 @@ describe('Matrix 提现反查与通用回调', () => {
     assert.equal(res.statusCode, 400)
     assert.equal(published.length, 0)
   })
+
+  it('Huitone 代付回调 extInfo 为空时仍放行', async () => {
+    const published: Array<{ subject: string; payload: string }> = []
+    const app = await createApp({ js: { async publish(subject, payload) { published.push({ subject, payload }) } } })
+    const payload = {
+      completionTime: '2026-09-30 21:11:29', event: 'PAYOUT',
+      outTradeNo: 'HTW_1', transAmt: '112', transNo: 'D1', transStatus: 'SUCCESS', utr: 'U1',
+    }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/callback/huitone',
+      payload: { ...payload, sign: huitoneSign(payload, 'huitone-secret') },
+    })
+
+    assert.equal(res.statusCode, 200)
+    assert.equal(published.length, 1)
+  })
+
+  it('Huitone 代付失败回调没有 UTR 时仍放行以便退款', async () => {
+    const published: Array<{ subject: string; payload: string }> = []
+    const app = await createApp({ js: { async publish(subject, payload) { published.push({ subject, payload }) } } })
+    const payload = {
+      completionTime: '2026-09-30 21:11:29', event: 'PAYOUT',
+      outTradeNo: 'HTW_1', transAmt: '112', transNo: 'D1', transStatus: 'FAIL',
+    }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/callback/huitone',
+      payload: { ...payload, sign: huitoneSign(payload, 'huitone-secret') },
+    })
+
+    assert.equal(res.statusCode, 200)
+    assert.equal(JSON.parse(published[0].payload).payload.utr, '')
+  })
 })
 
 describe('Huitone 回调处理', () => {

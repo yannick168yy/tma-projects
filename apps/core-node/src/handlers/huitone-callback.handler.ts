@@ -8,7 +8,7 @@ import { tryActivateTeamNode } from '../services/team-activation.service.js'
 export interface HuitoneCallbackPayload {
   completionTime: string
   event: 'PAYIN' | 'PAYOUT'
-  extInfo: string
+  extInfo?: string
   outTradeNo: string
   sign?: string
   transAmt: string
