@@ -49,10 +49,8 @@ export async function callbackRoutes(app: FastifyInstance) {
         }
       }
       if (provider === 'huitone') {
-        // extInfo 我方下单时不传，回调里为空；UTR 只有出款成功才有，FAIL 回调必须放行才能退款
-        const required = payload.transStatus === 'SUCCESS'
-          ? ['completionTime', 'event', 'outTradeNo', 'transAmt', 'transNo', 'transStatus', 'utr'] as const
-          : ['completionTime', 'event', 'outTradeNo', 'transAmt', 'transNo', 'transStatus'] as const
+        // extInfo 我方下单时不传，回调里为空；UTR 成功回调也可能为空（生产 HTD_1790774620851_d217f59f），只存档不参与上账
+        const required = ['completionTime', 'event', 'outTradeNo', 'transAmt', 'transNo', 'transStatus'] as const
         const missing = required.filter((key) => payload[key] === undefined || payload[key] === null || String(payload[key]).trim() === '')
         payload.utr ??= ''
         if (missing.length > 0 || !Number.isFinite(Number(payload.transAmt)) || Number(payload.transAmt) <= 0
