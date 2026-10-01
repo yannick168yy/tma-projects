@@ -474,4 +474,26 @@ router.get('/payment/withdraw/orders', async (ctx) => {
   })))
 })
 
+// ── GET /payment/withdraw/last-info ───────────────────────────────────────────
+// 同渠道同币种最近一笔成功提现的收款信息，供前端回填表单
+
+router.get('/payment/withdraw/last-info', async (ctx) => {
+  const provider = String(ctx.query.provider ?? '').toLowerCase().trim()
+  const channelName = String(ctx.query.channelName ?? '').toLowerCase().trim()
+  const currency = String(ctx.query.currency ?? '').toUpperCase().trim()
+  if (!isMysqlEnabled(ctx.state.env) || !provider || !channelName || !currency) { ok(ctx, null); return }
+  const [rows] = await getMysqlPool(ctx.state.env).query<any[]>(
+    `SELECT JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetAccount')) AS account,
+            JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetOwner')) AS owner,
+            JSON_UNQUOTE(JSON_EXTRACT(extra, '$.ifsc')) AS ifsc
+     FROM bg_withdraw_order
+     WHERE user_id = ? AND channel = ? AND currency = ? AND status = 'completed'
+       AND JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetAccount')) <> ''
+     ORDER BY created_at DESC LIMIT 1`,
+    [ctx.state.userId, `${provider}_${channelName}`, currency],
+  )
+  const r = rows[0]
+  ok(ctx, r ? { targetAccount: r.account ?? '', targetOwner: r.owner ?? '', ifsc: r.ifsc && r.ifsc !== 'null' ? r.ifsc : '' } : null)
+})
+
 export default router

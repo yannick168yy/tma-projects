@@ -83,6 +83,11 @@ export async function fetchPaymentDepositOrders(): Promise<PaymentOrder[]> {
   return apiRequest<PaymentOrder[]>('/payment/deposit/orders')
 }
 
+export async function fetchLastWithdrawInfo(provider: string, channelName: string, currency: string): Promise<{ targetAccount: string; targetOwner: string; ifsc: string } | null> {
+  const q = new URLSearchParams({ provider, channelName, currency })
+  return apiRequest(`/payment/withdraw/last-info?${q}`)
+}
+
 export async function createPaymentWithdrawal(params: {
   channelName: string
   provider?: string

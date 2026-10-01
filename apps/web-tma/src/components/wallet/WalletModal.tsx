@@ -11,7 +11,7 @@ import { formatWithdrawRejectReason } from '@/utils/withdrawRejectReason'
 import { useWalletStore, formatBalanceWithCode } from '@/stores/wallet'
 import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import { fetchYfDepositOrders, fetchYfWithdrawOrders, fetchDepositHistory, fetchWithdrawHistory } from '@/api/yfpay'
-import { fetchPaymentChannels, fetchHiddenPaymentChannels, fetchCryptoChannels, createPaymentDeposit, queryPaymentDeposit, createPaymentWithdrawal, type PaymentChannel } from '@/api/payment'
+import { fetchPaymentChannels, fetchHiddenPaymentChannels, fetchCryptoChannels, createPaymentDeposit, queryPaymentDeposit, createPaymentWithdrawal, fetchLastWithdrawInfo, type PaymentChannel } from '@/api/payment'
 import { fetchTurnoverProgress, type TurnoverProgress } from '@/api/wallet'
 import { fetchMatrixDepositAddress, createMatrixWithdrawal } from '@/api/matrix'
 import { fetchHomeContent } from '@/api/home'
@@ -202,6 +202,15 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       setWithdrawAccount('')
       setWithdrawOwner('')
       setWithdrawIfsc(''); setIfscTouched(false)
+      const m = liveFiatWithdraw.find((x) => x.id === methodId)
+      if (m?.paymentProvider && m.paymentChannelName) {
+        void fetchLastWithdrawInfo(m.paymentProvider, m.paymentChannelName, activeCurrency).then((last) => {
+          if (!last) return
+          setWithdrawAccount((v) => v || last.targetAccount)
+          setWithdrawOwner((v) => v || last.targetOwner)
+          if (last.ifsc) setWithdrawIfsc((v) => v || last.ifsc)
+        }).catch(() => {})
+      }
     }
   }
 
