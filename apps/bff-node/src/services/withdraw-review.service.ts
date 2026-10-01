@@ -64,6 +64,8 @@ interface ReviewContext {
   targetAccount: string
   withdrawAccountOtherUsers: number
   withdrawOwnerOtherUsers: number
+  /** 上一笔成功印度取款的户名（仅 INR 订单且 owner_changed 启用时查询，否则空串） */
+  prevCompletedOwner: string
   /** 与本人 KYC 实名模糊同名的其他 approved 账号 userId 列表（same_name_review 用） */
   sameNameOtherUsers: string[]
   minutesSinceKycApproved: number | null
@@ -112,6 +114,7 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   same_device_fp:           { name: '同设备指纹', desc: '近30天同一硬件指纹 fp_visitor 下账号总数（含本人）≥ 阈值时转人工。' },
   kyc_name_mismatch:        { name: '实名户名不一致', desc: '提现户名与 KYC 实名姓名不完全一致时转人工；匹配算法会忽略大小写、标点、多余空格，并识别中间名缩写/姓名顺序差异。' },
   withdraw_account_reuse:   { name: '提现账号复用', desc: '同一提现账号被其它用户使用过，达到阈值即转人工。默认 1 个其它用户。' },
+  withdraw_owner_changed:   { name: '提现户名变更', desc: '（印度站 INR 专用）本次提现户名与上一笔成功提现的户名不同（忽略大小写、多余空格）则转人工；无历史成功提现时跳过。' },
   withdraw_owner_reuse:     { name: '提现户名复用', desc: '同一提现户名被多个其它用户使用过，达到阈值即转人工。默认 2 个其它用户。' },
   same_name_review:         { name: '同名账号', desc: '本人 KYC 实名与其它已通过 KYC 的账号做模糊比对（忽略大小写/标点/中间名缩写/姓名顺序/多空格），命中同名的其它账号数 ≥ 阈值即转人工，用于抓一人多开或团伙用同一实名。默认 1 个。' },
   fast_withdraw_after_kyc:  { name: 'KYC后快速提现', desc: 'KYC 通过后短时间内立即提现，达到配置分钟阈值内则转人工。默认 10 分钟。' },
@@ -443,6 +446,19 @@ const RULES: Record<string, Rule> = {
     }
   },
 
+  withdraw_owner_changed(ctx) {
+    if (ctx.order.currency !== 'INR' || !ctx.targetOwner || !ctx.prevCompletedOwner) {
+      return { code: 'withdraw_owner_changed', verdict: 'pass' }
+    }
+    const norm = (v: string) => v.toLowerCase().replace(/\s+/g, ' ').trim()
+    const changed = norm(ctx.targetOwner) !== norm(ctx.prevCompletedOwner)
+    return {
+      code: 'withdraw_owner_changed',
+      verdict: changed ? 'manual' : 'pass',
+      detail: changed ? { current: ctx.targetOwner, previous: ctx.prevCompletedOwner } : undefined,
+    }
+  },
+
   same_name_review(ctx, cfg) {
     const threshold = Number(cfg.threshold ?? 1)
     if (!ctx.kycFullName || threshold <= 0) return { code: 'same_name_review', verdict: 'pass' }
@@ -765,6 +781,19 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     [userId, targetOwner],
   )
 
+  let prevCompletedOwner = ''
+  if (order.currency === 'INR' && config.withdraw_owner_changed?.enabled) {
+    const [[prev]] = await pool.query<RowDataPacket[]>(
+      `SELECT JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetOwner')) AS owner
+       FROM bg_withdraw_order
+       WHERE user_id = ? AND currency = 'INR' AND status = 'completed' AND order_id <> ?
+         AND JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetOwner')) <> ''
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId, order.orderId],
+    )
+    prevCompletedOwner = String(prev?.owner ?? '').trim()
+  }
+
   // 同名审核:仅规则启用时才拉全量 approved 实名比对,避免每笔提现无谓全表扫描
   const sameNameUsers = config.same_name_review?.enabled
     ? await findSameNameUsers(pool, userId, String(kyc?.full_name ?? ''))
@@ -831,6 +860,7 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     targetOwner,
     targetAccount,
     withdrawAccountOtherUsers: targetAccount ? Number(acctReuse?.cnt ?? 0) : 0,
+    prevCompletedOwner,
     withdrawOwnerOtherUsers: targetOwner ? Number(ownerReuse?.cnt ?? 0) : 0,
     sameNameOtherUsers: sameNameUsers,
     minutesSinceKycApproved: kyc?.status === 'approved' ? minutesBetween(kycReviewedAt, order.createdAt) : null,
