@@ -359,6 +359,7 @@ export interface KycUserConfig {
   effective: KycStepSettings
   docOverride: boolean | null
   faceOverride: boolean | null
+  phoneOverride: boolean | null
 }
 
 // 用户详情「成长体系」卡片：逐币种权威等级/流水/成长值/保级进度
@@ -402,12 +403,14 @@ export const updateUserKycOverride = (
   id: string,
   requireDocument: KycOverrideMode,
   requireFace: KycOverrideMode,
+  requirePhone: KycOverrideMode,
 ) =>
   patch<{
     docOverride: boolean | null
     faceOverride: boolean | null
+    phoneOverride: boolean | null
     effective: KycStepSettings
-  }>(`/admin/users/${id}/kyc-override`, { requireDocument, requireFace })
+  }>(`/admin/users/${id}/kyc-override`, { requireDocument, requireFace, requirePhone })
 export const updateUserStatus = (id: string, status: string, reason?: string) =>
   patch<{ status: string }>(`/admin/users/${id}/status`, { status, reason })
 export const updateUserLabel = (id: string, label: string) =>

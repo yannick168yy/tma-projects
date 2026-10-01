@@ -57,21 +57,24 @@ interface Props {
 
 export default function UserKyc({ userId, kyc, kycConfig, onSuccess }: Props) {
   const navigate = useNavigate()
+  const [phoneMode, setPhoneMode] = useState<KycOverrideMode>(() => overrideToMode(kycConfig.phoneOverride))
   const [docMode, setDocMode] = useState<KycOverrideMode>(() => overrideToMode(kycConfig.docOverride))
   const [faceMode, setFaceMode] = useState<KycOverrideMode>(() => overrideToMode(kycConfig.faceOverride))
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => { setPhoneMode(overrideToMode(kycConfig.phoneOverride)) }, [kycConfig.phoneOverride])
   useEffect(() => { setDocMode(overrideToMode(kycConfig.docOverride)) }, [kycConfig.docOverride])
   useEffect(() => { setFaceMode(overrideToMode(kycConfig.faceOverride)) }, [kycConfig.faceOverride])
 
   const dirty =
+    phoneMode !== overrideToMode(kycConfig.phoneOverride) ||
     docMode !== overrideToMode(kycConfig.docOverride) ||
     faceMode !== overrideToMode(kycConfig.faceOverride)
 
   async function saveOverride() {
     setSaving(true)
     try {
-      await updateUserKycOverride(userId, docMode, faceMode)
+      await updateUserKycOverride(userId, docMode, faceMode, phoneMode)
       message.success('校验设置已保存')
       onSuccess()
     } catch (e) {
@@ -85,6 +88,15 @@ export default function UserKyc({ userId, kyc, kycConfig, onSuccess }: Props) {
     <Card title="实名认证" bordered={false} style={{ marginBottom: 16 }}>
       <div style={{ marginBottom: 12, fontWeight: 500 }}>校验设置</div>
       <Space wrap size={24} style={{ marginBottom: 8 }}>
+        <Space>
+          <span>手机验证</span>
+          <Select
+            value={phoneMode}
+            style={{ width: 120 }}
+            options={OVERRIDE_OPTIONS}
+            onChange={setPhoneMode}
+          />
+        </Space>
         <Space>
           <span>证件校验</span>
           <Select
@@ -108,9 +120,9 @@ export default function UserKyc({ userId, kyc, kycConfig, onSuccess }: Props) {
         </Button>
       </Space>
       <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 16 }}>
-        系统默认：证件 {kycConfig.system.requireDocument ? '开' : '关'}，人脸 {kycConfig.system.requireFace ? '开' : '关'}
+        系统默认：手机 {kycConfig.system.requirePhone ? '开' : '关'}，证件 {kycConfig.system.requireDocument ? '开' : '关'}，人脸 {kycConfig.system.requireFace ? '开' : '关'}
         {' · '}
-        该用户生效：证件 {kycConfig.effective.requireDocument ? '开' : '关'}，人脸 {kycConfig.effective.requireFace ? '开' : '关'}
+        该用户生效：手机 {kycConfig.effective.requirePhone ? '开' : '关'}，证件 {kycConfig.effective.requireDocument ? '开' : '关'}，人脸 {kycConfig.effective.requireFace ? '开' : '关'}
       </Typography.Text>
 
       <Divider style={{ margin: '12px 0' }} />

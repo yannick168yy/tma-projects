@@ -163,11 +163,13 @@ export async function setUserKycOverride(
   userId: string,
   doc: boolean | null,
   face: boolean | null,
+  phone: boolean | null,
 ): Promise<void> {
   const user = await getUser(redis, userId)
   if (!user) return
   user.kycDocOverride = doc
   user.kycFaceOverride = face
+  user.kycPhoneOverride = phone
   await saveUser(redis, user)
 }
 

@@ -66,10 +66,10 @@ export const bindIdentity = (redis: Redis, identity: UserIdentity) =>
 export const reassignIdentity = (redis: Redis, identity: UserIdentity) =>
   isMysqlEnabled(env()) ? mysqlStore.reassignIdentity(env(), identity) : redisStore.reassignIdentity(redis, identity)
 
-export const setUserKycOverride = (redis: Redis, userId: string, doc: boolean | null, face: boolean | null) =>
+export const setUserKycOverride = (redis: Redis, userId: string, doc: boolean | null, face: boolean | null, phone: boolean | null) =>
   isMysqlEnabled(env())
-    ? mysqlStore.setUserKycOverride(env(), userId, doc, face)
-    : redisStore.setUserKycOverride(redis, userId, doc, face)
+    ? mysqlStore.setUserKycOverride(env(), userId, doc, face, phone)
+    : redisStore.setUserKycOverride(redis, userId, doc, face, phone)
 
 export const getUserByTelegramId = (redis: Redis, tgId: number) =>
   isMysqlEnabled(env())

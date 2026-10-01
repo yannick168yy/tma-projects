@@ -98,6 +98,7 @@ router.get('/:id', async (ctx) => {
       effective: effectiveCfg,
       docOverride: user.kycDocOverride ?? null,
       faceOverride: user.kycFaceOverride ?? null,
+      phoneOverride: user.kycPhoneOverride ?? null,
     },
     kyc: kyc ? {
       ...buildKycStatusResponse(kyc),
@@ -351,25 +352,26 @@ router.patch('/:id/kyc-override', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
 
-  const body = ctx.request.body as { requireDocument?: string; requireFace?: string }
+  const body = ctx.request.body as { requireDocument?: string; requireFace?: string; requirePhone?: string }
   const doc = parseOverride(body.requireDocument)
   const face = parseOverride(body.requireFace)
-  if (doc === undefined || face === undefined) {
-    fail(ctx, 400, 'requireDocument / requireFace 必须为 inherit | on | off'); return
+  const phone = parseOverride(body.requirePhone)
+  if (doc === undefined || face === undefined || phone === undefined) {
+    fail(ctx, 400, 'requireDocument / requireFace / requirePhone 必须为 inherit | on | off'); return
   }
 
-  await setUserKycOverride(ctx.state.redis, ctx.params.id, doc, face)
+  await setUserKycOverride(ctx.state.redis, ctx.params.id, doc, face, phone)
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
     action: 'user.kyc_override',
     targetType: 'user',
     targetId: ctx.params.id,
-    detail: { requireDocument: body.requireDocument, requireFace: body.requireFace },
+    detail: { requireDocument: body.requireDocument, requireFace: body.requireFace, requirePhone: body.requirePhone },
     ip: ctx.ip,
   })
   const effective = await getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.params.id)
-  ok(ctx, { docOverride: doc, faceOverride: face, effective })
+  ok(ctx, { docOverride: doc, faceOverride: face, phoneOverride: phone, effective })
 })
 
 router.patch('/:id/status', async (ctx) => {

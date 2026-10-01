@@ -281,11 +281,12 @@ export async function getKycStepConfig(
     getMarketSetting(env, 'kyc_require_document', market),
     getMarketSetting(env, 'kyc_require_face', market),
   ])
-  const requirePhone = phone !== '0'
+  let requirePhone = phone !== '0'
   let requireDocument = doc !== '0'
   let requireFace = face !== '0'
   if (userId) {
     const user = await getUser(redis, userId)
+    if (user?.kycPhoneOverride != null) requirePhone = user.kycPhoneOverride
     if (user?.kycDocOverride != null) requireDocument = user.kycDocOverride
     if (user?.kycFaceOverride != null) requireFace = user.kycFaceOverride
   }

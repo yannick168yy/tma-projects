@@ -43,6 +43,8 @@ export interface UserRecord {
   kycDocOverride?: boolean | null
   /** KYC 人脸校验覆盖：null/undefined=跟随系统, true=强制开, false=强制关 */
   kycFaceOverride?: boolean | null
+  /** KYC 手机验证覆盖：null/undefined=跟随系统, true=强制开, false=强制关 */
+  kycPhoneOverride?: boolean | null
   lastLoginAt?: string
   lastLoginIp?: string
   lastLoginRegion?: string
